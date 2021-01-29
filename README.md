@@ -7,27 +7,25 @@ with a Web interface and can be used off-line or as a Web service.
 
 ## Documentation
 
-The documentation is available online: http://geneweb.tuxfamily.org/
+GeneWeb documentation is available online: http://geneweb.tuxfamily.org/
 
 ## Installation (for users)
 
-WARNING: before installing a new version of GeneWeb, it is highly recommended to save
-your bases into .gw formated files.
+WARNING: before installing a new version of GeneWeb, it is highly recommended that you save
+your bases as .gw formated files (read documentation for instructions). The .gw files are simple text files used to create new GeneWeb databases. When they are created, a log of detected errors (such as births after deaths, improbable ages for parents, etc) is created. It is suggested that these errors are checked and corrected before migrating your GeneWeb database to a newer version.
 
-When installing a version of GeneWeb with the "pre-release" qualifier, you are
-participating to the collective test effort (thanks for your contribution). You should keep aside the previous version 
-you were using, and refrain from extensive updates or additions in your bases
-until the "release" qualifier is effective.
+When installing a version of GeneWeb identified as a "pre-release", you are invited to 
+participate in a collective effort to test and improve GeneWeb (thanks for your contribution). You should keep your current database as a .gw file (see above) and refrain from extensive updates or additions in your bases
+until the new version of GeneWeb is identified as a "release" version.
 
-Any problem you encounter or issue you want to raise should be entered on the issue page
+Any problem you encounter or issue you want to raise should be entered on the issues page
 of the GitHub repository (https://github.com/geneweb/geneweb/issues)
 
 Download the file corresponding to your environment from
-the [releases page](https://github.com/geneweb/geneweb/releases).
+the [releases page] (https://github.com/geneweb/geneweb/releases).
 
-Extract the distribution folder and place it at the location of your choice. You may alse rename it.
-Its content is as follows (this example is for a Mac distribution.
-Other distributions are very similar):
+Extract the distribution folder and place it at a location of your choice. You may also rename it.
+Its contents are as follows (this example is for a Mac distribution, but other distributions are very similar):
 ```
 drwxr-xr-x  13 Henri  staff     416 10 jul 08:34 .
 drwxr-xr-x  44 Henri  staff    1408 10 jul 16:14 ..
@@ -43,7 +41,7 @@ drwxr-xr-x  21 Henri  staff     672 10 jul 08:34 gw
 -rwxr-xr-x   1 Henri  staff      71 10 jul 08:34 gwsetup.command
 ```
 
-Starting the GeneWeb servers may depend on your specific environment.
+Instructions for starting the GeneWeb server may depend on your specific environment.
 
 ### Windows
 
