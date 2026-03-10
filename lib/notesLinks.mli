@@ -3,8 +3,8 @@ type wiki_link =
   | WLperson of int * Def.NLDB.key * string option * string option * int option
   | WLwizard of int * string * string
   | WLimage of int * (string list * string) * string * string option
-      (** [WLimage (end_pos, fpath, alt, width_opt)] inline image from the
-          notes image directory. [fpath] is the validated path (same format as
+      (** [WLimage (end_pos, fpath, alt, width_opt)] inline image from the notes
+          image directory. [fpath] is the validated path (same format as
           WLpage), [alt] is the alt text (may be empty), [width_opt] is an
           optional CSS width value (e.g. ["200px"]). Syntax:
           {v [[image:notes:photo.jpg]] v}

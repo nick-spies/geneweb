@@ -383,20 +383,16 @@ let syntax_links conf wi s =
              check_file_name into the dirs list). *)
           let path = String.concat "/" (dirs @ [ file ]) in
           let src =
-            Printf.sprintf "%sm=IM&s=%s"
-              (commd conf :> string)
-              (encode path)
+            Printf.sprintf "%sm=IM&s=%s" (commd conf :> string) (encode path)
           in
           let style =
             match width_opt with
             | None -> ""
-            | Some w ->
-                Printf.sprintf " style=\"max-width:%s\""
-                  (escape w)
+            | Some w -> Printf.sprintf " style=\"max-width:%s\"" (escape w)
           in
           let t =
-            Printf.sprintf {|<img src="%s" alt="%s"%s class="notes-image">|}
-              src (escape alt) style
+            Printf.sprintf {|<img src="%s" alt="%s"%s class="notes-image">|} src
+              (escape alt) style
           in
           Buffer.add_string buff t;
           loop quot_lev pos j

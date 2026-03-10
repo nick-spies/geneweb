@@ -127,7 +127,7 @@ let misc_notes_link s i =
                   Some (String.sub b (i + 1) (String.length b - i - 1)) )
             | None -> (b, None)
           in
-          (match check_file_name img_path with
+          match check_file_name img_path with
           | None -> wlnone j
           | Some fpath ->
               let alt, width_opt =
@@ -138,10 +138,12 @@ let misc_notes_link s i =
                     | None -> (r, None)
                     | Some k ->
                         ( String.sub r 0 k,
-                          let w = String.sub r (k + 1) (String.length r - k - 1) in
+                          let w =
+                            String.sub r (k + 1) (String.length r - k - 1)
+                          in
                           if w = "" then None else Some w ))
               in
-              WLimage (j, fpath, alt, width_opt))
+              WLimage (j, fpath, alt, width_opt)
         else
           try
             let k = 0 in
