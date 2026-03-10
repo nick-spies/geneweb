@@ -391,8 +391,9 @@ let syntax_links conf wi s =
             | Some w -> Printf.sprintf " style=\"max-width:%s\"" (escape w)
           in
           let t =
-            Printf.sprintf {|<img src="%s" alt="%s"%s class="notes-image">|} src
-              (escape alt) style
+            Printf.sprintf
+              {|<img src="%s" alt="%s"%s class="notes-image" ondblclick="window.open(this.src,'_blank')">|}
+              src (escape alt) style
           in
           Buffer.add_string buff t;
           loop quot_lev pos j
