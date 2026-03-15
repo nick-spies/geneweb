@@ -2655,11 +2655,7 @@ const SVGRenderer = {
       // Version background - applique les classes CSS pour les lieux et âges
       this.applyBackgroundClasses(path, p, options.type);
     } else {
-      if (options.type === 'marriage' && !p.marriage_place) {
-        path.setAttribute("class", ""); // Secteur de mariage sans lieu
-      } else {
-        this.applyInteractiveFeatures(path, p, options.type);
-      }
+      this.applyInteractiveFeatures(path, p, options.type);
     }
 
     g.append(path);
@@ -2767,44 +2763,44 @@ const SVGRenderer = {
         }
         html += `</h2>`;
 
-      // Événements vitaux
+      // Vital events
       if (displayPerson.birth_date || displayPerson.birth_place) {
-        html += `<div><strong>Naissance :</strong> `;
+        html += `<div><strong>${t('birth', 'Birth')} :</strong> `;
         if (displayPerson.birth_date) html += `${displayPerson.birth_date}`;
         if (displayPerson.birth_place) html += ` – ${displayPerson.birth_place}`;
         html += `</div>`;
       }
 
       if (displayPerson.baptism_date || displayPerson.baptism_place) {
-        html += `<div><strong>Baptême :</strong> `;
+        html += `<div><strong>${t('baptism', 'Baptism')} :</strong> `;
         if (displayPerson.baptism_date) html += `${displayPerson.baptism_date}`;
         if (displayPerson.baptism_place) html += ` – ${displayPerson.baptism_place}`;
         html += `</div>`;
       }
 
       if (displayPerson.death_date || displayPerson.death_place) {
-        html += `<div><strong>Décès :</strong> `;
+        html += `<div><strong>${t('death', 'Death')} :</strong> `;
         if (displayPerson.death_date) html += `${displayPerson.death_date}`;
         if (displayPerson.death_place) html += ` – ${displayPerson.death_place}`;
         html += `</div>`;
       }
 
       if (displayPerson.burial_date || displayPerson.burial_place) {
-        html += `<div><strong>Sépulture :</strong> `;
+        html += `<div><strong>${t('burial', 'Burial')} :</strong> `;
         if (displayPerson.burial_date) html += `${displayPerson.burial_date}`;
         if (displayPerson.burial_place) html += ` – ${displayPerson.burial_place}`;
         html += `</div>`;
       }
 
       if (displayPerson.age_text) {
-        html += `<div><strong>Âge :</strong> ${displayPerson.age_text}</div>`;
+        html += `<div><strong>${t('age', 'Age')} :</strong> ${displayPerson.age_text}</div>`;
       }
 
       // Notice d'implexe améliorée
       if (isImplex) {
         const cloneCount = ImplexResolver.getAllClones(p.sosasame || currentSosa).length;
         html += `<div class="implex-notice">`;
-        html += `<strong>💡 Implexe :</strong> apparaît ${cloneCount + 1} fois.`;
+        html += `<strong>${t('implex', 'Implex')} :</strong> appears ${cloneCount + 1} times.`;
         html += `</div>`;
       }
 
@@ -2813,24 +2809,34 @@ const SVGRenderer = {
     } else if (type === "marriage") {
       // Code existant pour les mariages - copier depuis l'original
       const years = parseInt(p.marriage_length) || -1;
-      let html = `<h2>Mariage</h2>`;
+      let html = `<h2>${t('marriage', 'Marriage')}</h2>`;
 
       const marriageDate = p.marriage_date_ || p.marriage_date;
-      if (marriageDate) {
-        html += `<div><strong>Date :</strong> ${marriageDate}</div>`;
-      }
+      const ageYears = (s) => { if (!s || s === '?') return '?'; const m = s.match(/(\d+)\s*year/); return m ? m[1] : '?'; };
+      const h = ageYears(p.marriage_age_husband);
+      const w = ageYears(p.marriage_age_wife);
+      const hasAges = h !== '?' || w !== '?';
+      const hasData = marriageDate || p.marriage_place || years >= 0 || hasAges;
 
-      if (p.marriage_place) {
-        html += `<div><strong>Lieu :</strong> ${p.marriage_place}</div>`;
-      }
+      if (!hasData) {
+        html += `<div>Unknown</div>`;
+      } else {
+        if (marriageDate) {
+          html += `<div><strong>${t('date', 'Date')} :</strong> ${marriageDate}</div>`;
+        }
 
-      if (years >= 0) {
-        const yearLabel = years === 1 ? "an" : "ans";
-        html += `<div><strong>Durée :</strong> ${years} ${yearLabel}</div>`;
-      }
+        if (p.marriage_place) {
+          html += `<div><strong>${t('place', 'Place')} :</strong> ${p.marriage_place}</div>`;
+        }
 
-      if (p.marriage_age) {
-        html += `<div><strong>Âge au mariage :</strong> ${p.marriage_age} ans</div>`;
+        if (years >= 0) {
+          const yearLabel = years === 1 ? t('marriage_year', 'year') : t('marriage_years', 'years');
+          html += `<div><strong>${t('duration', 'Duration')} :</strong> ${years} ${yearLabel}</div>`;
+        }
+
+        if (hasAges) {
+          html += `<div><strong>${t('marriage_age', 'Ages at marriage')} :</strong> ${h} | ${w} years</div>`;
+        }
       }
 
       panel.innerHTML = html;
@@ -5277,7 +5283,16 @@ reRenderWithCurrentGenerations: function() {
     // Boutons de navigation
     $("b-no-buttons").onclick = function() {
       $("fanchart-controls").style.display = "none";
+      var rb = $("b-show-buttons");
+      if (rb) rb.style.display = "";
     };
+    var showBtn = $("b-show-buttons");
+    if (showBtn) {
+      showBtn.onclick = function() {
+        $("fanchart-controls").style.display = "";
+        showBtn.style.display = "none";
+      };
+    }
     $("b-help").onclick = function() {
       const helpPanel = $('navigation-help');
       if (helpPanel) {
