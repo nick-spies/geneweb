@@ -110,7 +110,7 @@
                 <a class="nav-link text-secondary"
                   href="%if;(sosa_prev="? ?")%apply;url_set%with;m/i/p/n/oc%and;/%sosa_prev.index;///%end;%else;
                   %apply;url_set%with;m/i/p/n/oc%and;//%sosa_prev.first_name;/%sosa_prev.surname;/%sosa_prev.occ;%end;%end;"
-                  title="[Sosa] %sosa_prev.sosa;[:] %sosa_prev; %sosa_prev.dates_notag;"><span class="fa fa-chevron-left" aria-hidden="true"></span><span class="sr-only">&lt;</span></a>%nn;
+                  title="← [Sosa] %sosa_prev.sosa;[:] %sosa_prev; %sosa_prev.dates_notag;"><span class="badge badge-pill badge-secondary mr-1" style="font-size:0.6rem;vertical-align:middle;">S%sosa_prev.sosa;</span><span class="fa fa-chevron-left" aria-hidden="true"></span><span class="sr-only">&lt;</span></a>%nn;
               </li>
             %end;
             %if;(sosa_next.index!="")
@@ -123,7 +123,7 @@
                 <a class="nav-link text-secondary"
                   href="%if;(sosa_next="? ?")%apply;url_set%with;m/i/n/p/oc%and;/%sosa_next.index;///%end;%else;
                   %apply;url_set%with;m/i/p/n/oc%and;//%sosa_next.first_name_key;/%sosa_next.surname_key;/%sosa_next.occ;%end;%end;"
-                  title="[Sosa] %sosa_next.sosa;[:] %sosa_next; %sosa_next.dates_notag;"><span class="fa fa-chevron-right" aria-hidden="true"></span><span class="sr-only">></span></a>
+                  title="→ [Sosa] %sosa_next.sosa;[:] %sosa_next; %sosa_next.dates_notag;"><span class="fa fa-chevron-right" aria-hidden="true"></span><span class="badge badge-pill badge-secondary ml-1" style="font-size:0.6rem;vertical-align:middle;">S%sosa_next.sosa;</span></a>
               </li>
             %end;
           %end;
