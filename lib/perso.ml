@@ -68,9 +68,7 @@ let format_age_ymd age =
     | After -> ">"
     | OrYear _ | YearInt _ -> ""
   in
-  let formatted =
-    Printf.sprintf "%s%d | %02d | %02d" prec_str y m d
-  in
+  let formatted = Printf.sprintf "%s%d | %02d | %02d" prec_str y m d in
   Adef.safe formatted
 
 let eval_age_field_var conf ?(before_birth = false) age = function
