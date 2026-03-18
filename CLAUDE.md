@@ -14,7 +14,7 @@ opam install . --deps-only
 
 # Configure (run before first build)
 ocaml ./configure.ml                              # basic
-ocaml ./configure.ml --sosa-zarith --gwd-caching  # recommended (zarith + Unix caching)
+ocaml ./configure.ml --gwd-caching  # recommended (Unix caching)
 
 # Build
 make build              # full build
@@ -98,11 +98,7 @@ HTML tags must be in `default_safe_html_allowed_tags` (`lib/util.ml`) or `safe_h
 ## Key Technical Details
 
 - **OCaml >= 4.10**, built with **Dune >= 3.6**, packages managed with **OPAM**
-- **camlp5** (>= 8.03) used for preprocessing
-- Version info generated at build time from `lib/version.txt` via `generate_version.sh`
-- CI matrix: Ubuntu/macOS/Windows × OCaml 4.10.2/4.14.2/5.4.0
 - Code must pass `ocamlformat` (version 0.28.1, pinned) — PRs will be rejected otherwise
-- `DUNE_PROFILE=dev` is used in CI
 
 ## PR Guidelines
 
