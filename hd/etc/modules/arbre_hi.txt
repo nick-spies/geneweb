@@ -105,14 +105,14 @@
     %end;
     width:%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;px;%nn;
     height:%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;px;%nn;
-    background-color:%if;(bg_col="")#FFFFFF%else;#bgg;%end;;z-index:2">
-    %let;imsz;%if;(boxsize=2)15%else;8%end;%in;
+    background-color:%if;(bg_col="")#FFFFFF%else;#bgg;%end;;overflow:hidden;z-index:2">
+    %let;imsz;%if;(boxsize=2)%expr(hb1*2-14)%else;%expr(hb1-4)%end;%in;
     %if;(e.cgl!="on")
       %if;(evarcpl!="on")
         <a class="big_anchor_1 list-group-item-action"
           href="%prefix;%aaaaccess;" title="%aaafirst_name; %aaasurname; (%aaaocc;)">
           %if;(aaahas_image)
-            <img style="width:%imsz;px" src="%aaaimage_url;" alt="[image/images]0">
+            <img style="max-width:%imsz;px;max-height:%imsz;px;position:absolute;top:0;left:0" src="%aaaimage_url;" alt="[image/images]0">
           %end;
         </a>
         <a class="big_anchor_1m list-group-item-action"
@@ -121,14 +121,14 @@
         <a class="big_anchor_him list-group-item-action"
           href="%prefix;%aaaaccess;" title="%aaafirst_name; %aaasurname; (%aaaocc;)">%nn;
           %if;(aaahas_image)
-            <img style="width:%imsz;px" src="%aaaimage_url;" alt="[image/images]0">%nn;
+            <img style="max-width:%imsz;px;max-height:%imsz;px;position:absolute;top:0;left:0" src="%aaaimage_url;" alt="[image/images]0">%nn;
           %end;
         </a>
         %if;(aaasame="")
         <a class="big_anchor_her list-group-item-action"
           href="%prefix;%aaaspouse.access;" title="%aaaspouse;">
           %if;(aaaspouse.has_image)
-            <img style="width:%imsz;px" src="%aaaspouse.image_url;" alt="[image/images]0">
+            <img style="max-width:%imsz;px;max-height:%imsz;px;position:absolute;top:0;left:0" src="%aaaspouse.image_url;" alt="[image/images]0">
           %end;
         </a>
         %end;
@@ -141,7 +141,7 @@
       %end;
     %else;
       %let;width;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
-      %let;imsz;%if;(boxsize=2)15%else;8%end;%in;
+      %let;imsz;%if;(boxsize=2)%expr(hb1*2-8)%else;%expr(hb1-4)%end;%in;
       %let;fs1;%if;(sss>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
       %let;tm;%if;(boxsize=2)8%else;2%end;%in;
       %let;dw1;%expr(width-imsz)%in;
@@ -150,7 +150,7 @@
       %if;(evarcpl!="on")
         <div class="d-flex">
         %if;(aaahas_image)
-          <img style="width:%imsz;px" src="%aaaimage_url;" alt="[image/images]0">
+          <img style="max-width:%imsz;px;max-height:%imsz;px;display:block" src="%aaaimage_url;" alt="[image/images]0">
         %end;
         <span style="margin:0 0 2px 0;text-align:center;width:%dw1;px;font-size:%fs1;px;">
           %if;(aaaanc_sosa!="")%aaaanc_sosa;%else;1%end;
@@ -159,7 +159,7 @@
       %else;
         <div class="d-flex justify-content-between">
         %if;(aaahas_image)%nn;
-          <div style="margin:0 0 2px 0"><img style="width:%imsz;px" src="%aaaimage_url;" alt="[image/images]0"></div>%nn;
+          <div style="margin:0 0 2px 0"><img style="max-width:%imsz;px;max-height:%imsz;px;display:block" src="%aaaimage_url;" alt="[image/images]0"></div>%nn;
         %else;
           <div style="margin:0 0 2px 0;width:%imsz;px"></div>
         %end;%nn;
@@ -167,7 +167,7 @@
           %if;(aaaanc_sosa!="")%aaaanc_sosa;%else;1%end;%nn;
         </div>%nn;
         %if;(aaaspouse.has_image)%nn;
-          <div style="margin:0 0 2px 0"><img style="width:%imsz;px" src="%aaaspouse.image_url;" alt="[image/images]0"></div>%nn;
+          <div style="margin:0 0 2px 0"><img style="max-width:%imsz;px;max-height:%imsz;px;display:block" src="%aaaspouse.image_url;" alt="[image/images]0"></div>%nn;
         %end;%nn;
         </div>
       %end;
