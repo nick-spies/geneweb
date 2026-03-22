@@ -241,7 +241,7 @@
       </fieldset>
       <fieldset style="border:0">
       %let;l_on1;onchange="valid('t1CT')"%in;
-        %apply;radio("t1","CT",[*compact tree],"[itree] [or] [htree]")
+        %apply;radio("t1","CT",[*compact tree],"[*htree] [with] %if;(public_name != "")%public_name;%else;%first_name;%end; %surname;")
         %(%apply;checkbox("├","hi","Orientation I (on) [or] H (off)",""%)
         <label title=""> ├ orientation 
             <input type="radio" id="itIH" name="hi" value="I" %_on1; %l_on;
