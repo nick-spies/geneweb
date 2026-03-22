@@ -18,8 +18,8 @@
 %end;
 </div>
 
-<link rel="stylesheet" href="css/tree_render.css">
-<script src="js/tree_render.js"></script>
+<link rel="stylesheet" href="css/tree_render.css?v=2">
+<script src="js/tree_render.js?v=3"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var dataEl = document.getElementById('tree-data');
@@ -74,7 +74,10 @@
       var container = document.getElementById('tree-grid-container');
       var renderer = new TreeRenderer(container, data, {
         prefix: '%prefix;',
-        wizard: %if;wizard;true%else;false%end;
+        wizard: %if;wizard;true%else;false%end;,
+        generations: %e_v;,
+        selfAccess: '%prefix;pz=%evar.pz;&nz=%evar.nz;&p=%evar.pz;&n=%evar.nz;&ocz=%evar.ocz;',
+        selfName: '%evar.pz; %evar.nz;'
       });
       renderer.render();
     } catch(e) {

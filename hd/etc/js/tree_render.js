@@ -65,12 +65,22 @@ PersonBox.prototype.render = function() {
     box.appendChild(imgLink);
   }
 
-  // Name
+  // Name — click re-roots tree, Cmd/Ctrl-click goes to person page
   var nameLink = document.createElement('a');
   nameLink.href = p.access;
   nameLink.className = 'person-name';
   nameLink.style.fontSize = this.fontSize + 'rem';
-  nameLink.title = this.tooltipText();
+  nameLink.title = this.tooltipText() + ' (click: re-root tree, ⌘-click: person page)';
+
+  var treeAccess = this.treeAccess;
+  if (treeAccess) {
+    nameLink.addEventListener('click', function(e) {
+      if (e.metaKey || e.ctrlKey) return; // Cmd/Ctrl-click: follow link normally
+      e.preventDefault();
+      // Re-root tree on this person
+      window.location.href = treeAccess(p.access);
+    });
+  }
 
   var firstName = document.createElement('span');
   firstName.className = 'person-first-name';
@@ -150,6 +160,16 @@ TreeRenderer.prototype.render = function() {
   }
   grid.style.gridTemplateColumns = colTemplate.join(' ');
 
+  // Build a function that converts a person access URL to a tree URL
+  var opts = this.options;
+  var gens = opts.generations || 3;
+  var treeAccess = function(personAccess) {
+    // personAccess is like "spies?pz=...&p=name&n=surname&oc=0"
+    // Add ancestor tree params
+    var sep = personAccess.indexOf('?') >= 0 ? '&' : '?';
+    return personAccess + sep + 'm=A&t=T&t1=GR&v=' + gens;
+  };
+
   var gridRow = 1;
 
   for (var r = 0; r < rows.length; r++) {
@@ -175,6 +195,7 @@ TreeRenderer.prototype.render = function() {
         pb.fontSize = style.fontSize;
         pb.showSurname = style.showSurname;
         pb.showSosa = style.showSosa;
+        pb.treeAccess = treeAccess;
         personEl.appendChild(pb.render());
 
         grid.appendChild(personEl);
@@ -235,9 +256,48 @@ TreeRenderer.prototype.render = function() {
   this.container.innerHTML = '';
   this.container.appendChild(grid);
 
+  // Add Home button if we're not already viewing Sosa 1
+  this.addHomeButton(treeAccess);
+
   // Build minimap if tree overflows
   var self = this;
   setTimeout(function() { self.buildMinimap(grid); }, 100);
+};
+
+TreeRenderer.prototype.addHomeButton = function(treeAccess) {
+  var opts = this.options;
+  if (!opts.selfAccess) return;
+
+  // Find the ascendant tree button group (Agna./Asc./Cogn.)
+  var ascGroup = document.querySelector('nav.navbar.fixed-bottom .btn-group[aria-label="ascendant tree button group"]');
+  if (!ascGroup) return;
+
+  // Check if we're already at Sosa 1
+  var selfMatch = opts.selfAccess.match(/[?&]p=([^&]*).*[?&]n=([^&]*)/);
+  if (!selfMatch) return;
+  var selfP = decodeURIComponent(selfMatch[1].replace(/\+/g, ' '));
+  var selfN = decodeURIComponent(selfMatch[2].replace(/\+/g, ' '));
+  var curParams = new URLSearchParams(window.location.search);
+  var curP = (curParams.get('p') || '').replace(/\+/g, ' ');
+  var curN = (curParams.get('n') || '').replace(/\+/g, ' ');
+  var isSelf = curP === selfP && curN === selfN;
+
+  var selfTreeUrl = treeAccess(opts.selfAccess);
+
+  var homeBtn = document.createElement('a');
+  homeBtn.setAttribute('role', 'button');
+  if (isSelf) {
+    homeBtn.className = 'btn btn-outline-primary border-2 rounded mr-1 px-2 pt-1 h-100 disabled font-weight-bold';
+    homeBtn.title = 'Sosa 1: ' + (opts.selfName || '') + ' (current root)';
+  } else {
+    homeBtn.className = 'btn btn-outline-danger border-2 rounded mr-1 px-2 pt-1 h-100';
+    homeBtn.href = selfTreeUrl;
+    homeBtn.title = 'Return to Sosa 1: ' + (opts.selfName || '');
+  }
+  homeBtn.innerHTML = '<i class="fa-solid fa-circle-dot fa-lg"></i><br>Sosa 1';
+
+  // Insert to the left of the Agna./Asc./Cogn. group
+  ascGroup.parentNode.insertBefore(homeBtn, ascGroup);
 };
 
 TreeRenderer.prototype.addCell = function(grid, row, col, span, className, text) {
