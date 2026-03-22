@@ -1,0 +1,187 @@
+/* tree_render.css — CSS Grid ancestor tree styles */
+
+#tree-grid-container {
+  overflow-x: auto;
+  overflow-y: visible;
+  width: 100%;
+}
+
+.tree-grid {
+  display: grid;
+  gap: 0;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  padding: 10px 5px 60px 5px;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Person box — no borders, maximize space */
+.person-box {
+  text-align: center;
+  padding: 2px 1px;
+  overflow: hidden;
+  min-width: 0;
+  word-break: break-word;
+  position: relative;
+}
+
+.person-male {
+  color: #1a4a7a;
+}
+
+.person-female {
+  color: #7a1a4a;
+}
+
+.person-name {
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.8rem;
+  display: block;
+}
+
+.person-name:hover {
+  text-decoration: underline;
+}
+
+.person-first-name {
+  font-weight: 600;
+}
+
+.person-surname {
+  font-variant: small-caps;
+}
+
+.person-image {
+  max-width: 50px;
+  max-height: 50px;
+  border-radius: 4px;
+  display: block;
+  margin: 0 auto 2px auto;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.person-image-link {
+  display: block;
+}
+
+.person-sosa {
+  display: block;
+  font-size: 0.55rem;
+  color: #999;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 1px;
+}
+
+/* Tree structure */
+.tree-cell {
+  text-align: center;
+  min-width: 0;
+  overflow: visible;
+  align-self: end;
+}
+
+.tree-cell-empty {
+  min-height: 1em;
+}
+
+.tree-cell-person {
+  padding: 2px 1px;
+}
+
+.tree-spacer {
+  /* No max-width: spacers must fill their grid column so branch borders connect */
+}
+
+.tree-connector {
+  text-align: center;
+  color: #aaa;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.tree-branch-left {
+  position: relative;
+  min-height: 10px;
+}
+
+.tree-branch-left::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 50%;
+  height: 100%;
+  border-bottom: 2px solid #aaa;
+  border-right: 2px solid #aaa;
+}
+
+.tree-branch-right {
+  position: relative;
+  min-height: 10px;
+}
+
+.tree-branch-right::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 50%;
+  height: 100%;
+  border-bottom: 2px solid #aaa;
+  border-left: 2px solid #aaa;
+}
+
+.tree-branch-bottom {
+  border-bottom: 2px solid #aaa;
+  min-height: 10px;
+}
+
+/* Marriage year — overlay spanning full couple width, centered on the branch line */
+.tree-marriage-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tree-marriage {
+  font-size: 0.6rem;
+  font-style: italic;
+  color: #888;
+  white-space: nowrap;
+  background: #fff;
+  padding: 0 3px;
+  margin-top: -2px;
+}
+
+/* Minimap */
+.tree-minimap {
+  position: relative;
+  border: 1px solid #999;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 2px;
+  /* Extend upward above the navbar */
+  transform-origin: bottom left;
+}
+
+.tree-minimap-canvas {
+  display: block;
+}
+
+.tree-minimap-viewport {
+  position: absolute;
+  border: 2px dashed #000;
+  border-radius: 2px;
+  pointer-events: none;
+  box-sizing: border-box;
+}

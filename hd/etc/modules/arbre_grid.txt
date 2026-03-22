@@ -1,0 +1,87 @@
+<!-- $Id: modules/arbre_grid.txt v7.1 2026/03/22 $ -->
+%( JavaScript/CSS Grid ancestor tree renderer %)
+%( Emits ancestor data as JSON, then renders with tree_render.js %)
+
+<h3 class="display-5 ml-3">
+  %apply;ttl()
+  <span class="text-small text-muted font-weight-lighter">%apply;togena(e.v)</span>
+</h3>
+
+<div id="tree-grid-container"></div>
+
+<div id="tree-data" style="display:none">
+%foreach;ancestor_tree_line(e_v+1)
+~ROW~%if;is_first;1%else;0%end;
+  %foreach;cell;
+~CELL~%cell.colspan;~%if;cell.is_empty;1%else;0%end;~%if;cell.is_top;1%else;0%end;~%if;cell.is_left;1%else;0%end;~%if;cell.is_right;1%else;0%end;~%if;(not cell.is_empty and not cell.is_top)%cell.person.first_name;~%cell.person.surname;~%cell.person.public_name;~%prefix;%cell.person.access;~%cell.person.sex;~%if;cell.person.has_image;1%else;0%end;~%if;cell.person.has_image;%cell.person.image_url;%end;~%if;cell.person.has_sosa;1%else;0%end;~%if;cell.person.has_sosa;%cell.person.sosa;%end;~%if;cell.is_right;%cell.family.marriage_date.year;%end;%else;~~~~~~~~~%end;
+  %end;
+%end;
+</div>
+
+<link rel="stylesheet" href="css/tree_render.css">
+<script src="js/tree_render.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var dataEl = document.getElementById('tree-data');
+    if (!dataEl) return;
+
+    var text = dataEl.textContent;
+    var data = { rows: [] };
+    var currentRow = null;
+
+    // Split on ~ROW~ and ~CELL~ markers
+    var tokens = text.split('~ROW~');
+    for (var i = 1; i < tokens.length; i++) {
+      var rowChunk = tokens[i];
+      var cellTokens = rowChunk.split('~CELL~');
+      var isFirst = cellTokens[0].trim() === '1';
+      currentRow = { isFirst: isFirst, cells: [] };
+
+      for (var j = 1; j < cellTokens.length; j++) {
+        var parts = cellTokens[j].split('~');
+        var cell = {
+          colspan: parseInt(parts[0]) || 1,
+          isEmpty: parts[1] === '1',
+          isTop: parts[2] === '1',
+          isLeft: parts[3] === '1',
+          isRight: parts[4] === '1'
+        };
+
+        if (!cell.isEmpty && !cell.isTop && parts[5]) {
+          cell.person = {
+            firstName: parts[5] || '',
+            surname: parts[6] || '',
+            publicName: parts[7] || '',
+            access: parts[8] || '',
+            sex: parseInt(parts[9]) || 0,
+            hasImage: parts[10] === '1',
+            imageUrl: parts[11] || '',
+            hasSosa: parts[12] === '1',
+            sosa: parts[13] || ''
+          };
+          if (cell.isRight) {
+            cell.family = { marriageYear: parts[14] || '' };
+          }
+        }
+
+        currentRow.cells.push(cell);
+      }
+
+      data.rows.push(currentRow);
+    }
+
+    try {
+      var container = document.getElementById('tree-grid-container');
+      var renderer = new TreeRenderer(container, data, {
+        prefix: '%prefix;',
+        wizard: %if;wizard;true%else;false%end;
+      });
+      renderer.render();
+    } catch(e) {
+      console.error('Tree render error:', e);
+      document.getElementById('tree-grid-container').innerHTML =
+        '<div class="alert alert-danger">Error rendering tree: ' + e.message + '</div>';
+    }
+  });
+</script>
+%include;buttons_dag

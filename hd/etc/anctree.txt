@@ -39,6 +39,10 @@
   %include;templm/tools
   %include;modules/arbre_hi_indexes
   %include;modules/arbre_hi
+%elseif;(e.t="T" and e.t1="GR")
+  <div class="d-flex flex-column ml-3">
+    %include;modules/arbre_grid
+  </div>
 %elseif;(e.t="A" or e.t="C" or e.t="T")
   <div class="d-flex flex-column ml-3">
     <h3 class="display-5 ml-3">%nn;

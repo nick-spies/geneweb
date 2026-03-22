@@ -247,6 +247,15 @@
     </fieldset>
     <fieldset>
       <legend>
+      <label>Grid tree</label>
+      </legend>
+      <label title="CSS Grid tree — no overlap, tooltips, clickable images">
+            <input type="radio" id="tGR" name="t1" value="GR" %l_on; %l_on1;
+            %if;(evar.t1 = "GR") checked="checked"%end;%/>
+            Grid tree</label>
+    </fieldset>
+    <fieldset>
+      <legend>
       <label>[*h7-tree]</label>
       </legend>
       <label title="">
