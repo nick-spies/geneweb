@@ -53,6 +53,13 @@
   font-variant: small-caps;
 }
 
+.person-dates {
+  display: block;
+  color: #666;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
 .person-image {
   max-width: 50px;
   max-height: 50px;
@@ -73,6 +80,8 @@
   font-weight: 600;
   line-height: 1;
   margin-bottom: 1px;
+  user-select: none;
+  cursor: default;
 }
 
 /* Tree structure */

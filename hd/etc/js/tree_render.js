@@ -7,6 +7,11 @@
  *
  * Display scales per row: dense rows get smaller fonts, no images,
  * compact names. Sparse rows get full detail.
+ *
+ * Performance: the server emits compact tilde-delimited text (less wire
+ * data than HTML tables), and client-side parse + DOM build is sub-ms
+ * even at 7 generations (127 cells). The minimap canvas is the most
+ * expensive part at ~1ms for a few hundred rectangles.
  */
 
 // ── PersonBox ──────────────────────────────────────────────────────────────
@@ -18,6 +23,7 @@ function PersonBox(person) {
   this.showImage = true;
   this.showSurname = true;
   this.showSosa = true;
+  this.showDates = true;
 }
 
 PersonBox.prototype.displayName = function() {
@@ -25,11 +31,21 @@ PersonBox.prototype.displayName = function() {
   return (p.publicName || p.firstName) + ' ' + p.surname;
 };
 
+PersonBox.prototype.dateSpan = function() {
+  var p = this.person;
+  if (!p.birthYear && !p.deathYear) return '';
+  var b = p.birthYear || '?';
+  var d = p.deathYear || '';
+  return d ? b + '\u2013' + d : '\u002a' + b;
+};
+
 PersonBox.prototype.tooltipText = function() {
   var p = this.person;
   var parts = [];
   if (p.sosa) parts.push('Sosa ' + p.sosa);
   parts.push((p.sex === 0 ? '\u2642' : '\u2640') + ' ' + this.displayName());
+  var dates = this.dateSpan();
+  if (dates) parts.push('(' + dates + ')');
   return parts.join(' ');
 };
 
@@ -96,6 +112,27 @@ PersonBox.prototype.render = function() {
   }
 
   box.appendChild(nameLink);
+
+  // Dates
+  if (this.showDates) {
+    var dates = this.dateSpan();
+    if (dates) {
+      var dateEl = document.createElement('span');
+      dateEl.className = 'person-dates';
+      dateEl.textContent = dates;
+      dateEl.style.fontSize = (this.fontSize * 0.85) + 'rem';
+      if (this.options && this.options.wizard && p.access) {
+        dateEl.title = 'Update ' + this.displayName();
+        dateEl.style.cursor = 'pointer';
+        dateEl.addEventListener('click', function() {
+          var sep = p.access.indexOf('?') >= 0 ? '&' : '?';
+          window.location.href = p.access + sep + 'm=U';
+        });
+      }
+      box.appendChild(dateEl);
+    }
+  }
+
   return box;
 };
 
@@ -121,12 +158,12 @@ TreeRenderer.prototype.cellPositions = function(cells) {
 // Per-row display settings based on number of cells in that row
 TreeRenderer.prototype.rowStyle = function(numCells) {
   // numCells: how many cells in this row (including empties)
-  if (numCells <= 2)  return { fontSize: 0.85, imgSize: 50, showImage: true,  showSurname: true,  showSosa: true  };
-  if (numCells <= 4)  return { fontSize: 0.80, imgSize: 45, showImage: true,  showSurname: true,  showSosa: true  };
-  if (numCells <= 8)  return { fontSize: 0.75, imgSize: 38, showImage: true,  showSurname: true,  showSosa: true  };
-  if (numCells <= 16) return { fontSize: 0.70, imgSize: 30, showImage: true,  showSurname: true,  showSosa: true  };
-  if (numCells <= 32) return { fontSize: 0.65, imgSize: 0,  showImage: false, showSurname: true,  showSosa: false };
-  return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: false, showSosa: false };
+  if (numCells <= 2)  return { fontSize: 0.85, imgSize: 50, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 4)  return { fontSize: 0.80, imgSize: 45, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 8)  return { fontSize: 0.75, imgSize: 38, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 16) return { fontSize: 0.70, imgSize: 30, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 32) return { fontSize: 0.65, imgSize: 0,  showImage: false, showSurname: true,  showSosa: false, showDates: false };
+  return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: false, showSosa: false, showDates: false };
 };
 
 TreeRenderer.prototype.render = function() {
@@ -163,11 +200,22 @@ TreeRenderer.prototype.render = function() {
   // Build a function that converts a person access URL to a tree URL
   var opts = this.options;
   var gens = opts.generations || 3;
+  // Extract original Sosa 1 pz/nz/ocz from selfAccess to preserve across re-roots
+  var pzMatch = (opts.selfAccess || '').match(/[?&]pz=([^&]*)/);
+  var nzMatch = (opts.selfAccess || '').match(/[?&]nz=([^&]*)/);
+  var oczMatch = (opts.selfAccess || '').match(/[?&]ocz=([^&]*)/);
+  var sosa1Pz = pzMatch ? pzMatch[1] : '';
+  var sosa1Nz = nzMatch ? nzMatch[1] : '';
+  var sosa1Ocz = oczMatch ? oczMatch[1] : '';
+
   var treeAccess = function(personAccess) {
-    // personAccess is like "spies?pz=...&p=name&n=surname&oc=0"
-    // Add ancestor tree params
+    // personAccess is like "royal92?p=name&n=surname&oc=0"
+    // Add ancestor tree params and preserve Sosa 1 identity
     var sep = personAccess.indexOf('?') >= 0 ? '&' : '?';
-    return personAccess + sep + 'm=A&t=T&t1=GR&v=' + gens;
+    var url = personAccess + sep + 'm=A&t=T&t1=GR&v=' + gens;
+    // Inject pz/nz/ocz so Sosa 1 is remembered across re-roots
+    if (sosa1Pz) url += '&pz=' + sosa1Pz + '&nz=' + sosa1Nz + '&ocz=' + sosa1Ocz;
+    return url;
   };
 
   var gridRow = 1;
@@ -195,7 +243,13 @@ TreeRenderer.prototype.render = function() {
         pb.fontSize = style.fontSize;
         pb.showSurname = style.showSurname;
         pb.showSosa = style.showSosa;
+        pb.showDates = style.showDates;
         pb.treeAccess = treeAccess;
+        pb.options = opts;
+        // Mark top-row people who have further ancestors
+        if (r === 0 && cells[c].person.hasParents) {
+          personEl.setAttribute('data-has-parents', '1');
+        }
         personEl.appendChild(pb.render());
 
         grid.appendChild(personEl);
@@ -259,9 +313,51 @@ TreeRenderer.prototype.render = function() {
   // Add Home button if we're not already viewing Sosa 1
   this.addHomeButton(treeAccess);
 
+  // Update title when re-rooted to show Sosa 1 name
+  this.updateTitle();
+
   // Build minimap if tree overflows
   var self = this;
   setTimeout(function() { self.buildMinimap(grid); }, 100);
+};
+
+TreeRenderer.prototype.updateTitle = function() {
+  var opts = this.options;
+  if (!opts.isRerooted) return;
+  var titleEl = document.getElementById('tree-title');
+  if (!titleEl) return;
+  // Capitalize each word of selfName
+  var name = (opts.selfName || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  var from = opts.currentName || '';
+  // Find the main text node (before the togena span)
+  var span = titleEl.querySelector('span');
+  if (span) {
+    // Replace text before the span
+    var textNodes = [];
+    for (var i = 0; i < titleEl.childNodes.length; i++) {
+      if (titleEl.childNodes[i] === span) break;
+      textNodes.push(titleEl.childNodes[i]);
+    }
+    for (var i = 0; i < textNodes.length; i++) {
+      titleEl.removeChild(textNodes[i]);
+    }
+    var newText = document.createTextNode('Ascendants tree of ' + name + ' ');
+    titleEl.insertBefore(newText, span);
+    // Add "(shown from CurrentPerson)" — remove togena span since generation is shown by button
+    var fromSpan = document.createElement('span');
+    fromSpan.className = 'text-small text-muted font-weight-lighter';
+    fromSpan.textContent = '(shown from ' + from + ')';
+    titleEl.insertBefore(fromSpan, span);
+    // Remove the togena generation span when re-rooted
+    span.style.display = 'none';
+  }
+
+  // Update Person button (id="self") to point to Sosa 1
+  var selfBtn = document.getElementById('self');
+  if (selfBtn && opts.selfAccess) {
+    selfBtn.href = opts.selfAccess;
+    selfBtn.title = name;
+  }
 };
 
 TreeRenderer.prototype.addHomeButton = function(treeAccess) {
@@ -273,13 +369,15 @@ TreeRenderer.prototype.addHomeButton = function(treeAccess) {
   if (!ascGroup) return;
 
   // Check if we're already at Sosa 1
-  var selfMatch = opts.selfAccess.match(/[?&]p=([^&]*).*[?&]n=([^&]*)/);
-  if (!selfMatch) return;
-  var selfP = decodeURIComponent(selfMatch[1].replace(/\+/g, ' '));
-  var selfN = decodeURIComponent(selfMatch[2].replace(/\+/g, ' '));
+  // Use pz/nz from selfAccess (the original Sosa 1 person)
+  var selfMatch = opts.selfAccess.match(/[?&]pz=([^&]*)/);
+  var selfMatchN = opts.selfAccess.match(/[?&]nz=([^&]*)/);
+  if (!selfMatch || !selfMatchN) return;
+  var selfP = decodeURIComponent(selfMatch[1].replace(/\+/g, ' ')).toLowerCase();
+  var selfN = decodeURIComponent(selfMatchN[1].replace(/\+/g, ' ')).toLowerCase();
   var curParams = new URLSearchParams(window.location.search);
-  var curP = (curParams.get('p') || '').replace(/\+/g, ' ');
-  var curN = (curParams.get('n') || '').replace(/\+/g, ' ');
+  var curP = decodeURIComponent((curParams.get('p') || '').replace(/\+/g, ' ')).toLowerCase();
+  var curN = decodeURIComponent((curParams.get('n') || '').replace(/\+/g, ' ')).toLowerCase();
   var isSelf = curP === selfP && curN === selfN;
 
   var selfTreeUrl = treeAccess(opts.selfAccess);
@@ -294,7 +392,7 @@ TreeRenderer.prototype.addHomeButton = function(treeAccess) {
     homeBtn.href = selfTreeUrl;
     homeBtn.title = 'Return to Sosa 1: ' + (opts.selfName || '');
   }
-  homeBtn.innerHTML = '<i class="fa-solid fa-circle-dot fa-lg"></i><br>Sosa 1';
+  homeBtn.innerHTML = '<i class="fa fa-sitemap fa-flip-vertical fa-lg"></i><br>Sosa 1';
 
   // Insert to the left of the Agna./Asc./Cogn. group
   ascGroup.parentNode.insertBefore(homeBtn, ascGroup);
@@ -318,8 +416,7 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
   var viewW = container.clientWidth;
   var viewH = container.clientHeight;
 
-  // Only show minimap if tree overflows
-  if (treeW <= viewW + 20) return;
+  var overflows = treeW > viewW + 20;
 
   // Measure available space in the bottom toolbar
   var navbar = document.querySelector('nav.navbar.fixed-bottom');
@@ -402,45 +499,64 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     );
   }
 
-  // Draw viewport rectangle
-  var vpRect = document.createElement('div');
-  vpRect.className = 'tree-minimap-viewport';
-  wrapper.appendChild(vpRect);
-
-  var self = this;
-  function updateViewport() {
-    var scrollLeft = container.scrollLeft;
-    var rx = scrollLeft * scaleX;
-    var rw = viewW * scaleX;
-    vpRect.style.left = Math.round(rx) + 'px';
-    vpRect.style.top = '0';
-    vpRect.style.width = Math.min(Math.round(rw), mapW) + 'px';
-    vpRect.style.height = mapH + 'px';
+  // Draw upward triangles for top-row people with further ancestors
+  var hasParentsCells = grid.querySelectorAll('[data-has-parents="1"]');
+  ctx.fillStyle = '#2a2';
+  for (var i = 0; i < hasParentsCells.length; i++) {
+    var cell = hasParentsCells[i];
+    var cx = Math.round((cell.offsetLeft + cell.offsetWidth / 2) * scaleX);
+    var cy = Math.round(cell.offsetTop * scaleY);
+    // Draw upward triangle above the person
+    var ty = Math.max(0, cy - 7);
+    ctx.beginPath();
+    ctx.moveTo(cx, ty);
+    ctx.lineTo(cx - 4, ty + 5);
+    ctx.lineTo(cx + 4, ty + 5);
+    ctx.closePath();
+    ctx.fill();
   }
-  updateViewport();
 
-  container.addEventListener('scroll', updateViewport);
+  // Draw viewport rectangle and scroll controls only if tree overflows
+  if (overflows) {
+    var vpRect = document.createElement('div');
+    vpRect.className = 'tree-minimap-viewport';
+    wrapper.appendChild(vpRect);
 
-  // Click minimap to scroll
-  canvas.addEventListener('click', function(e) {
-    var rect = canvas.getBoundingClientRect();
-    var clickX = e.clientX - rect.left;
-    var targetScroll = (clickX / mapW) * treeW - viewW / 2;
-    container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
-  });
+    var self = this;
+    function updateViewport() {
+      var scrollLeft = container.scrollLeft;
+      var rx = scrollLeft * scaleX;
+      var rw = viewW * scaleX;
+      vpRect.style.left = Math.round(rx) + 'px';
+      vpRect.style.top = '0';
+      vpRect.style.width = Math.min(Math.round(rw), mapW) + 'px';
+      vpRect.style.height = mapH + 'px';
+    }
+    updateViewport();
 
-  // Drag minimap viewport
-  var dragging = false;
-  wrapper.addEventListener('mousedown', function(e) {
-    dragging = true;
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    var rect = canvas.getBoundingClientRect();
-    var clickX = e.clientX - rect.left;
-    var targetScroll = (clickX / mapW) * treeW - viewW / 2;
-    container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
-  });
-  document.addEventListener('mouseup', function() { dragging = false; });
+    container.addEventListener('scroll', updateViewport);
+
+    // Click minimap to scroll
+    canvas.addEventListener('click', function(e) {
+      var rect = canvas.getBoundingClientRect();
+      var clickX = e.clientX - rect.left;
+      var targetScroll = (clickX / mapW) * treeW - viewW / 2;
+      container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
+    });
+
+    // Drag minimap viewport
+    var dragging = false;
+    wrapper.addEventListener('mousedown', function(e) {
+      dragging = true;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      var rect = canvas.getBoundingClientRect();
+      var clickX = e.clientX - rect.left;
+      var targetScroll = (clickX / mapW) * treeW - viewW / 2;
+      container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
+    });
+    document.addEventListener('mouseup', function() { dragging = false; });
+  }
 };

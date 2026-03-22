@@ -2,7 +2,7 @@
 %( JavaScript/CSS Grid ancestor tree renderer %)
 %( Emits ancestor data as JSON, then renders with tree_render.js %)
 
-<h3 class="display-5 ml-3">
+<h3 class="display-5 ml-3" id="tree-title">
   %apply;ttl()
   <span class="text-small text-muted font-weight-lighter">%apply;togena(e.v)</span>
 </h3>
@@ -13,13 +13,13 @@
 %foreach;ancestor_tree_line(e_v+1)
 ~ROW~%if;is_first;1%else;0%end;
   %foreach;cell;
-~CELL~%cell.colspan;~%if;cell.is_empty;1%else;0%end;~%if;cell.is_top;1%else;0%end;~%if;cell.is_left;1%else;0%end;~%if;cell.is_right;1%else;0%end;~%if;(not cell.is_empty and not cell.is_top)%cell.person.first_name;~%cell.person.surname;~%cell.person.public_name;~%prefix;%cell.person.access;~%cell.person.sex;~%if;cell.person.has_image;1%else;0%end;~%if;cell.person.has_image;%cell.person.image_url;%end;~%if;cell.person.has_sosa;1%else;0%end;~%if;cell.person.has_sosa;%cell.person.sosa;%end;~%if;cell.is_right;%cell.family.marriage_date.year;%end;%else;~~~~~~~~~%end;
+~CELL~%cell.colspan;~%if;cell.is_empty;1%else;0%end;~%if;cell.is_top;1%else;0%end;~%if;cell.is_left;1%else;0%end;~%if;cell.is_right;1%else;0%end;~%if;(not cell.is_empty and not cell.is_top)%cell.person.first_name;~%cell.person.surname;~%cell.person.public_name;~%prefix;%cell.person.access;~%cell.person.sex;~%if;cell.person.has_image;1%else;0%end;~%if;cell.person.has_image;%cell.person.image_url;%end;~%if;cell.person.has_sosa;1%else;0%end;~%if;cell.person.has_sosa;%cell.person.sosa;%end;~%cell.person.birth_date.year;~%cell.person.death_date.year;~%if;cell.is_right;%cell.family.marriage_date.year;%end;~%if;cell.person.has_parents;1%else;0%end;%else;~~~~~~~~~~~~%end;
   %end;
 %end;
 </div>
 
-<link rel="stylesheet" href="css/tree_render.css?v=2">
-<script src="js/tree_render.js?v=3"></script>
+<link rel="stylesheet" href="css/tree_render.css?v=3">
+<script src="js/tree_render.js?v=4"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var dataEl = document.getElementById('tree-data');
@@ -57,10 +57,13 @@
             hasImage: parts[10] === '1',
             imageUrl: parts[11] || '',
             hasSosa: parts[12] === '1',
-            sosa: parts[13] || ''
+            sosa: parts[13] || '',
+            birthYear: parts[14] || '',
+            deathYear: parts[15] || '',
+            hasParents: parts[cell.isRight ? 17 : 16] === '1'
           };
           if (cell.isRight) {
-            cell.family = { marriageYear: parts[14] || '' };
+            cell.family = { marriageYear: parts[16] || '' };
           }
         }
 
@@ -76,8 +79,10 @@
         prefix: '%prefix;',
         wizard: %if;wizard;true%else;false%end;,
         generations: %e_v;,
-        selfAccess: '%prefix;pz=%evar.pz;&nz=%evar.nz;&p=%evar.pz;&n=%evar.nz;&ocz=%evar.ocz;',
-        selfName: '%evar.pz; %evar.nz;'
+        selfAccess: '%prefix;pz=%if;(evar.pz!="")%evar.pz;%else;%evar.p;%end;&nz=%if;(evar.nz!="")%evar.nz;%else;%evar.n;%end;&p=%if;(evar.pz!="")%evar.pz;%else;%evar.p;%end;&n=%if;(evar.nz!="")%evar.nz;%else;%evar.n;%end;&ocz=%evar.ocz;',
+        selfName: '%if;(evar.pz!="")%evar.pz;%else;%evar.p;%end; %if;(evar.nz!="")%evar.nz;%else;%evar.n;%end;',
+        currentName: '%self;',
+        isRerooted: %if;(evar.pz!="" and evar.pz!=evar.p)true%else;false%end;
       });
       renderer.render();
     } catch(e) {
