@@ -181,7 +181,8 @@
         title='[*generation/generations]0 %level; – Sosa %nn;
           %if;(evarcpl="")%aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
           %else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
-          %end;&#010;%nn;
+          %end;%nn;
+          %if;(aaasosa!="") ([n° Sosa] %aaasosa;)%end;&#010;%nn;
           %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname; %if;(aaaocc!="" or aaaocc!=0)(%aaaocc;)%end;&#010;%nn;
           %if;(aaabirth_date.year!="")° %aaabirth_date.year;%end;%nn;
           %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
@@ -258,7 +259,8 @@
       title='[*generation/generations]0 %level; – Sosa %nn;
         %if;(evarcpl="")%aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
         %else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
-        %end;&#010;%nn;
+        %end;%nn;
+        %if;(aaasosa!="") ([n° Sosa] %aaasosa;)%end;&#010;%nn;
         %(%if;("aaainterval"!="")=Sosa %aaainterval;;%else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%end;&#010;%)%nn;
         %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname; %if;(aaaocc!="" or aaaocc!=0)(%aaaocc;)%end;&#010;%nn;
         %if;(aaabirth_date.year!="")° %aaabirth_date.year;%end;%nn;
