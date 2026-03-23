@@ -1,17 +1,16 @@
 /**
  * tree_render.js — CSS Grid ancestor tree renderer
  *
- * Data from GeneWeb ancestor_tree_line as tilde-delimited text.
- * Rows go oldest (top) to self (bottom). Each cell has colspan,
- * isLeft/isRight flags, and person data.
+ * Symmetric layout: positions are computed from Sosa 1 (center) outward.
+ * Paternal line gets negative offsets, maternal line gets positive offsets,
+ * always equal in magnitude. Each generation doubles the number of slots.
+ * The top generation's extent determines the grid width; positions cascade
+ * down so every child is perfectly centered under its parent couple.
  *
- * Display scales per row: dense rows get smaller fonts, no images,
- * compact names. Sparse rows get full detail.
- *
- * Performance: the server emits compact tilde-delimited text (less wire
- * data than HTML tables), and client-side parse + DOM build is sub-ms
- * even at 7 generations (127 cells). The minimap canvas is the most
- * expensive part at ~1ms for a few hundred rectangles.
+ * Grid structure: 2^numGens data columns + (2^numGens - 1) spacer columns.
+ * For generation g (0=self, numGens=top), cell c occupies:
+ *   gridStart = c * step + 1,  span = step - 1,  step = 2^(row+1)
+ * where row = numGens - g.
  */
 
 // ── PersonBox ──────────────────────────────────────────────────────────────
@@ -86,14 +85,13 @@ PersonBox.prototype.render = function() {
   nameLink.href = p.access;
   nameLink.className = 'person-name';
   nameLink.style.fontSize = this.fontSize + 'rem';
-  nameLink.title = this.tooltipText() + ' (click: re-root tree, ⌘-click: person page)';
+  nameLink.title = this.tooltipText() + ' (click: re-root tree, \u2318-click: person page)';
 
   var treeAccess = this.treeAccess;
   if (treeAccess) {
     nameLink.addEventListener('click', function(e) {
       if (e.metaKey || e.ctrlKey) return; // Cmd/Ctrl-click: follow link normally
       e.preventDefault();
-      // Re-root tree on this person
       window.location.href = treeAccess(p.access);
     });
   }
@@ -144,20 +142,8 @@ function TreeRenderer(container, data, options) {
   this.options = options || {};
 }
 
-TreeRenderer.prototype.cellPositions = function(cells) {
-  var positions = [];
-  var col = 1;
-  for (var c = 0; c < cells.length; c++) {
-    if (c > 0) col++;
-    positions.push(col);
-    col += cells[c].colspan;
-  }
-  return positions;
-};
-
 // Per-row display settings based on number of cells in that row
 TreeRenderer.prototype.rowStyle = function(numCells) {
-  // numCells: how many cells in this row (including empties)
   if (numCells <= 2)  return { fontSize: 0.85, imgSize: 50, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
   if (numCells <= 4)  return { fontSize: 0.80, imgSize: 45, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
   if (numCells <= 8)  return { fontSize: 0.75, imgSize: 38, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
@@ -166,41 +152,72 @@ TreeRenderer.prototype.rowStyle = function(numCells) {
   return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: false, showSosa: false, showDates: false };
 };
 
+// Build generation slots: map each row's cells to symmetric Sosa positions.
+// Returns array indexed by generation (0=self, numGens=top).
+// Each entry is an array of 2^gen slots (cell data or undefined for missing ancestors).
+TreeRenderer.prototype.buildGenerations = function(rows) {
+  var numGens = rows.length - 1;
+  var generations = [];
+
+  for (var r = 0; r < rows.length; r++) {
+    var gen = numGens - r;
+    var expectedCount = Math.pow(2, gen);
+    var slots = new Array(expectedCount);
+    var cells = rows[r].cells;
+
+    if (cells.length === expectedCount) {
+      // Direct mapping: cell index = slot index
+      for (var c = 0; c < cells.length; c++) {
+        slots[c] = cells[c];
+      }
+    } else {
+      // Fewer cells than expected (missing ancestors collapsed the grid).
+      // Use Sosa numbers to place each cell at its correct symmetric slot.
+      var genStart = Math.pow(2, gen);
+      for (var c = 0; c < cells.length; c++) {
+        if (cells[c].person && cells[c].person.hasSosa) {
+          var sosa = parseInt(cells[c].person.sosa);
+          var slot = sosa - genStart;
+          if (slot >= 0 && slot < expectedCount) {
+            slots[slot] = cells[c];
+          }
+        }
+      }
+    }
+
+    generations[gen] = slots;
+  }
+
+  return generations;
+};
+
 TreeRenderer.prototype.render = function() {
   var rows = this.data.rows;
   if (!rows || !rows.length) return;
 
-  // Total grid columns from the widest row
-  var firstRow = rows[0];
-  var totalCols = 0;
-  for (var j = 0; j < firstRow.cells.length; j++) {
-    if (j > 0) totalCols++;
-    totalCols += firstRow.cells[j].colspan;
-  }
+  var numGens = rows.length - 1;
+
+  // Symmetric grid: 2^numGens data columns + spacers between them
+  var idealTop = Math.pow(2, numGens);
+  var totalCols = idealTop * 2 - 1;
+
+  // Map data cells to symmetric Sosa-based slots
+  var generations = this.buildGenerations(rows);
 
   var grid = document.createElement('div');
   grid.className = 'tree-grid';
 
-  // Column widths: scale to fit viewport
-  var viewW = window.innerWidth || 1200;
-  var spacerCount = firstRow.cells.length - 1;
-  var dataCols = totalCols - spacerCount;
-  var availableW = viewW - (spacerCount * 4) - 30;
-  var autoMinW = Math.max(24, Math.min(80, Math.floor(availableW / dataCols)));
-
+  // Uniform column template: data(1fr) spacer(4px) data(1fr) spacer(4px) ...
   var colTemplate = [];
-  for (var j = 0; j < firstRow.cells.length; j++) {
-    if (j > 0) colTemplate.push('4px');
-    for (var k = 0; k < firstRow.cells[j].colspan; k++) {
-      colTemplate.push('1fr');
-    }
+  for (var i = 0; i < idealTop; i++) {
+    if (i > 0) colTemplate.push('4px');
+    colTemplate.push('1fr');
   }
   grid.style.gridTemplateColumns = colTemplate.join(' ');
 
-  // Build a function that converts a person access URL to a tree URL
+  // Build treeAccess function for re-rooting
   var opts = this.options;
   var gens = opts.generations || 3;
-  // Extract original Sosa 1 pz/nz/ocz from selfAccess to preserve across re-roots
   var pzMatch = (opts.selfAccess || '').match(/[?&]pz=([^&]*)/);
   var nzMatch = (opts.selfAccess || '').match(/[?&]nz=([^&]*)/);
   var oczMatch = (opts.selfAccess || '').match(/[?&]ocz=([^&]*)/);
@@ -209,52 +226,35 @@ TreeRenderer.prototype.render = function() {
   var sosa1Ocz = oczMatch ? oczMatch[1] : '';
 
   var treeAccess = function(personAccess) {
-    // personAccess is like "royal92?p=name&n=surname&oc=0"
-    // Add ancestor tree params and preserve Sosa 1 identity
     var sep = personAccess.indexOf('?') >= 0 ? '&' : '?';
     var url = personAccess + sep + 'm=A&t=T&t1=GR&v=' + gens;
-    // Inject pz/nz/ocz so Sosa 1 is remembered across re-roots
     if (sosa1Pz) url += '&pz=' + sosa1Pz + '&nz=' + sosa1Nz + '&ocz=' + sosa1Ocz;
     return url;
   };
 
   var gridRow = 1;
 
-  for (var r = 0; r < rows.length; r++) {
-    var cells = rows[r].cells;
-    var pos = this.cellPositions(cells);
-    var style = this.rowStyle(cells.length);
+  // Render generations from top (numGens) to bottom (0 = self)
+  for (var g = numGens; g >= 0; g--) {
+    var r = numGens - g;
+    var slots = generations[g];
+    var numCells = slots.length;  // 2^g
+    var step = Math.pow(2, r + 1);   // grid columns between cell starts
+    var span = step - 1;             // grid columns per cell
+    var style = this.rowStyle(numCells);
 
     // ── Person row ──
-    // For single-person rows, find parent couple from previous row to center under them
-    var prevRow = r > 0 ? rows[r - 1] : null;
-    var prevPos = prevRow ? this.cellPositions(prevRow.cells) : null;
+    for (var c = 0; c < numCells; c++) {
+      var cell = slots[c];
+      var gridStart = c * step + 1;
 
-    for (var c = 0; c < cells.length; c++) {
-      if (c > 0) {
-        this.addCell(grid, gridRow, pos[c] - 1, 1, 'tree-spacer', '');
-      }
-
-      if (cells[c].person) {
+      if (cell && cell.person) {
         var personEl = document.createElement('div');
         personEl.className = 'tree-cell tree-cell-person';
-
-        // Center under parent couple if this is a single-child cell spanning wider than parents
-        var colStart = pos[c];
-        var colEnd = pos[c] + cells[c].colspan;
-        if (prevRow && prevPos && cells.length * 2 <= prevRow.cells.length) {
-          // Find the two parent cells for this child
-          var parentLeft = c * 2;
-          var parentRight = c * 2 + 1;
-          if (parentRight < prevRow.cells.length && prevRow.cells[parentLeft].isLeft && prevRow.cells[parentRight].isRight) {
-            colStart = prevPos[parentLeft];
-            colEnd = prevPos[parentRight] + prevRow.cells[parentRight].colspan;
-          }
-        }
-        personEl.style.gridColumn = colStart + ' / ' + colEnd;
+        personEl.style.gridColumn = gridStart + ' / ' + (gridStart + span);
         personEl.style.gridRow = gridRow;
 
-        var pb = new PersonBox(cells[c].person);
+        var pb = new PersonBox(cell.person);
         pb.showImage = style.showImage;
         pb.imgSize = style.imgSize;
         pb.fontSize = style.fontSize;
@@ -263,50 +263,54 @@ TreeRenderer.prototype.render = function() {
         pb.showDates = style.showDates;
         pb.treeAccess = treeAccess;
         pb.options = opts;
-        // Mark top-row people who have further ancestors
-        if (r === 0 && cells[c].person.hasParents) {
+
+        // Mark top-row people who have further ancestors (for minimap triangles)
+        if (g === numGens && cell.person.hasParents) {
           personEl.setAttribute('data-has-parents', '1');
         }
-        personEl.appendChild(pb.render());
 
+        personEl.appendChild(pb.render());
         grid.appendChild(personEl);
-      } else {
-        this.addCell(grid, gridRow, pos[c], cells[c].colspan, 'tree-cell tree-cell-empty', '');
       }
+      // Empty slots need no DOM element — grid leaves them naturally empty
     }
     gridRow++;
 
-    // ── Branch connector row ──
-    if (r < rows.length - 1) {
-      for (var c = 0; c < cells.length; c++) {
-        var hasContent = !cells[c].isEmpty && cells[c].person;
+    // ── Branch connector row (between this generation and the one below) ──
+    if (g > 0) {
+      var childCount = Math.pow(2, g - 1);  // number of children in next gen down
 
-        if (c > 0) {
-          var isCoupleGap = cells[c - 1].isLeft && cells[c].isRight;
-          var coupleHasPeople = isCoupleGap &&
-            !cells[c - 1].isEmpty && cells[c - 1].person &&
-            !cells[c].isEmpty && cells[c].person;
-          this.addCell(grid, gridRow, pos[c] - 1, 1,
-            coupleHasPeople ? 'tree-branch-bottom' : 'tree-spacer', '');
+      for (var k = 0; k < childCount; k++) {
+        var father = slots[2 * k];      // even slot = paternal (left)
+        var mother = slots[2 * k + 1];  // odd slot = maternal (right)
+        var fatherOk = father && father.person;
+        var motherOk = mother && mother.person;
+
+        var fatherStart = (2 * k) * step + 1;
+        var motherStart = (2 * k + 1) * step + 1;
+        var gapCol = (2 * k + 1) * step;  // spacer column between couple
+
+        // Left branch (father side)
+        if (fatherOk) {
+          this.addCell(grid, gridRow, fatherStart, span, 'tree-cell tree-branch-left', '');
         }
 
-        if (cells[c].isLeft && hasContent) {
-          this.addCell(grid, gridRow, pos[c], cells[c].colspan, 'tree-cell tree-branch-left', '');
-        } else if (cells[c].isRight && hasContent) {
-          this.addCell(grid, gridRow, pos[c], cells[c].colspan, 'tree-cell tree-branch-right', '');
-        } else {
-          this.addCell(grid, gridRow, pos[c], cells[c].colspan, 'tree-cell tree-cell-empty', '');
+        // Bottom bridge connecting the couple
+        if (fatherOk && motherOk) {
+          this.addCell(grid, gridRow, gapCol, 1, 'tree-branch-bottom', '');
         }
-      }
 
-      // Marriage year overlays
-      for (var c = 1; c < cells.length; c++) {
-        if (cells[c - 1].isLeft && cells[c].isRight &&
-            cells[c - 1].person && cells[c].person) {
-          var marriageYear = cells[c].family ? cells[c].family.marriageYear : '';
+        // Right branch (mother side)
+        if (motherOk) {
+          this.addCell(grid, gridRow, motherStart, span, 'tree-cell tree-branch-right', '');
+        }
+
+        // Marriage year overlay (spans full couple width)
+        if (fatherOk && motherOk) {
+          var marriageYear = mother.family ? mother.family.marriageYear : '';
           if (marriageYear) {
-            var coupleStart = pos[c - 1];
-            var coupleEnd = pos[c] + cells[c].colspan;
+            var coupleStart = fatherStart;
+            var coupleEnd = motherStart + span;
             var overlay = document.createElement('div');
             overlay.className = 'tree-marriage-overlay';
             overlay.style.gridColumn = coupleStart + ' / ' + coupleEnd;
@@ -333,7 +337,7 @@ TreeRenderer.prototype.render = function() {
   // Update title when re-rooted to show Sosa 1 name
   this.updateTitle();
 
-  // Build minimap if tree overflows
+  // Build minimap
   var self = this;
   setTimeout(function() { self.buildMinimap(grid); }, 100);
 };
@@ -343,13 +347,10 @@ TreeRenderer.prototype.updateTitle = function() {
   if (!opts.isRerooted) return;
   var titleEl = document.getElementById('tree-title');
   if (!titleEl) return;
-  // Capitalize each word of selfName
   var name = (opts.selfName || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
   var from = opts.currentName || '';
-  // Find the main text node (before the togena span)
   var span = titleEl.querySelector('span');
   if (span) {
-    // Replace text before the span
     var textNodes = [];
     for (var i = 0; i < titleEl.childNodes.length; i++) {
       if (titleEl.childNodes[i] === span) break;
@@ -360,16 +361,13 @@ TreeRenderer.prototype.updateTitle = function() {
     }
     var newText = document.createTextNode('Ascendants tree of ' + name + ' ');
     titleEl.insertBefore(newText, span);
-    // Add "(shown from CurrentPerson)" — remove togena span since generation is shown by button
     var fromSpan = document.createElement('span');
     fromSpan.className = 'text-small text-muted font-weight-lighter';
     fromSpan.textContent = '(shown from ' + from + ')';
     titleEl.insertBefore(fromSpan, span);
-    // Remove the togena generation span when re-rooted
     span.style.display = 'none';
   }
 
-  // Update Person button (id="self") to point to Sosa 1
   var selfBtn = document.getElementById('self');
   if (selfBtn && opts.selfAccess) {
     selfBtn.href = opts.selfAccess;
@@ -381,12 +379,9 @@ TreeRenderer.prototype.addHomeButton = function(treeAccess) {
   var opts = this.options;
   if (!opts.selfAccess) return;
 
-  // Find the ascendant tree button group (Agna./Asc./Cogn.)
   var ascGroup = document.querySelector('nav.navbar.fixed-bottom .btn-group[aria-label="ascendant tree button group"]');
   if (!ascGroup) return;
 
-  // Check if we're already at Sosa 1
-  // Use pz/nz from selfAccess (the original Sosa 1 person)
   var selfMatch = opts.selfAccess.match(/[?&]pz=([^&]*)/);
   var selfMatchN = opts.selfAccess.match(/[?&]nz=([^&]*)/);
   if (!selfMatch || !selfMatchN) return;
@@ -411,7 +406,6 @@ TreeRenderer.prototype.addHomeButton = function(treeAccess) {
   }
   homeBtn.innerHTML = '<i class="fa fa-sitemap fa-flip-vertical fa-lg"></i><br>Sosa 1';
 
-  // Insert to the left of the Agna./Asc./Cogn. group
   ascGroup.parentNode.insertBefore(homeBtn, ascGroup);
 };
 
@@ -435,38 +429,31 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
 
   var overflows = treeW > viewW + 20;
 
-  // Measure available space in the bottom toolbar
   var navbar = document.querySelector('nav.navbar.fixed-bottom');
   if (!navbar) return;
   var toolbar = navbar.querySelector('.btn-toolbar');
   if (!toolbar) return;
 
-  // Temporarily insert a placeholder to measure available width
   var placeholder = document.createElement('div');
   placeholder.style.cssText = 'flex:1;min-width:0;visibility:hidden;';
   toolbar.insertBefore(placeholder, toolbar.firstChild);
-  var availW = placeholder.offsetWidth - 16; // 16px margin
+  var availW = placeholder.offsetWidth - 16;
   toolbar.removeChild(placeholder);
 
-  // If not enough space, try a fixed reasonable size
   if (availW < 60) availW = Math.min(200, viewW * 0.2);
 
-  // Scale minimap to fit the navbar dimensions
   var navbarH = navbar.offsetHeight - 8;
   var mapW = Math.max(60, Math.min(availW, 300));
   var mapH = navbarH;
-  // Maintain tree aspect ratio: shrink width if needed
   var treeAspect = treeW / treeH;
   var mapAspect = mapW / mapH;
   if (mapAspect > treeAspect) {
-    // Map is too wide — shrink width to match tree proportions
     mapW = Math.round(mapH * treeAspect);
   }
 
   var scaleX = mapW / treeW;
   var scaleY = mapH / treeH;
 
-  // Create canvas
   var canvas = document.createElement('canvas');
   canvas.width = mapW;
   canvas.height = mapH;
@@ -481,15 +468,12 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
 
   var ctx = canvas.getContext('2d');
 
-  // Draw tree silhouette — find all person boxes and branch lines
   var personBoxes = grid.querySelectorAll('.person-box');
   var branches = grid.querySelectorAll('.tree-branch-left, .tree-branch-right, .tree-branch-bottom');
 
-  // Background
   ctx.fillStyle = '#f8f8f8';
   ctx.fillRect(0, 0, mapW, mapH);
 
-  // Draw branch lines
   ctx.strokeStyle = '#ccc';
   ctx.lineWidth = 1;
   for (var i = 0; i < branches.length; i++) {
@@ -501,12 +485,11 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     ctx.strokeRect(bx, by, bw, Math.max(1, bh));
   }
 
-  // Draw person dots and build hit zones for click/hover
   var hitZones = [];
-  var hitRadius = 8; // generous click target
+  var hitRadius = 8;
   for (var i = 0; i < personBoxes.length; i++) {
     var pb = personBoxes[i];
-    var parent = pb.parentNode; // tree-cell-person
+    var parent = pb.parentNode;
     var px = parent.offsetLeft + parent.offsetWidth / 2;
     var py = parent.offsetTop + parent.offsetHeight / 2;
     var isMale = pb.classList.contains('person-male');
@@ -515,7 +498,6 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     var dotY = Math.round(py * scaleY);
     ctx.fillRect(dotX - 2, dotY - 1, 4, 3);
 
-    // Extract person info from the DOM for hit testing
     var nameEl = pb.querySelector('a.person-name');
     if (nameEl) {
       hitZones.push({
@@ -526,14 +508,12 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     }
   }
 
-  // Draw upward triangles for top-row people with further ancestors
   var hasParentsCells = grid.querySelectorAll('[data-has-parents="1"]');
   ctx.fillStyle = '#2a2';
   for (var i = 0; i < hasParentsCells.length; i++) {
     var cell = hasParentsCells[i];
     var cx = Math.round((cell.offsetLeft + cell.offsetWidth / 2) * scaleX);
     var cy = Math.round(cell.offsetTop * scaleY);
-    // Draw upward triangle above the person
     var ty = Math.max(0, cy - 7);
     ctx.beginPath();
     ctx.moveTo(cx, ty);
@@ -543,7 +523,6 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     ctx.fill();
   }
 
-  // Always show viewport rectangle and scroll controls
   var vpRect = document.createElement('div');
   vpRect.className = 'tree-minimap-viewport';
   wrapper.appendChild(vpRect);
@@ -562,7 +541,6 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
 
   container.addEventListener('scroll', updateViewport);
 
-  // Hit-test: find closest person dot within hitRadius
   function hitTest(mx, my) {
     var best = null, bestDist = hitRadius * hitRadius;
     for (var i = 0; i < hitZones.length; i++) {
@@ -574,7 +552,6 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     return best;
   }
 
-  // Hover: show pointer cursor over person dots
   canvas.addEventListener('mousemove', function(e) {
     var rect = canvas.getBoundingClientRect();
     var hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
@@ -584,19 +561,15 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     canvas.style.cursor = 'default';
   });
 
-  // Click: re-root on person if hit, otherwise scroll
-  var treeAccess = self.options.treeAccess || null;
   canvas.addEventListener('click', function(e) {
     var rect = canvas.getBoundingClientRect();
     var mx = e.clientX - rect.left;
     var my = e.clientY - rect.top;
     var hit = hitTest(mx, my);
     if (hit && hit.access) {
-      // Build re-root URL same way as name click in the tree
       var gens = self.options.generations || 3;
       var sep = hit.access.indexOf('?') >= 0 ? '&' : '?';
       var url = hit.access + sep + 'm=A&t=T&t1=GR&v=' + gens;
-      // Preserve Sosa 1 identity
       var sa = self.options.selfAccess || '';
       var pzM = sa.match(/[?&]pz=([^&]*)/);
       var nzM = sa.match(/[?&]nz=([^&]*)/);
@@ -610,10 +583,8 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     }
   });
 
-  // Drag minimap viewport
   var dragging = false;
   wrapper.addEventListener('mousedown', function(e) {
-    // Only start drag if not on a person dot
     var rect = canvas.getBoundingClientRect();
     var mx = e.clientX - rect.left;
     var my = e.clientY - rect.top;
