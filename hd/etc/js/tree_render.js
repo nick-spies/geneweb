@@ -192,7 +192,7 @@ TreeRenderer.prototype.render = function() {
   for (var j = 0; j < firstRow.cells.length; j++) {
     if (j > 0) colTemplate.push('4px');
     for (var k = 0; k < firstRow.cells[j].colspan; k++) {
-      colTemplate.push('minmax(' + autoMinW + 'px, 1fr)');
+      colTemplate.push('1fr');
     }
   }
   grid.style.gridTemplateColumns = colTemplate.join(' ');
@@ -226,6 +226,10 @@ TreeRenderer.prototype.render = function() {
     var style = this.rowStyle(cells.length);
 
     // ── Person row ──
+    // For single-person rows, find parent couple from previous row to center under them
+    var prevRow = r > 0 ? rows[r - 1] : null;
+    var prevPos = prevRow ? this.cellPositions(prevRow.cells) : null;
+
     for (var c = 0; c < cells.length; c++) {
       if (c > 0) {
         this.addCell(grid, gridRow, pos[c] - 1, 1, 'tree-spacer', '');
@@ -234,7 +238,20 @@ TreeRenderer.prototype.render = function() {
       if (cells[c].person) {
         var personEl = document.createElement('div');
         personEl.className = 'tree-cell tree-cell-person';
-        personEl.style.gridColumn = pos[c] + ' / ' + (pos[c] + cells[c].colspan);
+
+        // Center under parent couple if this is a single-child cell spanning wider than parents
+        var colStart = pos[c];
+        var colEnd = pos[c] + cells[c].colspan;
+        if (prevRow && prevPos && cells.length * 2 <= prevRow.cells.length) {
+          // Find the two parent cells for this child
+          var parentLeft = c * 2;
+          var parentRight = c * 2 + 1;
+          if (parentRight < prevRow.cells.length && prevRow.cells[parentLeft].isLeft && prevRow.cells[parentRight].isRight) {
+            colStart = prevPos[parentLeft];
+            colEnd = prevPos[parentRight] + prevRow.cells[parentRight].colspan;
+          }
+        }
+        personEl.style.gridColumn = colStart + ' / ' + colEnd;
         personEl.style.gridRow = gridRow;
 
         var pb = new PersonBox(cells[c].person);

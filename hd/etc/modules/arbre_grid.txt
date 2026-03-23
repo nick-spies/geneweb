@@ -18,7 +18,7 @@
 %end;
 </div>
 
-<link rel="stylesheet" href="css/tree_render.css?v=3">
+<link rel="stylesheet" href="css/tree_render.css?v=4">
 <script src="js/tree_render.js?v=6"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {

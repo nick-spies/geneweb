@@ -98,6 +98,8 @@
 
 .tree-cell-person {
   padding: 2px 1px;
+  display: flex;
+  justify-content: center;
 }
 
 .tree-spacer {
