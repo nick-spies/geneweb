@@ -125,13 +125,30 @@ Always record a complete transcript of each session in separate files by date; t
 
 ### Build and test workflow
 
+Use `./build_and_run.sh` for the full build-test cycle. It handles all gotchas automatically.
+
+Manual steps if needed:
+
 1. **Edit source** in `/Users/nspies/geneweb/` (git repo)
-2. **Build runtime** with `make distrib` — this populates `distribution/` with binaries, templates, plugins, etc.
-3. **Test locally** by running:
+2. **Build runtime** with `make distrib` — this populates `distribution/gw/` with binaries, templates, plugins, etc.
+3. **IMPORTANT: `make distrib` wipes `distribution/gw/bases/`** and replaces it with a near-empty directory. You must re-create the symlink after every build:
    ```bash
-   cd distribution && gw/gwd -bd bases -p 2317
+   rm -rf distribution/gw/bases
+   ln -s $(pwd)/bases distribution/gw/bases
    ```
-   Then open `http://localhost:2317/spies` in a browser.
-4. The SPIES database lives at `bases/spies.gwb` in the repo root. A symlink at `distribution/bases/spies.gwb` points there so `make distrib` does not need to copy it.
+4. **Run gwd from `distribution/gw/`** (not the repo root — gwd needs `lang/`, `etc/`, and other resources in that directory):
+   ```bash
+   pkill -f "gwd.*2317" 2>/dev/null
+   cd distribution/gw && ./gwd -p 2317 -hd .
+   ```
+5. Open `http://localhost:2317/spies` in a browser.
+6. The SPIES database lives at `bases/spies.gwb` in the repo root.
+
+### Session discipline
+
+- **Always commit working states** before ending a session. Use descriptive commit messages.
+- **Bump JS/CSS cache versions** (e.g., `?v=5` → `?v=6`) when changing client-side files, or browsers may serve stale code.
+- **Track upstream divergence** with `git log --oneline upstream/master..HEAD`.
+- **Upstream remote** is configured: `upstream` → `https://github.com/geneweb/geneweb.git`.
 
 
