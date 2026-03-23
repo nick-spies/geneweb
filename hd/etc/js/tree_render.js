@@ -327,22 +327,20 @@ TreeRenderer.prototype.render = function() {
           this.addCell(grid, gridRow, motherStart, span, 'tree-cell tree-branch-right', '');
         }
 
-        // Marriage year overlay (spans full couple width)
+        // Marriage symbol overlay (spans full couple width)
         if (fatherOk && motherOk) {
           var marriageYear = mother.family ? mother.family.marriageYear : '';
-          if (marriageYear) {
-            var coupleStart = fatherStart;
-            var coupleEnd = motherStart + span;
-            var overlay = document.createElement('div');
-            overlay.className = 'tree-marriage-overlay';
-            overlay.style.gridColumn = coupleStart + ' / ' + coupleEnd;
-            overlay.style.gridRow = gridRow;
-            var marr = document.createElement('span');
-            marr.className = 'tree-marriage';
-            marr.textContent = '\u00d7' + marriageYear;
-            overlay.appendChild(marr);
-            grid.appendChild(overlay);
-          }
+          var coupleStart = fatherStart;
+          var coupleEnd = motherStart + span;
+          var overlay = document.createElement('div');
+          overlay.className = 'tree-marriage-overlay';
+          overlay.style.gridColumn = coupleStart + ' / ' + coupleEnd;
+          overlay.style.gridRow = gridRow;
+          var marr = document.createElement('span');
+          marr.className = 'tree-marriage';
+          marr.textContent = marriageYear ? '& ' + marriageYear : '&';
+          overlay.appendChild(marr);
+          grid.appendChild(overlay);
         }
       }
 
@@ -530,20 +528,8 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     }
   }
 
-  var hasParentsCells = grid.querySelectorAll('[data-has-parents="1"]');
-  ctx.fillStyle = '#2a2';
-  for (var i = 0; i < hasParentsCells.length; i++) {
-    var cell = hasParentsCells[i];
-    var cx = Math.round((cell.offsetLeft + cell.offsetWidth / 2) * scaleX);
-    var cy = Math.round(cell.offsetTop * scaleY);
-    var ty = Math.max(0, cy - 7);
-    ctx.beginPath();
-    ctx.moveTo(cx, ty);
-    ctx.lineTo(cx - 4, ty + 5);
-    ctx.lineTo(cx + 4, ty + 5);
-    ctx.closePath();
-    ctx.fill();
-  }
+  // Vertical lines above top-row cells are now shown in the tree itself,
+  // so minimap green triangles are no longer needed.
 
   var vpRect = document.createElement('div');
   vpRect.className = 'tree-minimap-viewport';

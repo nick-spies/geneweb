@@ -18,8 +18,8 @@
 %end;
 </div>
 
-<link rel="stylesheet" href="css/tree_render.css?v=4">
-<script src="js/tree_render.js?v=8"></script>
+<link rel="stylesheet" href="css/tree_render.css?v=7">
+<script src="js/tree_render.js?v=9"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var dataEl = document.getElementById('tree-data');

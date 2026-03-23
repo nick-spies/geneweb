@@ -102,6 +102,23 @@
   justify-content: center;
 }
 
+/* Vertical line above top-row ancestors with further parents */
+.tree-cell-person[data-has-parents="1"] {
+  position: relative;
+  margin-top: 16px;
+}
+
+.tree-cell-person[data-has-parents="1"]::before {
+  content: '';
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-1px);
+  width: 2px;
+  height: 16px;
+  background: #aaa;
+}
+
 .tree-spacer {
   /* No max-width: spacers must fill their grid column so branch borders connect */
 }
@@ -125,9 +142,19 @@
   right: 0;
   bottom: 0;
   width: 50%;
-  height: 100%;
   border-bottom: 2px solid #aaa;
-  border-right: 2px solid #aaa;
+}
+
+/* Vertical stub pointing up to father */
+.tree-branch-left::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-1px);
+  width: 2px;
+  background: #aaa;
 }
 
 .tree-branch-right {
@@ -141,9 +168,19 @@
   left: 0;
   bottom: 0;
   width: 50%;
-  height: 100%;
   border-bottom: 2px solid #aaa;
-  border-left: 2px solid #aaa;
+}
+
+/* Vertical stub pointing up to mother */
+.tree-branch-right::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-1px);
+  width: 2px;
+  background: #aaa;
 }
 
 .tree-branch-bottom {
