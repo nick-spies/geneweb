@@ -484,7 +484,9 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     ctx.strokeRect(bx, by, bw, Math.max(1, bh));
   }
 
-  // Draw person dots
+  // Draw person dots and build hit zones for click/hover
+  var hitZones = [];
+  var hitRadius = 8; // generous click target
   for (var i = 0; i < personBoxes.length; i++) {
     var pb = personBoxes[i];
     var parent = pb.parentNode; // tree-cell-person
@@ -492,11 +494,19 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     var py = parent.offsetTop + parent.offsetHeight / 2;
     var isMale = pb.classList.contains('person-male');
     ctx.fillStyle = isMale ? '#4a7ab5' : '#b54a7a';
-    ctx.fillRect(
-      Math.round(px * scaleX) - 2,
-      Math.round(py * scaleY) - 1,
-      4, 3
-    );
+    var dotX = Math.round(px * scaleX);
+    var dotY = Math.round(py * scaleY);
+    ctx.fillRect(dotX - 2, dotY - 1, 4, 3);
+
+    // Extract person info from the DOM for hit testing
+    var nameEl = pb.querySelector('a.person-name');
+    if (nameEl) {
+      hitZones.push({
+        x: dotX, y: dotY,
+        access: nameEl.href,
+        name: pb.title || nameEl.textContent
+      });
+    }
   }
 
   // Draw upward triangles for top-row people with further ancestors
@@ -535,19 +545,65 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
 
   container.addEventListener('scroll', updateViewport);
 
-  // Click minimap to scroll
+  // Hit-test: find closest person dot within hitRadius
+  function hitTest(mx, my) {
+    var best = null, bestDist = hitRadius * hitRadius;
+    for (var i = 0; i < hitZones.length; i++) {
+      var hz = hitZones[i];
+      var dx = mx - hz.x, dy = my - hz.y;
+      var d2 = dx * dx + dy * dy;
+      if (d2 < bestDist) { bestDist = d2; best = hz; }
+    }
+    return best;
+  }
+
+  // Hover: show pointer cursor over person dots
+  canvas.addEventListener('mousemove', function(e) {
+    var rect = canvas.getBoundingClientRect();
+    var hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+    canvas.style.cursor = hit ? 'pointer' : 'default';
+  });
+  canvas.addEventListener('mouseleave', function() {
+    canvas.style.cursor = 'default';
+  });
+
+  // Click: re-root on person if hit, otherwise scroll
+  var treeAccess = self.options.treeAccess || null;
   canvas.addEventListener('click', function(e) {
     var rect = canvas.getBoundingClientRect();
-    var clickX = e.clientX - rect.left;
-    var targetScroll = (clickX / mapW) * treeW - viewW / 2;
-    container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var hit = hitTest(mx, my);
+    if (hit && hit.access) {
+      // Build re-root URL same way as name click in the tree
+      var gens = self.options.generations || 3;
+      var sep = hit.access.indexOf('?') >= 0 ? '&' : '?';
+      var url = hit.access + sep + 'm=A&t=T&t1=GR&v=' + gens;
+      // Preserve Sosa 1 identity
+      var sa = self.options.selfAccess || '';
+      var pzM = sa.match(/[?&]pz=([^&]*)/);
+      var nzM = sa.match(/[?&]nz=([^&]*)/);
+      var oczM = sa.match(/[?&]ocz=([^&]*)/);
+      if (pzM) url += '&pz=' + pzM[1] + '&nz=' + nzM[1] + '&ocz=' + (oczM ? oczM[1] : '');
+      window.location.href = url;
+    } else {
+      var clickX = mx;
+      var targetScroll = (clickX / mapW) * treeW - viewW / 2;
+      container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
+    }
   });
 
   // Drag minimap viewport
   var dragging = false;
   wrapper.addEventListener('mousedown', function(e) {
-    dragging = true;
-    e.preventDefault();
+    // Only start drag if not on a person dot
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    if (!hitTest(mx, my)) {
+      dragging = true;
+      e.preventDefault();
+    }
   });
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;

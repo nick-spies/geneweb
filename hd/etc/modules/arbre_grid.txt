@@ -19,7 +19,7 @@
 </div>
 
 <link rel="stylesheet" href="css/tree_render.css?v=3">
-<script src="js/tree_render.js?v=5"></script>
+<script src="js/tree_render.js?v=6"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var dataEl = document.getElementById('tree-data');
