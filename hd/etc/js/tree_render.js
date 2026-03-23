@@ -516,47 +516,45 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     ctx.fill();
   }
 
-  // Draw viewport rectangle and scroll controls only if tree overflows
-  if (overflows) {
-    var vpRect = document.createElement('div');
-    vpRect.className = 'tree-minimap-viewport';
-    wrapper.appendChild(vpRect);
+  // Always show viewport rectangle and scroll controls
+  var vpRect = document.createElement('div');
+  vpRect.className = 'tree-minimap-viewport';
+  wrapper.appendChild(vpRect);
 
-    var self = this;
-    function updateViewport() {
-      var scrollLeft = container.scrollLeft;
-      var rx = scrollLeft * scaleX;
-      var rw = viewW * scaleX;
-      vpRect.style.left = Math.round(rx) + 'px';
-      vpRect.style.top = '0';
-      vpRect.style.width = Math.min(Math.round(rw), mapW) + 'px';
-      vpRect.style.height = mapH + 'px';
-    }
-    updateViewport();
-
-    container.addEventListener('scroll', updateViewport);
-
-    // Click minimap to scroll
-    canvas.addEventListener('click', function(e) {
-      var rect = canvas.getBoundingClientRect();
-      var clickX = e.clientX - rect.left;
-      var targetScroll = (clickX / mapW) * treeW - viewW / 2;
-      container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
-    });
-
-    // Drag minimap viewport
-    var dragging = false;
-    wrapper.addEventListener('mousedown', function(e) {
-      dragging = true;
-      e.preventDefault();
-    });
-    document.addEventListener('mousemove', function(e) {
-      if (!dragging) return;
-      var rect = canvas.getBoundingClientRect();
-      var clickX = e.clientX - rect.left;
-      var targetScroll = (clickX / mapW) * treeW - viewW / 2;
-      container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
-    });
-    document.addEventListener('mouseup', function() { dragging = false; });
+  var self = this;
+  function updateViewport() {
+    var scrollLeft = container.scrollLeft;
+    var rx = scrollLeft * scaleX;
+    var rw = viewW * scaleX;
+    vpRect.style.left = Math.round(rx) + 'px';
+    vpRect.style.top = '0';
+    vpRect.style.width = Math.min(Math.round(rw), mapW) + 'px';
+    vpRect.style.height = mapH + 'px';
   }
+  updateViewport();
+
+  container.addEventListener('scroll', updateViewport);
+
+  // Click minimap to scroll
+  canvas.addEventListener('click', function(e) {
+    var rect = canvas.getBoundingClientRect();
+    var clickX = e.clientX - rect.left;
+    var targetScroll = (clickX / mapW) * treeW - viewW / 2;
+    container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
+  });
+
+  // Drag minimap viewport
+  var dragging = false;
+  wrapper.addEventListener('mousedown', function(e) {
+    dragging = true;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var rect = canvas.getBoundingClientRect();
+    var clickX = e.clientX - rect.left;
+    var targetScroll = (clickX / mapW) * treeW - viewW / 2;
+    container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
+  });
+  document.addEventListener('mouseup', function() { dragging = false; });
 };

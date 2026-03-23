@@ -2243,7 +2243,12 @@ let default_sosa_ref conf base =
 let find_sosa_ref conf base =
   match find_person_in_env conf base "z" with
   | Some p -> Some p
-  | None -> default_sosa_ref conf base
+  | None -> (
+      match default_sosa_ref conf base with
+      | Some _ as r -> r
+      | None ->
+          (* Implicit Sosa: fall back to the current person as Sosa 1 *)
+          find_person_in_env conf base "")
 
 let write_default_sosa conf key =
   let gwf =

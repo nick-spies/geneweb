@@ -103,30 +103,7 @@
               </div>
             </div>
           </li>
-          %( SOSA NAV sosa_prev/sosa_next < > buttons  %)
-          %if;has_sosa;
-            %if;(sosa_prev.index!="")
-              <li class="nav-item">
-                <a class="nav-link text-secondary"
-                  href="%if;(sosa_prev="? ?")%apply;url_set%with;m/i/p/n/oc%and;/%sosa_prev.index;///%end;%else;
-                  %apply;url_set%with;m/i/p/n/oc%and;//%sosa_prev.first_name;/%sosa_prev.surname;/%sosa_prev.occ;%end;%end;"
-                  title="[Sosa] %sosa_prev.sosa;[:] %sosa_prev; %sosa_prev.dates_notag;"><span class="fa fa-chevron-left" aria-hidden="true"></span><span class="sr-only">&lt;</span></a>%nn;
-              </li>
-            %end;
-            %if;(sosa_next.index!="")
-              %if;(sosa_prev.index="")
-                <li class="nav-item" title="Sosa 1[:] %self; ">
-                  <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true"><span class="far fa-circle-dot" aria-hidden="true"></span><span class="sr-only">·</span></a>%nn;
-                </li>
-              %end;
-              <li class="nav-item">
-                <a class="nav-link text-secondary"
-                  href="%if;(sosa_next="? ?")%apply;url_set%with;m/i/n/p/oc%and;/%sosa_next.index;///%end;%else;
-                  %apply;url_set%with;m/i/p/n/oc%and;//%sosa_next.first_name_key;/%sosa_next.surname_key;/%sosa_next.occ;%end;%end;"
-                  title="[Sosa] %sosa_next.sosa;[:] %sosa_next; %sosa_next.dates_notag;"><span class="fa fa-chevron-right" aria-hidden="true"></span><span class="sr-only">></span></a>
-              </li>
-            %end;
-          %end;
+          %( SOSA NAV removed — Sosa root is now implicit per page %)
           %( WIZARD | ADD_PAR button %)
           %if;(iswiz=1 and not has_parents and first_name!="?" and surname!="?")
             <li class="nav-item">
@@ -193,22 +170,7 @@
               </a>
               %end;
               <div class="dropdown-divider"></div>
-              %( SOSA_REF / CGL buttons %)
-              %if;(not browsing_with_sosa_ref or sosa_ref.key!=key)
-                  <a class="dropdown-item"
-                    href="%if;(b.access_by_key="yes")%apply;url_set%with;pz/nz/ocz%and;%first_name_key;/%surname_key;/%if;(occ!=0)%occ;%end;%end;
-                          %else;%apply;url_set("iz",index)%end;"
-                    title="%apply;nav_with_sosa_ref(self)" %laS;>%nn;
-                    <i class="far fa-circle-dot fa-fw %sexcolor; mr-1"></i> [*modify::Sosa 1][:] %self;</a>
-              %end;
-              %if;(b.default_sosa_ref!=sosa_ref.key)
-                <a class="dropdown-item" href="%url_set.iz_pz_nz_ocz;"
-                  title="%if;(b.default_sosa_ref!="")%apply;nav_with_sosa_ref(b.default_sosa_ref)%else;[*user/password/cancel]2 [navigation] [with] %sosa_ref.first_name_key_strip; %sosa_ref.surname_key_strip;%end;">%nn;
-                  <i class="far fa-circle-stop fa-fw %if;(browsing_with_sosa_ref and b.default_sosa_ref!="")%sexcolor;%else;text-danger%end; mr-1"></i>%sp;
-                  %if;(b.default_sosa_ref!="")%nl;[*restore default_sosa_ref][:] %b.default_sosa_ref;%nn;
-                  %else;[*user/password/cancel]2 [navigation] [Sosa]%nn;%end;
-                </a>
-              %end;
+              %( SOSA_REF buttons removed — Sosa root is now implicit per page %)
               %if;(e.m!="ADD_FAM" and e.m!="MOD_FAM" and e.m!="MOD_IND" and e.m!="R" and e.m!="U")
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="%url_set.cgl.on;" target="_blank"><i class="fa fa-link-slash fa-fw mr-2" title="[*cancel GeneWeb links]"></i>[*cancel GeneWeb links]</a>%nn;
