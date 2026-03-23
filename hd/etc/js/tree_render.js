@@ -172,15 +172,37 @@ TreeRenderer.prototype.buildGenerations = function(rows) {
       }
     } else {
       // Fewer cells than expected (missing ancestors collapsed the grid).
-      // Use Sosa numbers to place each cell at its correct symmetric slot.
-      var genStart = Math.pow(2, gen);
-      for (var c = 0; c < cells.length; c++) {
-        if (cells[c].person && cells[c].person.hasSosa) {
-          var sosa = parseInt(cells[c].person.sosa);
-          var slot = sosa - genStart;
-          if (slot >= 0 && slot < expectedCount) {
+      // Map cells to slots using couple structure (isLeft/isRight/isTop).
+      // Don't use Sosa numbers — they may be relative to a different root.
+      var slot = 0;
+      var c = 0;
+      while (c < cells.length && slot < expectedCount) {
+        if (cells[c].isLeft) {
+          slots[slot] = cells[c];
+          slot++;
+          c++;
+          if (c < cells.length && cells[c].isRight) {
             slots[slot] = cells[c];
+            slot++;
+            c++;
+          } else {
+            slot++; // skip partner slot (missing mother)
           }
+        } else if (cells[c].isRight) {
+          slot++; // skip left slot (missing father)
+          slots[slot] = cells[c];
+          slot++;
+          c++;
+        } else if (cells[c].isTop) {
+          // Standalone cell — one parent where a couple would be
+          slots[slot] = cells[c];
+          slot += 2; // occupies left slot, skip right
+          c++;
+        } else {
+          // Empty or unknown — assign sequentially
+          slots[slot] = cells[c];
+          slot++;
+          c++;
         }
       }
     }

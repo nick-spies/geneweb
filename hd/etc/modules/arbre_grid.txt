@@ -19,7 +19,7 @@
 </div>
 
 <link rel="stylesheet" href="css/tree_render.css?v=4">
-<script src="js/tree_render.js?v=7"></script>
+<script src="js/tree_render.js?v=8"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var dataEl = document.getElementById('tree-data');
@@ -60,7 +60,7 @@
             sosa: parts[13] || '',
             birthYear: parts[14] || '',
             deathYear: parts[15] || '',
-            hasParents: parts[cell.isRight ? 17 : 16] === '1'
+            hasParents: parts[17] === '1'
           };
           if (cell.isRight) {
             cell.family = { marriageYear: parts[16] || '' };
