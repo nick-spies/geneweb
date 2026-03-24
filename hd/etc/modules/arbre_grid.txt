@@ -13,13 +13,14 @@
 %foreach;ancestor_tree_line(e_v+1)
 ~ROW~%if;is_first;1%else;0%end;
   %foreach;cell;
-~CELL~%cell.colspan;~%if;cell.is_empty;1%else;0%end;~%if;cell.is_top;1%else;0%end;~%if;cell.is_left;1%else;0%end;~%if;cell.is_right;1%else;0%end;~%if;(not cell.is_empty and not cell.is_top)%cell.person.first_name;~%cell.person.surname;~%cell.person.public_name;~%prefix;%cell.person.access;~%cell.person.sex;~%if;cell.person.has_image;1%else;0%end;~%if;cell.person.has_image;%cell.person.image_url;%end;~%if;cell.person.has_sosa;1%else;0%end;~%if;cell.person.has_sosa;%cell.person.sosa;%end;~%cell.person.birth_date.year;~%cell.person.death_date.year;~%if;cell.is_right;%cell.family.marriage_date.year;%end;~%if;cell.person.has_parents;1%else;0%end;%else;~~~~~~~~~~~~%end;
+~CELL~%cell.colspan;~%if;cell.is_empty;1%else;0%end;~%if;cell.is_top;1%else;0%end;~%if;cell.is_left;1%else;0%end;~%if;cell.is_right;1%else;0%end;~%if;(not cell.is_empty)%cell.person.first_name;~%cell.person.surname;~%cell.person.public_name;~%prefix;%cell.person.access;~%cell.person.sex;~%if;cell.person.has_image;1%else;0%end;~%if;cell.person.has_image;%cell.person.image_url;%end;~%if;cell.person.has_sosa;1%else;0%end;~%if;cell.person.has_sosa;%cell.person.sosa;%end;~%cell.person.birth_date.year;~%cell.person.death_date.year;~%if;cell.is_right;%cell.family.marriage_date.year;%end;~%if;cell.person.has_parents;1%else;0%end;%else;~~~~~~~~~~~~%end;
   %end;
 %end;
 </div>
 
-<link rel="stylesheet" href="css/tree_render.css?v=7">
-<script src="js/tree_render.js?v=9"></script>
+<link rel="stylesheet" href="css/tree_render.css?v=15">
+<script src="js/tree_render.js?v=35"></script>
+<div style="position:fixed;top:0;right:0;background:#f00;color:#fff;padding:2px 8px;font-size:11px;z-index:9999;opacity:0.8">Build 35</div>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var dataEl = document.getElementById('tree-data');
@@ -47,7 +48,7 @@
           isRight: parts[4] === '1'
         };
 
-        if (!cell.isEmpty && !cell.isTop && parts[5]) {
+        if (!cell.isEmpty && parts[5]) {
           cell.person = {
             firstName: parts[5] || '',
             surname: parts[6] || '',
