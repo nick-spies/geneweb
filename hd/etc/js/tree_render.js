@@ -25,9 +25,9 @@ PersonBox.prototype.displayName = function() {
 
 PersonBox.prototype.dateSpan = function() {
   var p = this.person;
-  var b = p.birthYear || '?';
-  var d = p.deathYear || '?';
-  if (b === '?' && d === '?') return '?\u2013?';
+  var b = p.birthYear || '\u2014';
+  var d = p.deathYear || '\u2014';
+  if (b === '\u2014' && d === '\u2014') return '\u2014';
   return b + '\u2013' + d;
 };
 

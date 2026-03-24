@@ -168,6 +168,7 @@
   margin-bottom: 1px;
   user-select: none;
   cursor: default;
+  white-space: nowrap;
 }
 
 /* Compact display for top rows with many cells */
