@@ -1,5 +1,5 @@
 /**
- * tree_render.js — Recursive flexbox ancestor tree renderer
+ * tree_render.js — Panoramic ancestor tree renderer
  *
  * Each family unit (couple + child) is a self-contained flex container.
  * Parent branches expand to fit their content — no shared grid columns.
