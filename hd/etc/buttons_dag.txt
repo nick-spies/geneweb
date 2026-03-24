@@ -1,13 +1,13 @@
 <!-- $Id: buttons_dag.txt v7.1 02/09/2023 02:36:09 $ -->
 <!-- Copyright (c) 1998-2007 INRIA -->
-%( Boutons de configurations et d’options pour les arbres et DAG %)
+%( Boutons de configurations et d'options pour les arbres et DAG %)
 %let;evarv;%if;(e.v!="")%e.v;%else;3%end;%in;
 %( TODO : fix static_levels for dag, atm fixed at 12! %)
 %let;maxlev;
   %if;(e.m="A")
-    %apply;min%with;%if;(b.max_anc_tree!="")%b.max_anc_tree;%end;
+    %apply;max%with;%expr(15)%and;%apply;min%with;%if;(b.max_anc_tree!="")%b.max_anc_tree;%end;
                %and;%if;(b.max_anc_level!="")%b.max_anc_level;%end;
-               %and;%static_max_anc_level;%end;
+               %and;%static_max_anc_level;%end;%end;
   %elseif;(e.m="D")
     %apply;min%with;%if;(b.max_desc_tree!="")%b.max_desc_tree;%end;
                %and;%if;(b.max_desc_level!="")%b.max_desc_level;%end;
@@ -15,11 +15,11 @@
   %else;%expr(12)
   %end;
 %in;
-%let;maxv;%if;(maxlev<10 or maxlev<evarv+5)%expr(maxlev+1)
-          %elseif;(maxlev>=evarv+5 and evarv>5)%expr(evarv+5)
-          %else;10%end;%in;
-%let;minv;%if;(maxlev>9 and maxlev<evarv+5)%expr(maxv-9)
-          %elseif;(maxlev>9 and evarv>5)%expr(evarv-4)
+%let;maxv;%if;(maxlev<15 or maxlev<evarv+7)%expr(maxlev+1)
+          %elseif;(maxlev>=evarv+7 and evarv>7)%expr(evarv+7)
+          %else;16%end;%in;
+%let;minv;%if;(maxlev>15 and maxlev<evarv+7)%expr(maxv-15)
+          %elseif;(maxlev>15 and evarv>7)%expr(evarv-7)
           %else;1%end;%in;
 %( minv %minv; < evarv %evarv; < maxv %maxv; (maxlev %maxlev;) %)
 %define;setvar(nnn,vvv)
@@ -123,21 +123,25 @@
     <div>
       <div class="btn-group border rounded" role="group" aria-label="generation pickup buttons group">
         <span class="btn btn-sm btn-primary disabled border border-info rounded-left mt-0 w-100 h-100">[*generation/generations]0</span>
-        %if;(maxlev>9 and evarv>5)
-          <a role="button" href="%apply;url_set%with;v%and;%expr(evarv-1)%end;"
-            class="btn btn-sm btn-outline-primary font-weight-bold border-0 px-2"
-            title="(-1) [visualize/show/hide/summary]1 %expr(evarv-1) [generation/generations]1 (max %maxlev;)">−</a>
-        %end;
         %for;i;minv;maxv;
           <a role="button" id="v%i;" class="btn btn-sm px-%if;(i<10)2%else;1%end; btn-outline-primary border-%if;(evarv=i)2 rounded disabled font-weight-bold%else;0%end;" %if;(evarv!=i)href="%apply;url_set%with;v%and;%expr(i)%end;"%end;%sp;
-            title="%if;(evarv!=i)[*visualize/show/hide/summary]1 %i; %if;(i=1)[generation/generations]0%else;[generation/generations]1%end;
+            title="%if;(evarv!=i)[*visualize/show/hide/summary]1 %i; %if;(i=1)[generation/generations]0%else;[generation/generations]1%end;
             %end; %if;(i=maxlev)(max)%end;">%i;%(%if;(evarv=i)<br>^%end;%)</a>
         %end;
-        %if;(maxlev>9 and maxlev-evarv>=5)
-          <a role="button" href="%apply;url_set%with;v%and;%expr(evarv+1)%end;"
-            class="btn btn-sm btn-outline-primary font-weight-bold border-0 px-2"
-            title="(+1) [visualize/show/hide/summary]1 %expr(evarv+1) [generation/generations]1 (max %maxlev;)">+</a>
-        %end;
+        <span class="ml-1" style="display:inline-flex;align-items:center;">
+          <input id="gen-input" type="number" min="1" value="%evarv;" style="width:3.5em;text-align:center;padding:2px 4px;font-size:0.8rem;border:1px solid #007bff;border-radius:3px;" title="Type generation number and press Enter or click Go">
+          <a role="button" id="gen-go" class="btn btn-sm btn-outline-primary border-0 px-1 ml-1" title="Go to generation">Go</a>
+        </span>
+        <script>
+        (function(){
+          var inp=document.getElementById('gen-input');
+          var go=document.getElementById('gen-go');
+          var tpl='%apply;url_set%with;v%and;__V__%end;';
+          function nav(){var v=parseInt(inp.value);if(v&&v>=1){window.location.href=tpl.replace('__V__',v);}}
+          go.addEventListener('click',nav);
+          inp.addEventListener('keydown',function(e){if(e.key==='Enter')nav();});
+        })();
+        </script>
       </div>
       <div class="d-flex align-self-center my-1">
         <div class="border rounded mr-1">

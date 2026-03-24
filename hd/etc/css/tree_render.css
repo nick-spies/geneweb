@@ -1,29 +1,103 @@
-/* tree_render.css — CSS Grid ancestor tree styles */
+/* tree_render.css — Recursive flexbox ancestor tree styles */
 
 #tree-grid-container {
   overflow-x: auto;
   overflow-y: visible;
   width: 100%;
+  text-align: center;
 }
 
-.tree-grid {
-  display: grid;
-  gap: 0;
-  font-size: 0.85rem;
-  line-height: 1.3;
-  padding: 10px 30px 60px 30px;
-  width: max-content;
-  min-width: 100%;
+/* ── Family unit: the core recursive building block ── */
+
+.fu {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-/* Person box — no borders, maximize space */
+.fu-root {
+  padding: 20px 20px 60px 20px;
+}
+
+/* Parents row: father and mother branches side by side */
+.fu-parents {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* Each parent branch contains a nested family-unit */
+.fu-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Empty placeholder for unknown parent */
+.fu-empty {
+  min-width: 20px;
+  min-height: 20px;
+}
+
+/* Person cell: wraps a person-box, controls max width */
+.fu-person {
+  text-align: center;
+  padding: 2px 2px;
+  overflow: hidden;
+}
+
+
+/* ── Connector between parents and child ── */
+
+.fu-conn {
+  position: relative;
+  width: 100%;
+  min-height: 22px;
+}
+
+/* Vertical line from parent center down to horizontal bar (top 50%) */
+.fc-vert {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 50%;
+  background: #aaa;
+  transform: translateX(-1px);
+}
+
+/* Horizontal bar connecting parent centers at 50% height */
+.fc-hbar {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  background: #aaa;
+  transform: translateY(-1px);
+}
+
+/* Trunk: vertical from couple midpoint down to child */
+.fc-trunk {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 50%;
+  background: #aaa;
+  transform: translateX(-1px);
+}
+
+/* ── Person box styles (shared with old layout) ── */
+
 .person-box {
   text-align: center;
-  padding: 2px 1px;
+  padding: 2px 4px;
   overflow: hidden;
   min-width: 0;
+  width: fit-content;
+  margin: 0 auto;
   word-break: break-word;
   position: relative;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
 }
 
 .person-male {
@@ -36,9 +110,11 @@
 
 .person-name {
   text-decoration: none;
-  color: inherit;
+  color: #007bff;
   font-size: 0.8rem;
   display: block;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .person-name:hover {
@@ -47,17 +123,27 @@
 
 .person-first-name {
   font-weight: 600;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .person-surname {
   font-variant: small-caps;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .person-dates {
   display: block;
-  color: #666;
+  color: #007bff;
   line-height: 1.1;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .person-image {
@@ -94,7 +180,7 @@
   text-decoration: none;
   font-size: 0.55rem;
   font-weight: 600;
-  color: inherit;
+  color: #007bff;
   line-height: 1;
 }
 
@@ -102,121 +188,23 @@
   text-decoration: underline;
 }
 
-/* Tree structure */
-.tree-cell {
-  text-align: center;
-  min-width: 0;
-  overflow: visible;
-  align-self: end;
-}
-
-.tree-cell-empty {
-  min-height: 1em;
-}
-
-.tree-cell-person {
-  padding: 2px 1px;
-  display: flex;
-  justify-content: center;
-}
-
-/* Vertical line above top-row ancestors with further parents */
-.tree-cell-person[data-has-parents="1"] {
-  position: relative;
-  margin-top: 16px;
-}
-
-.tree-cell-person[data-has-parents="1"]::before {
-  content: '';
-  position: absolute;
-  top: -16px;
-  left: 50%;
-  transform: translateX(-1px);
-  width: 2px;
-  height: 16px;
-  background: #aaa;
-}
-
-.tree-spacer {
-  /* No max-width: spacers must fill their grid column so branch borders connect */
-}
-
-.tree-connector {
-  text-align: center;
-  color: #aaa;
-  font-size: 1rem;
-  line-height: 1;
-  padding: 0;
-}
-
-/* Connector box: one per couple, spans father+gap+mother columns */
-.tree-connector-box {
-  position: relative;
-  min-height: 20px;
-}
-
-/* Vertical line from parent center down to horizontal bar (top 50%) */
-.tree-conn-vert-top {
-  position: absolute;
-  top: 0;
-  width: 2px;
-  height: 50%;
-  background: #aaa;
-  transform: translateX(-1px);
-}
-
-/* Horizontal bar at 50% height connecting parent centers */
-.tree-conn-hbar {
-  position: absolute;
-  top: 50%;
-  height: 2px;
-  background: #aaa;
-  transform: translateY(-1px);
-}
-
-/* Trunk: vertical from couple center (50%) down to child (50%→100%) */
-.tree-conn-trunk {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 2px;
-  height: 50%;
-  background: #aaa;
-  transform: translateX(-1px);
-}
-
-/* Standalone: vertical line through entire height */
-.tree-conn-trunk-full {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 2px;
-  height: 100%;
-  background: #aaa;
-  transform: translateX(-1px);
-}
-
-/* Marriage year — overlay spanning full couple width, centered on the branch line */
-.tree-marriage-overlay {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  overflow: visible;
-  pointer-events: none;
-  z-index: 1;
-}
-
+/* Marriage year — positioned at trunk center on the horizontal bar */
 .tree-marriage {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
   font-size: 0.6rem;
   font-style: italic;
   color: #888;
   white-space: nowrap;
   background: #fff;
   padding: 0 3px;
-  margin-top: -2px;
+  z-index: 1;
+  pointer-events: none;
 }
 
-/* Minimap */
+/* ── Minimap ── */
+
 .tree-minimap {
   position: relative;
   border: 1px solid #999;
@@ -226,7 +214,6 @@
   flex-shrink: 0;
   align-self: flex-end;
   margin-bottom: 2px;
-  /* Extend upward above the navbar */
   transform-origin: bottom left;
 }
 

@@ -1,10 +1,11 @@
-<!-- $Id: modules/arbre_grid.txt v7.1 2026/03/22 $ -->
+<!-- $Id: modules/arbre_grid.txt v7.1 2026/03/24 $ -->
 %( JavaScript/CSS Grid ancestor tree renderer %)
 %( Emits ancestor data as JSON, then renders with tree_render.js %)
+%let;e_v;%if;(e.v!="")%e.v;%else;3%end;%in;
 
 <h3 class="display-5 ml-3" id="tree-title">
   %apply;ttl()
-  <span class="text-small text-muted font-weight-lighter">%apply;togena(e.v)</span>
+  <span class="text-small text-muted font-weight-lighter">%apply;togena(e_v)</span>
 </h3>
 
 <div id="tree-grid-container"></div>
@@ -18,9 +19,9 @@
 %end;
 </div>
 
-<link rel="stylesheet" href="css/tree_render.css?v=15">
-<script src="js/tree_render.js?v=35"></script>
-<div style="position:fixed;top:0;right:0;background:#f00;color:#fff;padding:2px 8px;font-size:11px;z-index:9999;opacity:0.8">Build 35</div>
+<link rel="stylesheet" href="css/tree_render.css?v=30">
+<script src="js/tree_render.js?v=59"></script>
+<div style="position:fixed;top:50px;right:10px;background:#f00;color:#fff;padding:4px 12px;font-size:13px;z-index:99999;opacity:0.9;border-radius:4px;" id="build-badge">Build 59</div>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var dataEl = document.getElementById('tree-data');

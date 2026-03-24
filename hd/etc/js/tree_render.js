@@ -1,12 +1,9 @@
 /**
- * tree_render.js — CSS Grid ancestor tree renderer
+ * tree_render.js — Recursive flexbox ancestor tree renderer
  *
- * Position-inheritance layout: row 0 positions cells using colspans + gaps.
- * Each subsequent row inherits positions from its parent row by spanning
- * each child from its father's start to its mother's end. This guarantees
- * children are centered under their parent couples at every level.
- *
- * Invariant: colspanSum(row) + (cells(row) - 1) = gridCols for all rows.
+ * Each family unit (couple + child) is a self-contained flex container.
+ * Parent branches expand to fit their content — no shared grid columns.
+ * Connector lines are positioned after layout using measured DOM positions.
  */
 
 // ── PersonBox ──────────────────────────────────────────────────────────────
@@ -28,16 +25,16 @@ PersonBox.prototype.displayName = function() {
 
 PersonBox.prototype.dateSpan = function() {
   var p = this.person;
-  if (!p.birthYear && !p.deathYear) return '';
   var b = p.birthYear || '?';
-  var d = p.deathYear || '';
-  return d ? b + '\u2013' + d : '\u002a' + b;
+  var d = p.deathYear || '?';
+  if (b === '?' && d === '?') return '?\u2013?';
+  return b + '\u2013' + d;
 };
 
 PersonBox.prototype.tooltipText = function() {
   var p = this.person;
   var parts = [];
-  if (p.sosa) parts.push('Sosa ' + p.sosa);
+  if (p.posSosa) parts.push('Sosa ' + p.posSosa);
   parts.push((p.sex === 0 ? '\u2642' : '\u2640') + ' ' + this.displayName());
   var dates = this.dateSpan();
   if (dates) parts.push('(' + dates + ')');
@@ -65,16 +62,16 @@ PersonBox.prototype.render = function() {
         window.location.href = treeAccess(p.access);
       });
     }
-    link.textContent = (p.hasSosa && p.sosa) ? p.sosa : '\u00B7';
+    link.textContent = p.posSosa ? p.posSosa : '\u00B7';
     box.appendChild(link);
     return box;
   }
 
-  if (this.showSosa && p.hasSosa && p.sosa) {
+  if (this.showSosa && p.posSosa) {
     var badge = document.createElement('span');
     badge.className = 'person-sosa';
-    badge.textContent = p.sosa;
-    badge.title = 'Sosa ' + p.sosa;
+    badge.textContent = p.posSosa;
+    badge.title = 'Sosa ' + p.posSosa;
     box.appendChild(badge);
   }
 
@@ -121,7 +118,6 @@ PersonBox.prototype.render = function() {
   nameLink.appendChild(firstName);
 
   if (this.showSurname) {
-    nameLink.appendChild(document.createElement('br'));
     var surname = document.createElement('span');
     surname.className = 'person-surname';
     surname.textContent = p.surname;
@@ -160,55 +156,47 @@ function TreeRenderer(container, data, options) {
   this.options = options || {};
 }
 
-TreeRenderer.prototype.rowStyle = function(numCells) {
+TreeRenderer.prototype.rowStyle = function(numCells, isTopTwo) {
+  // Only go compact for top two rows when there are many cells
+  if (isTopTwo && numCells > 32) return { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: false, showSosa: true,  showDates: false, compact: true  };
   if (numCells <= 2)  return { fontSize: 0.85, imgSize: 50, showImage: true,  showSurname: true,  showSosa: true,  showDates: true,  compact: false };
   if (numCells <= 4)  return { fontSize: 0.80, imgSize: 45, showImage: true,  showSurname: true,  showSosa: true,  showDates: true,  compact: false };
   if (numCells <= 8)  return { fontSize: 0.75, imgSize: 38, showImage: true,  showSurname: true,  showSosa: true,  showDates: true,  compact: false };
   if (numCells <= 16) return { fontSize: 0.70, imgSize: 30, showImage: true,  showSurname: true,  showSosa: true,  showDates: true,  compact: false };
-  if (numCells <= 32) return { fontSize: 0.60, imgSize: 0,  showImage: false, showSurname: false, showSosa: true,  showDates: false, compact: true  };
-  return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: false, showSosa: true,  showDates: false, compact: true  };
-};
-
-/**
- * Compute cell positions for a row, with 1-column gaps between cells.
- * Returns array of {start, end} for each cell.
- */
-TreeRenderer.prototype.cellLayout = function(cells) {
-  var layout = [];
-  var col = 1;
-  for (var c = 0; c < cells.length; c++) {
-    if (c > 0) col++; // 1-column gap between adjacent cells
-    var start = col;
-    col += cells[c].colspan;
-    layout.push({ start: start, end: col });
-  }
-  return layout;
+  if (numCells <= 32) return { fontSize: 0.65, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true,  compact: false };
+  if (numCells <= 64) return { fontSize: 0.60, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true,  compact: false };
+  return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: false, compact: false };
 };
 
 TreeRenderer.prototype.render = function() {
   var rows = this.data.rows;
-  if (!rows || !rows.length) return;
+  if (!rows || !rows.length) {
+    this.updateTitle();
+    return;
+  }
 
-  // Compute grid total: colspanSum + (cells-1) is constant for all rows.
-  // Use last row (1 cell, colspanSum = total)
-  var lastRow = rows[rows.length - 1];
-  var gridCols = 0;
-  for (var j = 0; j < lastRow.cells.length; j++) gridCols += lastRow.cells[j].colspan;
-  gridCols += lastRow.cells.length - 1;
+  var totalGens = rows.length; // number of rows
+  var topGen = totalGens - 1;  // generation number of the topmost row
 
-  // Squeeze: compute a uniform column width.
-  // All columns are the same size — this guarantees alignment across rows.
-  var topStyle = this.rowStyle(rows[0].cells.length);
-  var colWidth;
-  if (topStyle.compact) colWidth = 18;
-  else if (topStyle.showImage) colWidth = 30;
-  else if (topStyle.showDates) colWidth = 22;
-  else if (topStyle.showSurname) colWidth = 18;
-  else colWidth = 14;
-
-  var grid = document.createElement('div');
-  grid.className = 'tree-grid';
-  grid.style.gridTemplateColumns = 'repeat(' + gridCols + ', ' + colWidth + 'px)';
+  // Build sosaMap using positional sosa numbers (handles pedigree collapse)
+  var sosaMap = {};
+  var marriageMap = {};
+  for (var r = 0; r < rows.length; r++) {
+    var gen = topGen - r; // row 0 = topGen, last row = gen 0
+    var baseSosa = Math.pow(2, gen);
+    var cells = rows[r].cells;
+    for (var c = 0; c < cells.length; c++) {
+      var posSosa = baseSosa + c;
+      if (cells[c].person) {
+        cells[c].person.posSosa = posSosa;
+        sosaMap[posSosa] = cells[c].person;
+      }
+      if (cells[c].isRight && cells[c].family && cells[c].family.marriageYear) {
+        marriageMap[posSosa >> 1] = cells[c].family.marriageYear;
+      }
+    }
+  }
+  this._marriageMap = marriageMap;
 
   // Build treeAccess function for re-rooting
   var opts = this.options;
@@ -227,170 +215,125 @@ TreeRenderer.prototype.render = function() {
     return url;
   };
 
-  var gridRow = 1;
-  var sosa1El = null;
+  var self = this;
+  var maxSosa = Math.pow(2, topGen + 1) - 1; // highest possible sosa in this tree
 
-  console.log('=== TREE DEBUG Build 30 ===');
-  console.log('gridCols=' + gridCols);
-  for (var dr = 0; dr < rows.length; dr++) {
-    var dc = rows[dr].cells;
-    var dsum = 0;
-    for (var dj = 0; dj < dc.length; dj++) dsum += dc[dj].colspan;
-    var dtotal = dsum + (dc.length - 1);
-    var ok = dtotal === gridCols ? 'OK' : 'MISMATCH!';
-    console.log('Row ' + dr + ': cells=' + dc.length + ' colspanSum=' + dsum + ' total=' + dtotal + ' ' + ok);
-    // Log first few cell colspans
-    var dcs = [];
-    for (var dj = 0; dj < dc.length; dj++) {
-      var sosa = (dc[dj].person && dc[dj].person.hasSosa) ? 'S' + dc[dj].person.sosa : (dc[dj].isEmpty ? 'empty' : 'person');
-      var flags = (dc[dj].isLeft ? 'L' : '') + (dc[dj].isRight ? 'R' : '') + (dc[dj].isTop ? 'T' : '');
-      dcs.push(sosa + ':' + dc[dj].colspan + (flags ? '(' + flags + ')' : ''));
-    }
-    console.log('  cells: ' + dcs.join(', '));
-    // Log layout positions for verification
-    var dl = this.cellLayout(dc);
-    var dps = [];
-    for (var dj = 0; dj < Math.min(dc.length, 10); dj++) {
-      dps.push('[' + dl[dj].start + ',' + dl[dj].end + ')');
-    }
-    console.log('  layout: ' + dps.join(', ') + (dc.length > 10 ? '...' : ''));
-  }
+  // No per-generation sizing — uniform min-width via CSS on .fu-person
+  // Compact cells get a smaller cap via maxWidth
 
-  for (var r = 0; r < rows.length; r++) {
-    var cells = rows[r].cells;
-    var layout = this.cellLayout(cells);
-    var style = this.rowStyle(cells.length);
+  // Recursive: build DOM subtree for a sosa position
+  function buildSubtree(sosa) {
+    var gen = Math.floor(Math.log2(sosa));
+    var person = sosaMap[sosa];
+    var cellsInGen = Math.pow(2, gen);
+    var isTopTwo = (gen >= topGen - 1) && (gen >= 1);
+    var style = self.rowStyle(cellsInGen, isTopTwo);
 
-    // ── Person row ──
-    for (var c = 0; c < cells.length; c++) {
-      if (cells[c].person) {
-        var personEl = document.createElement('div');
-        personEl.className = 'tree-cell tree-cell-person';
-        personEl.style.gridColumn = layout[c].start + ' / ' + layout[c].end;
-        personEl.style.gridRow = gridRow;
+    var unit = document.createElement('div');
+    unit.className = 'fu';
+    unit.setAttribute('data-sosa', sosa);
 
-        var pb = new PersonBox(cells[c].person);
-        pb.compact = style.compact || false;
-        pb.showImage = style.showImage;
-        pb.imgSize = style.imgSize;
-        pb.fontSize = style.fontSize;
-        pb.showSurname = style.showSurname;
-        pb.showSosa = style.showSosa;
-        pb.showDates = style.showDates;
-        pb.treeAccess = treeAccess;
-        pb.options = opts;
+    var fatherSosa = sosa * 2;
+    var motherSosa = sosa * 2 + 1;
+    var hasFather = sosaMap[fatherSosa] !== undefined;
+    var hasMother = sosaMap[motherSosa] !== undefined;
+    var showParents = (hasFather || hasMother) && fatherSosa <= maxSosa;
 
-        if (r === 0 && cells[c].person.hasParents) {
-          personEl.setAttribute('data-has-parents', '1');
-        }
+    if (showParents) {
+      var parentsRow = document.createElement('div');
+      parentsRow.className = 'fu-parents';
 
-        if (r === rows.length - 1) {
-          sosa1El = personEl;
-        }
-
-        personEl.appendChild(pb.render());
-        grid.appendChild(personEl);
+      // Father branch
+      var fBranch = document.createElement('div');
+      fBranch.className = 'fu-branch';
+      if (hasFather) {
+        fBranch.appendChild(buildSubtree(fatherSosa));
       } else {
-        this.addCell(grid, gridRow, layout[c].start, layout[c].end - layout[c].start,
-          'tree-cell tree-cell-empty', '');
+        var empty = document.createElement('div');
+        empty.className = 'fu-empty';
+        fBranch.appendChild(empty);
       }
-    }
-    gridRow++;
+      parentsRow.appendChild(fBranch);
 
-    // ── Branch connector row ──
-    // Uses explicit positioned elements instead of pseudo-elements.
-    // A "trunk" line descends from the couple center (= child center)
-    // so asymmetric parents don't cause visual misalignment.
-    if (r < rows.length - 1) {
-      var c = 0;
-      while (c < cells.length) {
-        var isCouple = cells[c].isLeft && c + 1 < cells.length && cells[c + 1].isRight;
-        var leftPerson = !cells[c].isEmpty && cells[c].person;
-        var rightPerson = isCouple && !cells[c + 1].isEmpty && cells[c + 1].person;
-
-        if (isCouple) {
-          if (leftPerson || rightPerson) {
-            var coupleStart = layout[c].start;
-            var coupleEnd = layout[c + 1].end;
-            var coupleW = coupleEnd - coupleStart;
-
-            var conn = document.createElement('div');
-            conn.className = 'tree-connector-box';
-            conn.style.gridColumn = coupleStart + ' / ' + coupleEnd;
-            conn.style.gridRow = gridRow;
-
-            var fPct = leftPerson
-              ? ((layout[c].start + layout[c].end) / 2 - coupleStart) / coupleW * 100 : 50;
-            var mPct = rightPerson
-              ? ((layout[c + 1].start + layout[c + 1].end) / 2 - coupleStart) / coupleW * 100 : 50;
-
-            // Vertical from father center (top → 50%)
-            if (leftPerson) {
-              var el = document.createElement('div');
-              el.className = 'tree-conn-vert-top';
-              el.style.left = fPct.toFixed(2) + '%';
-              conn.appendChild(el);
-            }
-            // Vertical from mother center (top → 50%)
-            if (rightPerson) {
-              var el = document.createElement('div');
-              el.className = 'tree-conn-vert-top';
-              el.style.left = mPct.toFixed(2) + '%';
-              conn.appendChild(el);
-            }
-            // Horizontal bar connecting parent centers at 50% height
-            var hLeft = leftPerson ? fPct : 50;
-            var hRight = rightPerson ? mPct : 50;
-            var hBar = document.createElement('div');
-            hBar.className = 'tree-conn-hbar';
-            hBar.style.left = hLeft.toFixed(2) + '%';
-            hBar.style.width = (hRight - hLeft).toFixed(2) + '%';
-            conn.appendChild(hBar);
-
-            // Trunk from couple center (50%) down to child
-            var trunk = document.createElement('div');
-            trunk.className = 'tree-conn-trunk';
-            conn.appendChild(trunk);
-
-            grid.appendChild(conn);
-
-            // Marriage overlay
-            var marriageYear = cells[c + 1].family ? cells[c + 1].family.marriageYear : '';
-            var overlay = document.createElement('div');
-            overlay.className = 'tree-marriage-overlay';
-            overlay.style.gridColumn = coupleStart + ' / ' + coupleEnd;
-            overlay.style.gridRow = gridRow;
-            var marr = document.createElement('span');
-            marr.className = 'tree-marriage';
-            marr.textContent = marriageYear ? '& ' + marriageYear : '&';
-            overlay.appendChild(marr);
-            grid.appendChild(overlay);
-          }
-          c += 2; // always advance by 2 for couples
-        } else if (leftPerson) {
-          // Standalone person — vertical line through
-          var el = document.createElement('div');
-          el.className = 'tree-connector-box';
-          el.style.gridColumn = layout[c].start + ' / ' + layout[c].end;
-          el.style.gridRow = gridRow;
-          var vert = document.createElement('div');
-          vert.className = 'tree-conn-trunk-full';
-          el.appendChild(vert);
-          grid.appendChild(el);
-          c++;
-        } else {
-          c++;
-        }
+      // Mother branch
+      var mBranch = document.createElement('div');
+      mBranch.className = 'fu-branch';
+      if (hasMother) {
+        mBranch.appendChild(buildSubtree(motherSosa));
+      } else {
+        var empty = document.createElement('div');
+        empty.className = 'fu-empty';
+        mBranch.appendChild(empty);
       }
-      gridRow++;
+      parentsRow.appendChild(mBranch);
+
+      unit.appendChild(parentsRow);
+
+      // Connector placeholder (positioned by JS after layout)
+      var conn = document.createElement('div');
+      conn.className = 'fu-conn';
+      conn.setAttribute('data-father', fatherSosa);
+      conn.setAttribute('data-mother', motherSosa);
+
+      // Marriage year label
+      var mYear = marriageMap[sosa] || '';
+      var marr = document.createElement('span');
+      marr.className = 'tree-marriage';
+      marr.textContent = mYear ? '& ' + mYear : '&';
+      conn.appendChild(marr);
+
+      unit.appendChild(conn);
     }
+
+    // Person box
+    if (person) {
+      var personEl = document.createElement('div');
+      personEl.className = 'fu-person';
+      personEl.setAttribute('data-sosa', sosa);
+      if (style.compact) personEl.style.maxWidth = '50px';
+
+      var pb = new PersonBox(person);
+      pb.compact = style.compact || false;
+      pb.showImage = style.showImage;
+      pb.imgSize = style.imgSize;
+      pb.fontSize = style.fontSize;
+      pb.showSurname = style.showSurname;
+      pb.showSosa = style.showSosa;
+      pb.showDates = style.showDates;
+      pb.treeAccess = treeAccess;
+      pb.options = opts;
+
+
+      personEl.appendChild(pb.render());
+      unit.appendChild(personEl);
+    }
+
+    return unit;
   }
+
+  // Build the tree from Sosa 1
+  var tree = buildSubtree(1);
+  tree.classList.add('fu-root');
 
   this.container.innerHTML = '';
-  this.container.appendChild(grid);
+  this.container.appendChild(tree);
 
-  // Auto-scroll to center Sosa 1 in viewport
+
+
+  // Update badge
+  var badge = document.getElementById('build-badge');
+  if (badge) {
+    var rowInfo = [];
+    for (var ri = 0; ri < rows.length; ri++) rowInfo.push(rows[ri].cells.length);
+    badge.textContent = 'B59 flex rows=[' + rowInfo.join(',') + ']';
+  }
+
+  // Position connector lines after layout
+  this.positionConnectors(tree);
+
+  // Auto-scroll to center Sosa 1
   var container = this.container;
+  var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
   if (sosa1El) {
     setTimeout(function() {
       var elCenter = sosa1El.offsetLeft + sosa1El.offsetWidth / 2;
@@ -402,9 +345,105 @@ TreeRenderer.prototype.render = function() {
   this.addHomeButton(treeAccess);
   this.updateTitle();
 
-  var self = this;
-  setTimeout(function() { self.buildMinimap(grid); }, 300);
+  var self2 = this;
+  setTimeout(function() { self2.buildMinimap(tree); }, 300);
 };
+
+// ── Connector positioning (post-layout) ───────────────────────────────────
+
+TreeRenderer.prototype.positionConnectors = function(root) {
+  var connectors = root.querySelectorAll('.fu-conn');
+  for (var i = 0; i < connectors.length; i++) {
+    var conn = connectors[i];
+    var fSosa = conn.getAttribute('data-father');
+    var mSosa = conn.getAttribute('data-mother');
+    var childSosa = parseInt(fSosa) >> 1; // parent of father = child
+
+    var connRect = conn.getBoundingClientRect();
+    var connL = connRect.left;
+    var connW = connRect.width;
+
+    // Find the immediate father and mother person cells
+    var fEl = root.querySelector('.fu-person[data-sosa="' + fSosa + '"]');
+    var mEl = root.querySelector('.fu-person[data-sosa="' + mSosa + '"]');
+
+    var fCenter = connW / 4;  // fallback
+    var mCenter = connW * 3 / 4; // fallback
+
+    if (fEl) {
+      var fRect = fEl.getBoundingClientRect();
+      fCenter = fRect.left + fRect.width / 2 - connL;
+    }
+    if (mEl) {
+      var mRect = mEl.getBoundingClientRect();
+      mCenter = mRect.left + mRect.width / 2 - connL;
+    }
+
+    // Vertical line from father center (top → 50%)
+    if (fEl) {
+      var fVert = document.createElement('div');
+      fVert.className = 'fc-vert';
+      fVert.style.left = fCenter + 'px';
+      conn.appendChild(fVert);
+    }
+
+    // Vertical line from mother center (top → 50%)
+    if (mEl) {
+      var mVert = document.createElement('div');
+      mVert.className = 'fc-vert';
+      mVert.style.left = mCenter + 'px';
+      conn.appendChild(mVert);
+    }
+
+    // Horizontal bar connecting parent centers at 50% height
+    var hBar = document.createElement('div');
+    hBar.className = 'fc-hbar';
+    var hLeft = fEl ? fCenter : mCenter;
+    var hRight = mEl ? mCenter : fCenter;
+    hBar.style.left = Math.min(hLeft, hRight) + 'px';
+    hBar.style.width = Math.abs(hRight - hLeft) + 'px';
+    conn.appendChild(hBar);
+
+    // Trunk from parents' midpoint down to child
+    var trunkX = (hLeft + hRight) / 2;
+    var trunk = document.createElement('div');
+    trunk.className = 'fc-trunk';
+    trunk.style.left = trunkX + 'px';
+    conn.appendChild(trunk);
+
+    // Position marriage label at trunk center
+    var marriageLabel = conn.querySelector('.tree-marriage');
+    if (marriageLabel) {
+      marriageLabel.style.left = trunkX + 'px';
+    }
+
+    // Align child under trunk: shift child so its center matches trunkX
+    // Find the direct child .fu-person of this family-unit
+    var fu = conn.parentNode;
+    var childEl = null;
+    for (var ch = 0; ch < fu.children.length; ch++) {
+      var kid = fu.children[ch];
+      if (kid.classList.contains('fu-person') && kid.getAttribute('data-sosa') === '' + childSosa) {
+        childEl = kid;
+        break;
+      }
+    }
+    if (childEl) {
+      // trunkX is relative to connector; connector is width:100% of fu
+      var connOffset = conn.getBoundingClientRect().left - fu.getBoundingClientRect().left;
+      var trunkInFu = trunkX + connOffset;
+      var childRect = childEl.getBoundingClientRect();
+      var fuRect = fu.getBoundingClientRect();
+      var childCenter = childRect.left + childRect.width / 2 - fuRect.left;
+      var offset = trunkInFu - childCenter;
+      if (Math.abs(offset) > 1) {
+        childEl.style.transform = 'translateX(' + offset.toFixed(1) + 'px)';
+      }
+    }
+  }
+};
+
+// ── Title, Home Button, Minimap (unchanged) ──────────────────────────────
 
 TreeRenderer.prototype.updateTitle = function() {
   var opts = this.options;
@@ -446,48 +485,31 @@ TreeRenderer.prototype.addHomeButton = function(treeAccess) {
   var ascGroup = document.querySelector('nav.navbar.fixed-bottom .btn-group[aria-label="ascendant tree button group"]');
   if (!ascGroup) return;
 
-  var selfMatch = opts.selfAccess.match(/[?&]pz=([^&]*)/);
-  var selfMatchN = opts.selfAccess.match(/[?&]nz=([^&]*)/);
-  if (!selfMatch || !selfMatchN) return;
-  var selfP = decodeURIComponent(selfMatch[1].replace(/\+/g, ' ')).toLowerCase();
-  var selfN = decodeURIComponent(selfMatchN[1].replace(/\+/g, ' ')).toLowerCase();
-  var curParams = new URLSearchParams(window.location.search);
-  var curP = decodeURIComponent((curParams.get('p') || '').replace(/\+/g, ' ')).toLowerCase();
-  var curN = decodeURIComponent((curParams.get('n') || '').replace(/\+/g, ' ')).toLowerCase();
-  var isSelf = curP === selfP && curN === selfN;
+  var isSelf = !opts.isRerooted;
 
   var selfTreeUrl = treeAccess(opts.selfAccess);
 
   var homeBtn = document.createElement('a');
   homeBtn.setAttribute('role', 'button');
   if (isSelf) {
-    homeBtn.className = 'btn btn-outline-primary border-2 rounded mr-1 px-2 pt-1 h-100 disabled font-weight-bold';
+    homeBtn.className = 'btn btn-outline-success border-2 rounded mr-1 px-2 pt-1 h-100 font-weight-bold';
     homeBtn.title = 'Sosa 1: ' + (opts.selfName || '') + ' (current root)';
   } else {
     homeBtn.className = 'btn btn-outline-danger border-2 rounded mr-1 px-2 pt-1 h-100';
     homeBtn.href = selfTreeUrl;
-    homeBtn.title = 'Return to Sosa 1: ' + (opts.selfName || '');
+    homeBtn.title = 'Return to Sosa root: ' + (opts.selfName || '') + ' (click to show their ancestors)';
   }
   homeBtn.innerHTML = '<i class="fa fa-sitemap fa-flip-vertical fa-lg"></i><br>Sosa 1';
 
   ascGroup.parentNode.insertBefore(homeBtn, ascGroup);
 };
 
-TreeRenderer.prototype.addCell = function(grid, row, col, span, className, text) {
-  var el = document.createElement('div');
-  el.className = className;
-  el.style.gridColumn = col + ' / ' + (col + span);
-  el.style.gridRow = row;
-  if (text) el.textContent = text;
-  grid.appendChild(el);
-};
-
 // ── Minimap ────────────────────────────────────────────────────────────────
 
-TreeRenderer.prototype.buildMinimap = function(grid) {
+TreeRenderer.prototype.buildMinimap = function(tree) {
   var container = this.container;
-  var treeW = grid.scrollWidth;
-  var treeH = grid.scrollHeight;
+  var treeW = tree.scrollWidth;
+  var treeH = tree.scrollHeight;
   var viewW = container.clientWidth;
   var viewH = container.clientHeight;
 
@@ -505,7 +527,7 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
   if (availW < 60) availW = Math.min(200, viewW * 0.2);
 
   var navbarH = navbar.offsetHeight - 8;
-  var mapW = Math.max(60, Math.min(availW, 300));
+  var mapW = Math.max(60, Math.min(availW, 450));
   var mapH = navbarH;
   var treeAspect = treeW / treeH;
   var mapAspect = mapW / mapH;
@@ -530,25 +552,11 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
 
   var ctx = canvas.getContext('2d');
 
-  var personBoxes = grid.querySelectorAll('.person-box');
-  var branches = grid.querySelectorAll('.tree-branch-left, .tree-branch-right, .tree-branch-bottom');
+  var personBoxes = tree.querySelectorAll('.person-box');
 
   ctx.fillStyle = '#f8f8f8';
   ctx.fillRect(0, 0, mapW, mapH);
 
-  ctx.strokeStyle = '#ccc';
-  ctx.lineWidth = 1;
-  for (var i = 0; i < branches.length; i++) {
-    var b = branches[i];
-    var bx = b.offsetLeft * scaleX;
-    var by = b.offsetTop * scaleY;
-    var bw = b.offsetWidth * scaleX;
-    var bh = b.offsetHeight * scaleY;
-    ctx.strokeRect(bx, by, bw, Math.max(1, bh));
-  }
-
-  var hitZones = [];
-  var hitRadius = 8;
   for (var i = 0; i < personBoxes.length; i++) {
     var pb = personBoxes[i];
     var parent = pb.parentNode;
@@ -559,15 +567,6 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
     var dotX = Math.round(px * scaleX);
     var dotY = Math.round(py * scaleY);
     ctx.fillRect(dotX - 2, dotY - 1, 4, 3);
-
-    var nameEl = pb.querySelector('a.person-name');
-    if (nameEl) {
-      hitZones.push({
-        x: dotX, y: dotY,
-        access: nameEl.href,
-        name: pb.title || nameEl.textContent
-      });
-    }
   }
 
   var vpRect = document.createElement('div');
@@ -575,77 +574,56 @@ TreeRenderer.prototype.buildMinimap = function(grid) {
   wrapper.appendChild(vpRect);
 
   var self = this;
+  var treeRect = tree.getBoundingClientRect();
   function updateViewport() {
     var scrollLeft = container.scrollLeft;
     var rx = scrollLeft * scaleX;
     var rw = viewW * scaleX;
+
+    // Vertical: tree overflows into page scroll
+    var treeBCR = tree.getBoundingClientRect();
+    var visTop = Math.max(0, -treeBCR.top);
+    var visBot = Math.min(treeH, window.innerHeight - treeBCR.top);
+    var visH = Math.max(0, visBot - visTop);
+    var ry = visTop * scaleY;
+    var rh = visH * scaleY;
+
     vpRect.style.left = Math.round(rx) + 'px';
-    vpRect.style.top = '0';
+    vpRect.style.top = Math.round(ry) + 'px';
     vpRect.style.width = Math.min(Math.round(rw), mapW) + 'px';
-    vpRect.style.height = mapH + 'px';
+    vpRect.style.height = Math.min(Math.round(rh), mapH) + 'px';
   }
   updateViewport();
 
   container.addEventListener('scroll', updateViewport);
+  window.addEventListener('scroll', updateViewport);
+  window.addEventListener('resize', updateViewport);
 
-  function hitTest(mx, my) {
-    var best = null, bestDist = hitRadius * hitRadius;
-    for (var i = 0; i < hitZones.length; i++) {
-      var hz = hitZones[i];
-      var dx = mx - hz.x, dy = my - hz.y;
-      var d2 = dx * dx + dy * dy;
-      if (d2 < bestDist) { bestDist = d2; best = hz; }
-    }
-    return best;
+  // Minimap click/drag: scroll both horizontal (container) and vertical (page)
+  function panToMinimap(e) {
+    var rect = canvas.getBoundingClientRect();
+    var clickX = e.clientX - rect.left;
+    var clickY = e.clientY - rect.top;
+    // Horizontal: scroll the container
+    var targetScrollX = (clickX / mapW) * treeW - viewW / 2;
+    container.scrollLeft = Math.max(0, Math.min(targetScrollX, treeW - viewW));
+    // Vertical: scroll the page so tree portion under click is centered
+    var treeTargetY = (clickY / mapH) * treeH;
+    var treePageTop = tree.getBoundingClientRect().top + window.pageYOffset;
+    var targetScrollY = treePageTop + treeTargetY - window.innerHeight / 2;
+    window.scrollTo({ left: window.pageXOffset, top: Math.max(0, targetScrollY) });
   }
 
-  canvas.addEventListener('mousemove', function(e) {
-    var rect = canvas.getBoundingClientRect();
-    var hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
-    canvas.style.cursor = hit ? 'pointer' : 'default';
-  });
-  canvas.addEventListener('mouseleave', function() {
-    canvas.style.cursor = 'default';
-  });
-
-  canvas.addEventListener('click', function(e) {
-    var rect = canvas.getBoundingClientRect();
-    var mx = e.clientX - rect.left;
-    var my = e.clientY - rect.top;
-    var hit = hitTest(mx, my);
-    if (hit && hit.access) {
-      var gens = self.options.generations || 3;
-      var sep = hit.access.indexOf('?') >= 0 ? '&' : '?';
-      var url = hit.access + sep + 'm=A&t=T&t1=GR&v=' + gens;
-      var sa = self.options.selfAccess || '';
-      var pzM = sa.match(/[?&]pz=([^&]*)/);
-      var nzM = sa.match(/[?&]nz=([^&]*)/);
-      var oczM = sa.match(/[?&]ocz=([^&]*)/);
-      if (pzM) url += '&pz=' + pzM[1] + '&nz=' + nzM[1] + '&ocz=' + (oczM ? oczM[1] : '');
-      window.location.href = url;
-    } else {
-      var clickX = mx;
-      var targetScroll = (clickX / mapW) * treeW - viewW / 2;
-      container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
-    }
-  });
+  canvas.addEventListener('click', panToMinimap);
 
   var dragging = false;
   wrapper.addEventListener('mousedown', function(e) {
-    var rect = canvas.getBoundingClientRect();
-    var mx = e.clientX - rect.left;
-    var my = e.clientY - rect.top;
-    if (!hitTest(mx, my)) {
-      dragging = true;
-      e.preventDefault();
-    }
+    dragging = true;
+    e.preventDefault();
   });
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;
-    var rect = canvas.getBoundingClientRect();
-    var clickX = e.clientX - rect.left;
-    var targetScroll = (clickX / mapW) * treeW - viewW / 2;
-    container.scrollLeft = Math.max(0, Math.min(targetScroll, treeW - viewW));
+    panToMinimap(e);
   });
   document.addEventListener('mouseup', function() { dragging = false; });
 };

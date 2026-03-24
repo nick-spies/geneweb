@@ -170,7 +170,18 @@
               </a>
               %end;
               <div class="dropdown-divider"></div>
-              %( SOSA_REF buttons removed — Sosa root is now implicit per page %)
+              %( SOSA_REF: set current person as Sosa 1 for navigation %)
+              %if;(not browsing_with_sosa_ref or sosa_ref.key!=key)
+                  <a class="dropdown-item"
+                    href="%if;(b.access_by_key="yes")%apply;url_set%with;pz/nz/ocz%and;%first_name_key;/%surname_key;/%if;(occ!=0)%occ;%end;%end;
+                          %else;%apply;url_set("iz",index)%end;"
+                    title="%apply;nav_with_sosa_ref(self)">
+                    <i class="far fa-circle-dot fa-fw text-success mr-1"></i> [*modify::Sosa 1][:] %self;</a>
+              %end;
+              %if;(browsing_with_sosa_ref and sosa_ref.key=key)
+                  <span class="dropdown-item disabled">
+                    <i class="far fa-circle-dot fa-fw text-success mr-1"></i> [*Sosa] 1[:] %self; ✓</span>
+              %end;
               %if;(e.m!="ADD_FAM" and e.m!="MOD_FAM" and e.m!="MOD_IND" and e.m!="R" and e.m!="U")
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="%url_set.cgl.on;" target="_blank"><i class="fa fa-link-slash fa-fw mr-2" title="[*cancel GeneWeb links]"></i>[*cancel GeneWeb links]</a>%nn;
