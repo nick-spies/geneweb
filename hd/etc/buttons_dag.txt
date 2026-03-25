@@ -21,6 +21,8 @@
 %let;minv;%if;(maxlev>15 and maxlev<evarv+7)%expr(maxv-15)
           %elseif;(maxlev>15 and evarv>7)%expr(evarv-7)
           %else;1%end;%in;
+%( Panoramic tree: cap generation buttons at 12, input field allows full range %)
+%let;maxv;%if;(e.t1="GR" and maxv>12)12%else;%maxv;%end;%in;
 %( minv %minv; < evarv %evarv; < maxv %maxv; (maxlev %maxlev;) %)
 %define;setvar(nnn,vvv)
   %set_var.nnn.vvv;
@@ -129,7 +131,7 @@
             %end; %if;(i=maxlev)(max)%end;">%i;%(%if;(evarv=i)<br>^%end;%)</a>
         %end;
         <span class="ml-1" style="display:inline-flex;align-items:center;">
-          <input id="gen-input" type="number" min="1" value="%evarv;" style="width:3.5em;text-align:center;padding:2px 4px;font-size:0.8rem;border:1px solid #007bff;border-radius:3px;" title="Type generation number and press Enter or click Go">
+          <input id="gen-input" type="number" min="1" max="%maxlev;" value="%evarv;" style="width:3.5em;text-align:center;padding:2px 4px;font-size:0.8rem;border:1px solid #007bff;border-radius:3px;" title="Type generation number (max %maxlev;) and press Enter or click Go">
           <a role="button" id="gen-go" class="btn btn-sm btn-outline-primary border-0 px-1 ml-1" title="Go to generation">Go</a>
         </span>
         <script>

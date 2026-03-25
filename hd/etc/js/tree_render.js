@@ -48,25 +48,7 @@ PersonBox.prototype.render = function() {
   box.className = 'person-box' + (p.sex === 0 ? ' person-male' : ' person-female');
   box.title = this.tooltipText();
 
-  // Compact mode: just a small colored box with Sosa number
-  if (this.compact) {
-    box.classList.add('person-compact');
-    var link = document.createElement('a');
-    link.href = p.access;
-    link.className = 'person-compact-link';
-    link.title = this.tooltipText();
-    var treeAccess = this.treeAccess;
-    if (treeAccess) {
-      link.addEventListener('click', function(e) {
-        if (e.metaKey || e.ctrlKey) return;
-        e.preventDefault();
-        window.location.href = treeAccess(p.access);
-      });
-    }
-    link.textContent = p.displaySosa || p.posSosa || '\u00B7';
-    box.appendChild(link);
-    return box;
-  }
+
 
   var sosaLabel = p.displaySosa || p.posSosa;
   if (this.showSosa && sosaLabel) {
@@ -158,16 +140,14 @@ function TreeRenderer(container, data, options) {
   this.options = options || {};
 }
 
-TreeRenderer.prototype.rowStyle = function(numCells, isTopTwo) {
-  // Only go compact for top two rows when there are many cells
-  if (isTopTwo && numCells > 32) return { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: false, showSosa: true,  showDates: false, compact: true  };
-  if (numCells <= 2)  return { fontSize: 0.85, imgSize: 50, showImage: true,  showSurname: true,  showSosa: true,  showDates: true,  compact: false };
-  if (numCells <= 4)  return { fontSize: 0.80, imgSize: 45, showImage: true,  showSurname: true,  showSosa: true,  showDates: true,  compact: false };
-  if (numCells <= 8)  return { fontSize: 0.75, imgSize: 38, showImage: true,  showSurname: true,  showSosa: true,  showDates: true,  compact: false };
-  if (numCells <= 16) return { fontSize: 0.70, imgSize: 30, showImage: true,  showSurname: true,  showSosa: true,  showDates: true,  compact: false };
-  if (numCells <= 32) return { fontSize: 0.65, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true,  compact: false };
-  if (numCells <= 64) return { fontSize: 0.60, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true,  compact: false };
-  return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: false, compact: false };
+TreeRenderer.prototype.rowStyle = function(numCells) {
+  if (numCells <= 2)  return { fontSize: 0.85, imgSize: 50, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 4)  return { fontSize: 0.80, imgSize: 45, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 8)  return { fontSize: 0.75, imgSize: 38, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 16) return { fontSize: 0.70, imgSize: 30, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 32) return { fontSize: 0.65, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 64) return { fontSize: 0.60, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true  };
+  return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: false };
 };
 
 TreeRenderer.prototype.render = function() {
@@ -180,22 +160,55 @@ TreeRenderer.prototype.render = function() {
   var totalGens = rows.length; // number of rows
   var topGen = totalGens - 1;  // generation number of the topmost row
 
-  // Build sosaMap using positional sosa numbers (handles pedigree collapse)
+  // Build sosaMap using horizontal containment (handles pedigree collapse)
+  // Step 1: Compute horizontal position for each cell from colspans
   var sosaMap = {};
   var marriageMap = {};
   for (var r = 0; r < rows.length; r++) {
-    var gen = topGen - r; // row 0 = topGen, last row = gen 0
-    var baseSosa = Math.pow(2, gen);
+    var pos = 0;
     var cells = rows[r].cells;
     for (var c = 0; c < cells.length; c++) {
-      var posSosa = baseSosa + c;
-      if (cells[c].person) {
-        cells[c].person.posSosa = posSosa;
-        if (cells[c].person.sosa) cells[c].person.displaySosa = cells[c].person.sosa;
-        sosaMap[posSosa] = cells[c].person;
+      if (c > 0) pos++; // separator column
+      cells[c]._start = pos;
+      cells[c]._end = pos + cells[c].colspan - 1;
+      cells[c]._center = (cells[c]._start + cells[c]._end) / 2;
+      pos += cells[c].colspan;
+    }
+  }
+
+  // Step 2: Assign positional Sosa bottom-up
+  var bottomCells = rows[rows.length - 1].cells;
+  if (bottomCells.length > 0) {
+    bottomCells[0]._posSosa = 1;
+    if (bottomCells[0].person) {
+      bottomCells[0].person.posSosa = 1;
+      if (bottomCells[0].person.sosa) bottomCells[0].person.displaySosa = bottomCells[0].person.sosa;
+      sosaMap[1] = bottomCells[0].person;
+    }
+  }
+
+  // Walk upward: each parent cell's center falls within its child cell's span
+  for (var r = rows.length - 2; r >= 0; r--) {
+    var parentCells = rows[r].cells;
+    var childCells = rows[r + 1].cells;
+    for (var p = 0; p < parentCells.length; p++) {
+      var pCell = parentCells[p];
+      if (!pCell.isLeft && !pCell.isRight) continue;
+      // Find the child cell whose horizontal span contains this parent
+      for (var c = 0; c < childCells.length; c++) {
+        var ch = childCells[c];
+        if (ch._posSosa && ch._start <= pCell._center && pCell._center <= ch._end) {
+          pCell._posSosa = pCell.isLeft ? ch._posSosa * 2 : ch._posSosa * 2 + 1;
+          break;
+        }
       }
-      if (cells[c].isRight && cells[c].family && cells[c].family.marriageYear) {
-        marriageMap[posSosa >> 1] = cells[c].family.marriageYear;
+      if (pCell._posSosa && pCell.person) {
+        pCell.person.posSosa = pCell._posSosa;
+        if (pCell.person.sosa) pCell.person.displaySosa = pCell.person.sosa;
+        sosaMap[pCell._posSosa] = pCell.person;
+      }
+      if (pCell._posSosa && pCell.isRight && pCell.family && pCell.family.marriageYear) {
+        marriageMap[pCell._posSosa >> 1] = pCell.family.marriageYear;
       }
     }
   }
@@ -213,7 +226,7 @@ TreeRenderer.prototype.render = function() {
 
   var treeAccess = function(personAccess) {
     var sep = personAccess.indexOf('?') >= 0 ? '&' : '?';
-    var url = personAccess + sep + 'm=A&t=T&t1=GR&v=' + gens;
+    var url = personAccess + sep + 'm=A&t=T&t1=GR';
     if (sosa1Pz) url += '&pz=' + sosa1Pz + '&nz=' + sosa1Nz + '&ocz=' + sosa1Ocz;
     return url;
   };
@@ -229,8 +242,7 @@ TreeRenderer.prototype.render = function() {
     var gen = Math.floor(Math.log2(sosa));
     var person = sosaMap[sosa];
     var cellsInGen = Math.pow(2, gen);
-    var isTopTwo = (gen >= topGen - 1) && (gen >= 1);
-    var style = self.rowStyle(cellsInGen, isTopTwo);
+    var style = self.rowStyle(cellsInGen);
 
     var unit = document.createElement('div');
     unit.className = 'fu';
@@ -293,10 +305,8 @@ TreeRenderer.prototype.render = function() {
       var personEl = document.createElement('div');
       personEl.className = 'fu-person';
       personEl.setAttribute('data-sosa', sosa);
-      if (style.compact) personEl.style.maxWidth = '50px';
 
       var pb = new PersonBox(person);
-      pb.compact = style.compact || false;
       pb.showImage = style.showImage;
       pb.imgSize = style.imgSize;
       pb.fontSize = style.fontSize;
@@ -483,16 +493,18 @@ TreeRenderer.prototype.addHomeButton = function(treeAccess) {
   var isSelf = !opts.isRerooted;
 
   var selfTreeUrl = treeAccess(opts.selfAccess);
+  var sosa1Name = (opts.selfName || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
 
   var homeBtn = document.createElement('a');
   homeBtn.setAttribute('role', 'button');
+  var i18n = opts.i18n || {};
   if (isSelf) {
     homeBtn.className = 'btn btn-outline-success border-2 rounded mr-1 px-2 pt-1 h-100 font-weight-bold';
-    homeBtn.title = 'Sosa 1: ' + (opts.selfName || '') + ' (current root)';
+    homeBtn.title = (i18n.homeTipSelf || 'Sosa 1') + ': ' + sosa1Name;
   } else {
     homeBtn.className = 'btn btn-outline-danger border-2 rounded mr-1 px-2 pt-1 h-100';
     homeBtn.href = selfTreeUrl;
-    homeBtn.title = 'Return to Sosa root: ' + (opts.selfName || '') + ' (click to show their ancestors)';
+    homeBtn.title = (i18n.homeTipOther || 'Restore default Sosa 1') + ': ' + sosa1Name;
   }
   homeBtn.innerHTML = '<i class="fa fa-sitemap fa-flip-vertical fa-lg"></i><br>Sosa 1';
 
@@ -585,8 +597,8 @@ TreeRenderer.prototype.buildMinimap = function(tree) {
 
     vpRect.style.left = Math.round(rx) + 'px';
     vpRect.style.top = Math.round(ry) + 'px';
-    vpRect.style.width = Math.min(Math.round(rw), mapW) + 'px';
-    vpRect.style.height = Math.min(Math.round(rh), mapH) + 'px';
+    vpRect.style.width = Math.min(Math.max(Math.round(rw), 8), mapW) + 'px';
+    vpRect.style.height = Math.min(Math.max(Math.round(rh), 8), mapH) + 'px';
   }
   updateViewport();
 
