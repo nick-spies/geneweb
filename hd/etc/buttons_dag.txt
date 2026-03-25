@@ -4,7 +4,9 @@
 %let;evarv;%if;(e.v!="")%e.v;%else;3%end;%in;
 %( TODO : fix static_levels for dag, atm fixed at 12! %)
 %let;maxlev;
-  %if;(e.m="A")
+  %if;(e.m="A" and e.t1="GR")
+    %max_anc_level;
+  %elseif;(e.m="A")
     %apply;max%with;%expr(15)%and;%apply;min%with;%if;(b.max_anc_tree!="")%b.max_anc_tree;%end;
                %and;%if;(b.max_anc_level!="")%b.max_anc_level;%end;
                %and;%static_max_anc_level;%end;%end;
