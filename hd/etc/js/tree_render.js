@@ -106,7 +106,11 @@ PersonBox.prototype.render = function() {
   if (this.showSurname) {
     var surname = document.createElement('span');
     surname.className = 'person-surname';
-    surname.textContent = p.surname;
+    if (p.surname && p.surname !== 'x' && p.surname !== '?') {
+      surname.textContent = p.surname;
+    } else {
+      surname.innerHTML = '&nbsp;';
+    }
     nameLink.appendChild(surname);
   }
 
@@ -134,6 +138,49 @@ function TreeRenderer(container, data, options) {
   this.options = options || {};
 }
 
+TreeRenderer.parseTreeData = function(text) {
+  var data = { rows: [] };
+  var tokens = text.split('~ROW~');
+  for (var i = 1; i < tokens.length; i++) {
+    var rowChunk = tokens[i];
+    var cellTokens = rowChunk.split('~CELL~');
+    var isFirst = cellTokens[0].trim() === '1';
+    var row = { isFirst: isFirst, cells: [] };
+    for (var j = 1; j < cellTokens.length; j++) {
+      var parts = cellTokens[j].split('~');
+      var cell = {
+        colspan: parseInt(parts[0]) || 1,
+        isEmpty: parts[1] === '1',
+        isTop: parts[2] === '1',
+        isLeft: parts[3] === '1',
+        isRight: parts[4] === '1'
+      };
+      if (!cell.isEmpty && parts[5]) {
+        cell.person = {
+          firstName: parts[5] || '',
+          surname: parts[6] || '',
+          publicName: parts[7] || '',
+          access: parts[8] || '',
+          sex: parseInt(parts[9]) || 0,
+          hasImage: parts[10] === '1',
+          imageUrl: parts[11] || '',
+          hasSosa: parts[12] === '1',
+          sosa: parts[13] || '',
+          birthYear: parts[14] || '',
+          deathYear: parts[15] || '',
+          hasParents: parts[17] === '1'
+        };
+        if (cell.isRight) {
+          cell.family = { marriageYear: parts[16] || '' };
+        }
+      }
+      row.cells.push(cell);
+    }
+    data.rows.push(row);
+  }
+  return data;
+};
+
 TreeRenderer.prototype.rowStyle = function(numCells) {
   if (numCells <= 2)  return { fontSize: 0.85, imgSize: 50, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
   if (numCells <= 4)  return { fontSize: 0.80, imgSize: 45, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
@@ -141,10 +188,17 @@ TreeRenderer.prototype.rowStyle = function(numCells) {
   if (numCells <= 16) return { fontSize: 0.70, imgSize: 30, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
   if (numCells <= 32) return { fontSize: 0.65, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true  };
   if (numCells <= 64) return { fontSize: 0.60, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true  };
-  return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: false };
+  return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true  };
 };
 
 TreeRenderer.prototype.render = function() {
+  // Cleanup from previous render (for in-place re-render)
+  var wrapper = this.container.parentNode;
+  if (wrapper) {
+    var oldCols = wrapper.querySelectorAll('.gen-label-col');
+    for (var ci = 0; ci < oldCols.length; ci++) oldCols[ci].remove();
+  }
+
   var rows = this.data.rows;
   if (!rows || !rows.length) {
     this.updateTitle();
@@ -290,7 +344,7 @@ TreeRenderer.prototype.render = function() {
       var mYear = marriageMap[sosa] || '';
       var marr = document.createElement('span');
       marr.className = 'tree-marriage';
-      marr.textContent = mYear ? '& ' + mYear : '&';
+      marr.textContent = mYear || '';
       conn.appendChild(marr);
 
       unit.appendChild(conn);
@@ -301,6 +355,7 @@ TreeRenderer.prototype.render = function() {
       var personEl = document.createElement('div');
       personEl.className = 'fu-person';
       personEl.setAttribute('data-sosa', sosa);
+      personEl.setAttribute('data-gen', gen + 1);
 
       var pb = new PersonBox(person);
       pb.showImage = style.showImage;
@@ -337,20 +392,24 @@ TreeRenderer.prototype.render = function() {
   // Position connector lines after layout
   this.positionConnectors(tree);
 
-  // Zoom state
+  var container = this.container;
+
+  // Zoom state — min zoom fits the entire tree in the viewport
   var zoomLevel = 1.0;
-  var minZoom = 0.15;
+  var fitW = container.clientWidth / tree.scrollWidth;
+  var fitH = container.clientHeight / tree.scrollHeight;
+  var minZoom = Math.max(0.05, Math.min(fitW, fitH));
   var maxZoom = 2.0;
   var zoomFactor = 1.06; // 6% multiplicative per step
   this._zoomLevel = zoomLevel;
   this._zoomWrap = zoomWrap;
-
-  var container = this.container;
   var self3 = this;
+
+  var treeContentW = tree.scrollWidth;
 
   function applyZoom() {
     zoomWrap.style.transform = 'scale(' + zoomLevel + ')';
-    var scaledW = tree.scrollWidth * zoomLevel;
+    var scaledW = treeContentW * zoomLevel;
     var scaledH = tree.scrollHeight * zoomLevel;
     zoomWrap.style.width = Math.max(scaledW, container.clientWidth) + 'px';
     zoomWrap.style.height = Math.max(scaledH, container.clientHeight) + 'px';
@@ -359,6 +418,7 @@ TreeRenderer.prototype.render = function() {
     tree.style.marginLeft = padLeft ? padLeft + 'px' : '0';
     self3._zoomLevel = zoomLevel;
     if (self3._redrawMinimap) self3._redrawMinimap();
+    if (self3._updateGenLabels) self3._updateGenLabels();
   }
 
   // Zoom anchored on a point (anchorX/Y in viewport-relative coords)
@@ -376,6 +436,19 @@ TreeRenderer.prototype.render = function() {
     // Reposition so the same content point stays under the anchor
     container.scrollLeft = contentX * zoomLevel - anchorX;
     container.scrollTop = contentY * zoomLevel - anchorY;
+    // Clamp scroll so tree content stays visible
+    var scaledTreeH = tree.scrollHeight * zoomLevel;
+    var scaledTreeW = treeContentW * zoomLevel;
+    // Don't scroll past bottom/right of tree
+    var maxScrollTop = scaledTreeH - container.clientHeight * 0.3;
+    var maxScrollLeft = scaledTreeW - container.clientWidth * 0.3;
+    if (container.scrollTop > maxScrollTop) container.scrollTop = Math.max(0, maxScrollTop);
+    if (container.scrollLeft > maxScrollLeft) container.scrollLeft = Math.max(0, maxScrollLeft);
+    // Keep top generation visible: don't let scrollTop push topmost boxes off-screen
+    // When tree is small-ish relative to viewport, pin top visible
+    if (scaledTreeH < container.clientHeight * 3) {
+      container.scrollTop = Math.min(container.scrollTop, Math.max(0, scaledTreeH - container.clientHeight));
+    }
   }
 
   // Zoom centered on viewport (direction: 1 = in, -1 = out)
@@ -412,12 +485,21 @@ TreeRenderer.prototype.render = function() {
     }, 200);
   }
 
-  this.addHomeButton(treeAccess);
-  this.addZoomControls(zoomCenter, function() { return zoomLevel; });
+  if (!this._controlsAdded) {
+    this.addHomeButton(treeAccess);
+    this.addGenControls();
+    this.addZoomControls(zoomCenter, function() { return zoomLevel; });
+    this._controlsAdded = true;
+  }
   this.updateTitle();
 
   var self2 = this;
-  setTimeout(function() { self2.buildMinimap(tree); }, 300);
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      self2.buildMinimap(tree);
+      self2.addGenCursorLabel(tree, container);
+    });
+  });
 };
 
 // ── Connector positioning (post-layout) ───────────────────────────────────
@@ -508,10 +590,109 @@ TreeRenderer.prototype.positionConnectors = function(root) {
       var childCenter = childRect.left + childRect.width / 2 - fuRect.left;
       var offset = trunkInFu - childCenter;
       if (Math.abs(offset) > 1) {
-        childEl.style.transform = 'translateX(' + offset.toFixed(1) + 'px)';
+        childEl.style.position = 'relative';
+        childEl.style.left = offset.toFixed(1) + 'px';
       }
     }
   }
+};
+
+
+// ── Persistent generation labels on left and right edges ─────────────────
+
+TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
+  var self = this;
+
+  // Measure vertical midpoint of each generation (in unscaled tree coords)
+  var genMids = {};
+  var persons = tree.querySelectorAll('.fu-person[data-gen]');
+  for (var i = 0; i < persons.length; i++) {
+    var g = parseInt(persons[i].getAttribute('data-gen'));
+    var r = persons[i].getBoundingClientRect();
+    var treeR = tree.getBoundingClientRect();
+    var zoom = self._zoomLevel || 1;
+    var top = (r.top - treeR.top) / zoom;
+    var bot = (r.bottom - treeR.top) / zoom;
+    if (genMids[g] === undefined) {
+      genMids[g] = { top: top, bot: bot };
+    } else {
+      genMids[g].top = Math.min(genMids[g].top, top);
+      genMids[g].bot = Math.max(genMids[g].bot, bot);
+    }
+  }
+  this._genMids = genMids;
+
+  // Wrap container in a relative parent so overlay columns sit outside scroll
+  // (only wrap once — reuse existing wrapper on re-render)
+  var wrapper = container.parentNode;
+  if (!wrapper || !wrapper.classList.contains('gen-label-wrapper')) {
+    wrapper = document.createElement('div');
+    wrapper.className = 'gen-label-wrapper';
+    wrapper.style.cssText = 'position:relative;width:100%;height:' + container.clientHeight + 'px;';
+    container.parentNode.insertBefore(wrapper, container);
+    wrapper.appendChild(container);
+  } else {
+    wrapper.style.height = container.clientHeight + 'px';
+  }
+
+  var leftCol = document.createElement('div');
+  leftCol.className = 'gen-label-col';
+  leftCol.style.cssText = 'position:absolute;left:28px;top:0;width:24px;height:100%;pointer-events:none;z-index:10;';
+  var rightCol = document.createElement('div');
+  rightCol.className = 'gen-label-col';
+  rightCol.style.cssText = 'position:absolute;right:4px;top:0;width:24px;height:100%;pointer-events:none;z-index:10;';
+  wrapper.appendChild(leftCol);
+  wrapper.appendChild(rightCol);
+
+  function updateLabels() {
+    leftCol.innerHTML = '';
+    rightCol.innerHTML = '';
+    var zoom = self._zoomLevel || 1;
+    var scrollTop = container.scrollTop;
+    var ch = container.clientHeight;
+    var gens = Object.keys(genMids).map(Number).sort(function(a, b) { return a - b; });
+
+    // Compute visible label positions first, then thin if too dense
+    var visible = [];
+    for (var i = 0; i < gens.length; i++) {
+      var g = gens[i];
+      var mid = ((genMids[g].top + genMids[g].bot) / 2) * zoom - scrollTop;
+      if (mid < -10 || mid > ch + 10) continue;
+      visible.push({ gen: g, y: mid });
+    }
+
+    // Determine skip interval: if average gap < 18px, skip odd, etc.
+    var skip = 1;
+    if (visible.length > 1) {
+      var totalSpan = Math.abs(visible[visible.length - 1].y - visible[0].y);
+      var avgGap = totalSpan / (visible.length - 1);
+      if (avgGap < 12) skip = 4;
+      else if (avgGap < 18) skip = 3;
+      else if (avgGap < 28) skip = 2;
+    }
+
+    var lblH = 14; // approx label height for centering
+    for (var i = 0; i < visible.length; i++) {
+      var v = visible[i];
+      if (skip > 1 && v.gen % skip !== 0 && v.gen !== 1) continue;
+      var y = Math.max(2, Math.min(ch - lblH, v.y - lblH / 2));
+
+      var makeLabel = function(side) {
+        var lbl = document.createElement('div');
+        lbl.style.cssText = 'position:absolute;font-size:0.7rem;color:#666;font-weight:700;background:rgba(255,255,255,0.9);padding:1px 3px;border-radius:3px;white-space:nowrap;text-align:center;' + side;
+        lbl.style.top = y + 'px';
+        lbl.textContent = v.gen;
+        return lbl;
+      };
+
+      leftCol.appendChild(makeLabel('left:0;'));
+      rightCol.appendChild(makeLabel('right:0;'));
+    }
+  }
+
+  updateLabels();
+  container.addEventListener('scroll', updateLabels);
+  this._updateGenLabels = updateLabels;
 };
 
 // ── Ancestor line highlighting ────────────────────────────────────────────
@@ -655,6 +836,197 @@ TreeRenderer.prototype.addHomeButton = function(treeAccess) {
   ascGroup.parentNode.insertBefore(homeBtn, ascGroup);
 };
 
+TreeRenderer.prototype.addGenControls = function() {
+  var opts = this.options;
+  var absMax = opts.maxGenerations || 30;
+  var fastMax = 12;
+  var currentGen = opts.generations || 3;
+  var urlTpl = opts.genUrlTemplate || '';
+  if (!urlTpl) return;
+
+  // Find and replace the existing generation button group
+  var existingGrp = document.querySelector('.btn-group[aria-label="generation pickup buttons group"]');
+  if (!existingGrp) return;
+  var parentEl = existingGrp.parentNode;
+
+  // Deep mode: unlocks generations beyond fastMax
+  var deepMode = currentGen > fastMax;
+  var effectiveMax = deepMode ? absMax : fastMax;
+
+  // Match height to the Mother/Father button row
+  var toolbar = parentEl.closest('.btn-toolbar');
+  var navCol = toolbar ? toolbar.querySelector('.d-flex.flex-column.justify-content-center') : null;
+  var fmRow = navCol ? navCol.querySelector('.d-flex.flex-nowrap') : null;
+  var refBtn = fmRow ? fmRow.querySelector('a.btn') : null;
+  var targetH = refBtn ? refBtn.offsetHeight + 'px' : '28px';
+
+  var i18n = opts.i18n || {};
+  var genLabelText = i18n.generations || 'Generations';
+
+  var grp = document.createElement('div');
+  grp.className = 'btn-group border rounded mr-1 align-items-center';
+  grp.setAttribute('role', 'group');
+  grp.style.height = targetH;
+
+  // "Up to nn" toggle button — only show if database has more than fastMax
+  var btnDeep = null;
+  if (absMax > fastMax) {
+    btnDeep = document.createElement('button');
+    btnDeep.className = 'btn btn-sm btn-outline-' + (deepMode ? 'danger' : 'secondary') + ' px-1 h-100';
+    btnDeep.style.cssText = 'font-size:0.65rem;font-weight:600;white-space:nowrap;';
+    btnDeep.textContent = 'Up to ' + absMax;
+    btnDeep.title = deepMode
+      ? 'Deep mode ON (up to ' + absMax + ' gen) \u2014 click to limit to ' + fastMax
+      : 'Enable deep mode for up to ' + absMax + ' generations (slow beyond ~' + fastMax + ')';
+  }
+
+  var genLabel = document.createElement('span');
+  genLabel.className = 'btn btn-sm btn-primary disabled px-1 h-100 d-flex align-items-center';
+  genLabel.style.cssText = 'font-size:0.7rem;white-space:nowrap;';
+  genLabel.textContent = genLabelText;
+
+  var btnMinus = document.createElement('button');
+  btnMinus.className = 'btn btn-sm btn-outline-primary px-2 h-100';
+  btnMinus.innerHTML = '<b>\u2212</b>';
+  btnMinus.title = 'Fewer generations';
+
+  var input = document.createElement('input');
+  input.type = 'number';
+  input.min = 1;
+  input.max = effectiveMax;
+  input.value = currentGen;
+  input.title = 'Type generation (max ' + effectiveMax + ') and press Enter';
+  input.style.cssText = 'width:3em;text-align:center;padding:1px;font-size:0.85rem;font-weight:600;border:1px solid #007bff;border-radius:0;border-left:0;border-right:0;outline:none;-moz-appearance:textfield;height:100%;';
+
+  var btnPlus = document.createElement('button');
+  btnPlus.className = 'btn btn-sm btn-outline-primary px-2 h-100';
+  btnPlus.innerHTML = '<b>+</b>';
+  btnPlus.title = 'More generations';
+
+  var self = this;
+  var navigating = false;
+
+  function updateLimits() {
+    effectiveMax = deepMode ? absMax : fastMax;
+    input.max = effectiveMax;
+    input.title = 'Type generation (max ' + effectiveMax + ') and press Enter';
+    btnPlus.classList.toggle('disabled', currentGen >= effectiveMax);
+    btnMinus.classList.toggle('disabled', currentGen <= 1);
+    if (btnDeep) {
+      btnDeep.className = 'btn btn-sm btn-outline-' + (deepMode ? 'danger' : 'secondary') + ' px-1 h-100';
+      btnDeep.style.cssText = 'font-size:0.65rem;font-weight:600;white-space:nowrap;';
+      btnDeep.title = deepMode
+        ? 'Deep mode ON (up to ' + absMax + ' gen) \u2014 click to limit to ' + fastMax
+        : 'Enable deep mode for up to ' + absMax + ' generations (slow beyond ~' + fastMax + ')';
+    }
+  }
+
+  function navigate(v) {
+    v = Math.max(1, Math.min(effectiveMax, v));
+    if (v === currentGen || navigating) return;
+    navigating = true;
+
+    // Disable controls but keep showing current values
+    btnMinus.style.pointerEvents = 'none';
+    btnPlus.style.pointerEvents = 'none';
+    input.readOnly = true;
+    if (btnDeep) btnDeep.style.pointerEvents = 'none';
+
+    // Semi-transparent overlay centered on screen
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.4);z-index:99998;display:flex;align-items:center;justify-content:center;pointer-events:none;';
+    overlay.innerHTML = '<div style="font-size:1.3rem;color:#555;font-weight:600;background:#fff;padding:14px 28px;border-radius:8px;border:1px solid #ccc;box-shadow:0 2px 10px rgba(0,0,0,0.15);">Loading ' + v + ' generations\u2026</div>';
+    document.body.appendChild(overlay);
+    self._loadingOverlay = overlay;
+
+    var url = urlTpl.replace('__V__', v);
+
+    // Fetch new page, extract tree data, re-render in place
+    fetch(url)
+      .then(function(resp) { return resp.text(); })
+      .then(function(html) {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+        var dataEl = doc.getElementById('tree-data');
+        if (!dataEl) throw new Error('No tree data in response');
+
+        var newData = TreeRenderer.parseTreeData(dataEl.textContent);
+
+        // Remove gen label columns (will be recreated)
+        var wrapper = self.container.parentNode;
+        if (wrapper && wrapper.querySelector('.gen-label-col')) {
+          var cols = wrapper.querySelectorAll('.gen-label-col');
+          for (var i = 0; i < cols.length; i++) cols[i].remove();
+        }
+
+        // Update state and re-render
+        self.data = newData;
+        self.options.generations = v;
+        currentGen = v;
+        self.render();
+
+        // Update URL without page reload
+        history.pushState(null, '', url);
+
+        // Remove overlay and update gen controls
+        if (self._loadingOverlay) {
+          self._loadingOverlay.remove();
+          self._loadingOverlay = null;
+        }
+        input.value = v;
+        input.readOnly = false;
+        btnMinus.style.pointerEvents = '';
+        btnPlus.style.pointerEvents = '';
+        if (btnDeep) btnDeep.style.pointerEvents = '';
+        updateLimits();
+        navigating = false;
+      })
+      .catch(function(err) {
+        console.error('Gen navigate error:', err);
+        // Fallback: full page navigation
+        window.location.href = url;
+      });
+  }
+
+  btnMinus.addEventListener('click', function() {
+    navigate(currentGen - 1);
+  });
+  btnPlus.addEventListener('click', function() {
+    navigate(currentGen + 1);
+  });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      var v = parseInt(input.value);
+      if (!v || v < 1) { input.value = currentGen; return; }
+      if (v > effectiveMax) { input.value = effectiveMax; v = effectiveMax; }
+      navigate(v);
+    }
+  });
+  input.addEventListener('wheel', function(e) { e.stopPropagation(); });
+
+  if (btnDeep) {
+    btnDeep.addEventListener('click', function() {
+      deepMode = !deepMode;
+      updateLimits();
+      // If currently beyond new limit, navigate down
+      if (!deepMode && currentGen > fastMax) {
+        navigate(fastMax);
+      }
+    });
+  }
+
+  updateLimits();
+
+  if (btnDeep) grp.appendChild(btnDeep);
+  grp.appendChild(genLabel);
+  grp.appendChild(btnMinus);
+  grp.appendChild(input);
+  grp.appendChild(btnPlus);
+
+  // Replace existing generation group
+  parentEl.replaceChild(grp, existingGrp);
+};
+
 TreeRenderer.prototype.addZoomControls = function(onZoom, getZoom) {
   var navbar = document.querySelector('nav.navbar.fixed-bottom');
   if (!navbar) return;
@@ -790,7 +1162,13 @@ TreeRenderer.prototype.buildMinimap = function(tree) {
   wrapper.appendChild(canvas);
 
   wrapper.style.marginRight = '8px';
-  toolbar.insertBefore(wrapper, toolbar.firstChild);
+  // Replace old minimap in-place to avoid toolbar layout shift
+  var oldMinimap = toolbar.querySelector('.tree-minimap');
+  if (oldMinimap) {
+    toolbar.replaceChild(wrapper, oldMinimap);
+  } else {
+    toolbar.insertBefore(wrapper, toolbar.firstChild);
+  }
 
   var ctx = canvas.getContext('2d');
 

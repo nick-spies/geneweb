@@ -8,7 +8,7 @@
   <span class="text-small text-muted font-weight-lighter">%apply;togena(e_v)</span>
 </h3>
 
-<div id="tree-grid-container"></div>
+<div id="tree-grid-container" style="overflow:scroll;width:100%;height:calc(100vh - 100px);box-sizing:border-box;background:#fff;"><div id="tree-loading" style="display:flex;align-items:center;justify-content:center;height:100%;"><div style="font-size:1.4rem;color:#555;font-weight:600;padding:20px 40px;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">Loading %e_v; generations&hellip;</div></div></div>
 
 <div id="tree-data" style="display:none">
 %foreach;ancestor_tree_line(e_v+1)
@@ -19,61 +19,16 @@
 %end;
 </div>
 
-<link rel="stylesheet" href="css/tree_render.css?v=33">
-<script src="js/tree_render.js?v=67"></script>
+<link rel="stylesheet" href="css/tree_render.css?v=34">
+<script src="js/tree_render.js?v=91"></script>
+<div style="position:fixed;top:50px;right:10px;background:#f00;color:#fff;padding:4px 12px;font-size:13px;z-index:99999;opacity:0.9;border-radius:4px;" id="build-badge">Build 91</div>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var dataEl = document.getElementById('tree-data');
     if (!dataEl) return;
 
-    var text = dataEl.textContent;
-    var data = { rows: [] };
-    var currentRow = null;
-
-    // Split on ~ROW~ and ~CELL~ markers
-    var tokens = text.split('~ROW~');
-    for (var i = 1; i < tokens.length; i++) {
-      var rowChunk = tokens[i];
-      var cellTokens = rowChunk.split('~CELL~');
-      var isFirst = cellTokens[0].trim() === '1';
-      currentRow = { isFirst: isFirst, cells: [] };
-
-      for (var j = 1; j < cellTokens.length; j++) {
-        var parts = cellTokens[j].split('~');
-        var cell = {
-          colspan: parseInt(parts[0]) || 1,
-          isEmpty: parts[1] === '1',
-          isTop: parts[2] === '1',
-          isLeft: parts[3] === '1',
-          isRight: parts[4] === '1'
-        };
-
-        if (!cell.isEmpty && parts[5]) {
-          cell.person = {
-            firstName: parts[5] || '',
-            surname: parts[6] || '',
-            publicName: parts[7] || '',
-            access: parts[8] || '',
-            sex: parseInt(parts[9]) || 0,
-            hasImage: parts[10] === '1',
-            imageUrl: parts[11] || '',
-            hasSosa: parts[12] === '1',
-            sosa: parts[13] || '',
-            birthYear: parts[14] || '',
-            deathYear: parts[15] || '',
-            hasParents: parts[17] === '1'
-          };
-          if (cell.isRight) {
-            cell.family = { marriageYear: parts[16] || '' };
-          }
-        }
-
-        currentRow.cells.push(cell);
-      }
-
-      data.rows.push(currentRow);
-    }
+    var data = TreeRenderer.parseTreeData(dataEl.textContent);
 
     try {
       var container = document.getElementById('tree-grid-container');
@@ -85,9 +40,12 @@
         selfName: '%if;(evar.pz!="")%evar.pz;%else;%evar.p;%end; %if;(evar.nz!="")%evar.nz;%else;%evar.n;%end;',
         currentName: '%self;',
         isRerooted: %if;(evar.pz!="" and evar.pz!=evar.p)true%else;false%end;,
+        maxGenerations: %max_anc_level;,
+        genUrlTemplate: '%apply;url_set%with;v%and;__V__%end;',
         i18n: {
           homeTipSelf: '[*Sosa 1] ([*sosa reference])',
-          homeTipOther: '[*restore default_sosa_ref]'
+          homeTipOther: '[*restore default_sosa_ref]',
+          generations: '[*generation/generations]1'
         }
       });
       renderer.render();

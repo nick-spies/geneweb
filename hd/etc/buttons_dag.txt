@@ -2,6 +2,8 @@
 <!-- Copyright (c) 1998-2007 INRIA -->
 %( Boutons de configurations et d'options pour les arbres et DAG %)
 %let;evarv;%if;(e.v!="")%e.v;%else;3%end;%in;
+%( Panoramic tree: default to max_anc_level when no v specified %)
+%let;evarv;%if;(e.t1="GR" and e.v="")%max_anc_level;%else;%evarv;%end;%in;
 %( TODO : fix static_levels for dag, atm fixed at 12! %)
 %let;maxlev;
   %if;(e.m="A" and e.t1="GR")
@@ -133,7 +135,7 @@
             %end; %if;(i=maxlev)(max)%end;">%i;%(%if;(evarv=i)<br>^%end;%)</a>
         %end;
         <span class="ml-1" style="display:inline-flex;align-items:center;">
-          <input id="gen-input" type="number" min="1" max="%maxlev;" value="%evarv;" style="width:3.5em;text-align:center;padding:2px 4px;font-size:0.8rem;border:1px solid #007bff;border-radius:3px;" title="Type generation number (max %maxlev;) and press Enter or click Go">
+          <input id="gen-input" type="number" min="1" max="%maxlev;" value="%if;(e.t1="GR")%maxlev;%else;%evarv;%end;" style="width:3.5em;text-align:center;padding:2px 4px;font-size:0.8rem;border:1px solid #007bff;border-radius:3px;" title="Type generation number (max %maxlev;) and press Enter or click Go">
           <a role="button" id="gen-go" class="btn btn-sm btn-outline-primary border-0 px-1 ml-1" title="Go to generation">Go</a>
         </span>
         <script>
