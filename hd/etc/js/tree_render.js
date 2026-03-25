@@ -326,18 +326,83 @@ TreeRenderer.prototype.render = function() {
   var tree = buildSubtree(1);
   tree.classList.add('fu-root');
 
+  // Wrap tree in zoom container
+  var zoomWrap = document.createElement('div');
+  zoomWrap.className = 'tree-zoom-wrap';
+  zoomWrap.appendChild(tree);
+
   this.container.innerHTML = '';
-  this.container.appendChild(tree);
+  this.container.appendChild(zoomWrap);
 
   // Position connector lines after layout
   this.positionConnectors(tree);
+
+  // Zoom state
+  var zoomLevel = 1.0;
+  var minZoom = 0.15;
+  var maxZoom = 2.0;
+  var zoomFactor = 1.06; // 6% multiplicative per step
+  this._zoomLevel = zoomLevel;
+  this._zoomWrap = zoomWrap;
+
+  var container = this.container;
+  var self3 = this;
+
+  function applyZoom() {
+    zoomWrap.style.transform = 'scale(' + zoomLevel + ')';
+    var scaledW = tree.scrollWidth * zoomLevel;
+    var scaledH = tree.scrollHeight * zoomLevel;
+    zoomWrap.style.width = Math.max(scaledW, container.clientWidth) + 'px';
+    zoomWrap.style.height = Math.max(scaledH, container.clientHeight) + 'px';
+    // Center tree within wrapper when zoomed out
+    var padLeft = scaledW < container.clientWidth ? (container.clientWidth - scaledW) / 2 / zoomLevel : 0;
+    tree.style.marginLeft = padLeft ? padLeft + 'px' : '0';
+    self3._zoomLevel = zoomLevel;
+    if (self3._redrawMinimap) self3._redrawMinimap();
+  }
+
+  // Zoom anchored on a point (anchorX/Y in viewport-relative coords)
+  function zoomAt(newZoom, anchorX, anchorY) {
+    var oldZoom = zoomLevel;
+    // Snap to clean log steps for symmetry
+    newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+    newZoom = Math.round(newZoom * 1000) / 1000;
+    if (newZoom === oldZoom) return;
+    // Unscaled content coords under the anchor point
+    var contentX = (container.scrollLeft + anchorX) / oldZoom;
+    var contentY = (container.scrollTop + anchorY) / oldZoom;
+    zoomLevel = newZoom;
+    applyZoom();
+    // Reposition so the same content point stays under the anchor
+    container.scrollLeft = contentX * zoomLevel - anchorX;
+    container.scrollTop = contentY * zoomLevel - anchorY;
+  }
+
+  // Zoom centered on viewport (direction: 1 = in, -1 = out)
+  function zoomCenter(direction) {
+    var newZoom = direction > 0 ? zoomLevel * zoomFactor : zoomLevel / zoomFactor;
+    zoomAt(newZoom, container.clientWidth / 2, container.clientHeight / 2);
+  }
+  this._zoomCenter = zoomCenter;
+  this._zoomAt = zoomAt;
+
+  // Ctrl/Cmd + wheel to zoom, anchored on cursor
+  container.addEventListener('wheel', function(e) {
+    if (!(e.shiftKey && (e.metaKey || e.ctrlKey))) return;
+    e.preventDefault();
+    var rect = container.getBoundingClientRect();
+    var anchorX = e.clientX - rect.left;
+    var anchorY = e.clientY - rect.top;
+    var delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+    var newZoom = delta < 0 ? zoomLevel * zoomFactor : zoomLevel / zoomFactor;
+    zoomAt(newZoom, anchorX, anchorY);
+  }, { passive: false });
 
   // Ancestor line highlighting on sosa badge click
   this.container._renderer = this;
   this.setupLineHighlight(tree);
 
   // Auto-scroll to center Sosa 1
-  var container = this.container;
   var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
   if (sosa1El) {
     setTimeout(function() {
@@ -348,6 +413,7 @@ TreeRenderer.prototype.render = function() {
   }
 
   this.addHomeButton(treeAccess);
+  this.addZoomControls(zoomCenter, function() { return zoomLevel; });
   this.updateTitle();
 
   var self2 = this;
@@ -589,6 +655,97 @@ TreeRenderer.prototype.addHomeButton = function(treeAccess) {
   ascGroup.parentNode.insertBefore(homeBtn, ascGroup);
 };
 
+TreeRenderer.prototype.addZoomControls = function(onZoom, getZoom) {
+  var navbar = document.querySelector('nav.navbar.fixed-bottom');
+  if (!navbar) return;
+  var toolbar = navbar.querySelector('.btn-toolbar');
+  if (!toolbar) return;
+
+  var grp = document.createElement('div');
+  grp.className = 'btn-group border rounded ml-1 align-items-stretch';
+  grp.setAttribute('role', 'group');
+
+  var btnOut = document.createElement('button');
+  btnOut.className = 'btn btn-outline-primary px-2 pt-1 h-100';
+  btnOut.innerHTML = '<b>\u2212</b>';
+  btnOut.title = 'Zoom out (\u21e7\u2318+wheel)';
+
+  var label = document.createElement('span');
+  label.className = 'btn btn-outline-primary px-1 pt-1 h-100 disabled';
+  label.style.fontSize = '0.85rem';
+  label.style.minWidth = '3.5em';
+  label.style.fontWeight = '600';
+  label.innerHTML = '100%<br><span style="font-size:0.6rem;font-weight:normal">Zoom</span>';
+
+  var btnIn = document.createElement('button');
+  btnIn.className = 'btn btn-outline-primary px-2 pt-1 h-100';
+  btnIn.innerHTML = '<b>+</b>';
+  btnIn.title = 'Zoom in (\u21e7\u2318+wheel)';
+
+  var btnReset = document.createElement('button');
+  btnReset.className = 'btn btn-outline-primary px-2 pt-1 h-100';
+  btnReset.innerHTML = '<i class="fa fa-compress"></i><br><span style="font-size:0.6rem">Reset</span>';
+  btnReset.title = 'Reset zoom to 100%';
+  btnReset.addEventListener('click', function() {
+    var current = getZoom();
+    onZoom(1.0 - current);
+  });
+
+  grp.appendChild(btnOut);
+  grp.appendChild(label);
+  grp.appendChild(btnIn);
+  grp.appendChild(btnReset);
+  toolbar.appendChild(grp);
+
+  // Match zoom group height to Sosa 1 button
+  var homeBtn = toolbar.querySelector('.btn-outline-success, .btn-outline-danger');
+  if (homeBtn) {
+    var h = homeBtn.offsetHeight + 'px';
+    grp.style.height = h;
+  }
+
+  // Update label on zoom change
+  function updateLabel() {
+    label.innerHTML = Math.round(getZoom() * 100) + '%<br><span style="font-size:0.6rem;font-weight:normal">Zoom</span>';
+  }
+  function doZoom(direction) {
+    onZoom(direction);
+    updateLabel();
+  }
+
+  // Auto-repeat on hold
+  function repeatBtn(btn, direction) {
+    var timer = null;
+    var interval = null;
+    btn.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      doZoom(direction);
+      timer = setTimeout(function() {
+        interval = setInterval(function() { doZoom(direction); }, 80);
+      }, 400);
+    });
+    function stop() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (interval) { clearInterval(interval); interval = null; }
+    }
+    btn.addEventListener('mouseup', stop);
+    btn.addEventListener('mouseleave', stop);
+  }
+  repeatBtn(btnOut, -1);
+  repeatBtn(btnIn, 1);
+
+  var self = this;
+  btnReset.onclick = function() {
+    self._zoomAt(1.0, container.clientWidth / 2, container.clientHeight / 2);
+    updateLabel();
+  };
+
+  // Update label on wheel zoom
+  this.container.addEventListener('wheel', function() {
+    setTimeout(updateLabel, 20);
+  });
+};
+
 // ── Minimap ────────────────────────────────────────────────────────────────
 
 TreeRenderer.prototype.buildMinimap = function(tree) {
@@ -679,17 +836,11 @@ TreeRenderer.prototype.buildMinimap = function(tree) {
   var self = this;
   var treeRect = tree.getBoundingClientRect();
   function updateViewport() {
-    var scrollLeft = container.scrollLeft;
-    var rx = scrollLeft * scaleX;
-    var rw = viewW * scaleX;
-
-    // Vertical: tree overflows into page scroll
-    var treeBCR = tree.getBoundingClientRect();
-    var visTop = Math.max(0, -treeBCR.top);
-    var visBot = Math.min(treeH, window.innerHeight - treeBCR.top);
-    var visH = Math.max(0, visBot - visTop);
-    var ry = visTop * scaleY;
-    var rh = visH * scaleY;
+    var zoom = self._zoomLevel || 1;
+    var rx = (container.scrollLeft / zoom) * scaleX;
+    var ry = (container.scrollTop / zoom) * scaleY;
+    var rw = (container.clientWidth / zoom) * scaleX;
+    var rh = (container.clientHeight / zoom) * scaleY;
 
     vpRect.style.left = Math.round(rx) + 'px';
     vpRect.style.top = Math.round(ry) + 'px';
@@ -702,19 +853,16 @@ TreeRenderer.prototype.buildMinimap = function(tree) {
   window.addEventListener('scroll', updateViewport);
   window.addEventListener('resize', updateViewport);
 
-  // Minimap click/drag: scroll both horizontal (container) and vertical (page)
+  // Minimap click/drag: scroll container in both axes
   function panToMinimap(e) {
+    var zoom = self._zoomLevel || 1;
     var rect = canvas.getBoundingClientRect();
     var clickX = e.clientX - rect.left;
     var clickY = e.clientY - rect.top;
-    // Horizontal: scroll the container
-    var targetScrollX = (clickX / mapW) * treeW - viewW / 2;
-    container.scrollLeft = Math.max(0, Math.min(targetScrollX, treeW - viewW));
-    // Vertical: scroll the page so tree portion under click is centered
-    var treeTargetY = (clickY / mapH) * treeH;
-    var treePageTop = tree.getBoundingClientRect().top + window.pageYOffset;
-    var targetScrollY = treePageTop + treeTargetY - window.innerHeight / 2;
-    window.scrollTo({ left: window.pageXOffset, top: Math.max(0, targetScrollY) });
+    var targetX = (clickX / mapW) * treeW * zoom - container.clientWidth / 2;
+    var targetY = (clickY / mapH) * treeH * zoom - container.clientHeight / 2;
+    container.scrollLeft = Math.max(0, targetX);
+    container.scrollTop = Math.max(0, targetY);
   }
 
   canvas.addEventListener('click', panToMinimap);

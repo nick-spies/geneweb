@@ -1,10 +1,20 @@
 /* tree_render.css — Recursive flexbox ancestor tree styles */
 
 #tree-grid-container {
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: scroll;
   width: 100%;
-  text-align: center;
+  height: calc(100vh - 50px);
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  box-sizing: border-box;
+}
+#tree-grid-container::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.tree-zoom-wrap {
+  display: inline-block;
+  transform-origin: 0 0;
 }
 
 /* ── Family unit: the core recursive building block ── */
