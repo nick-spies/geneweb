@@ -34,7 +34,8 @@ PersonBox.prototype.dateSpan = function() {
 PersonBox.prototype.tooltipText = function() {
   var p = this.person;
   var parts = [];
-  if (p.posSosa) parts.push('Sosa ' + p.posSosa);
+  var showSosa = p.displaySosa || p.posSosa;
+  if (showSosa) parts.push('Sosa ' + showSosa);
   parts.push((p.sex === 0 ? '\u2642' : '\u2640') + ' ' + this.displayName());
   var dates = this.dateSpan();
   if (dates) parts.push('(' + dates + ')');
@@ -62,16 +63,17 @@ PersonBox.prototype.render = function() {
         window.location.href = treeAccess(p.access);
       });
     }
-    link.textContent = p.posSosa ? p.posSosa : '\u00B7';
+    link.textContent = p.displaySosa || p.posSosa || '\u00B7';
     box.appendChild(link);
     return box;
   }
 
-  if (this.showSosa && p.posSosa) {
+  var sosaLabel = p.displaySosa || p.posSosa;
+  if (this.showSosa && sosaLabel) {
     var badge = document.createElement('span');
     badge.className = 'person-sosa';
-    badge.textContent = p.posSosa;
-    badge.title = 'Sosa ' + p.posSosa;
+    badge.textContent = sosaLabel;
+    badge.title = 'Sosa ' + sosaLabel;
     box.appendChild(badge);
   }
 
@@ -189,6 +191,7 @@ TreeRenderer.prototype.render = function() {
       var posSosa = baseSosa + c;
       if (cells[c].person) {
         cells[c].person.posSosa = posSosa;
+        if (cells[c].person.sosa) cells[c].person.displaySosa = cells[c].person.sosa;
         sosaMap[posSosa] = cells[c].person;
       }
       if (cells[c].isRight && cells[c].family && cells[c].family.marriageYear) {
@@ -320,14 +323,6 @@ TreeRenderer.prototype.render = function() {
 
 
 
-  // Update badge
-  var badge = document.getElementById('build-badge');
-  if (badge) {
-    var rowInfo = [];
-    for (var ri = 0; ri < rows.length; ri++) rowInfo.push(rows[ri].cells.length);
-    badge.textContent = 'B59 flex rows=[' + rowInfo.join(',') + ']';
-  }
-
   // Position connector lines after layout
   this.positionConnectors(tree);
 
@@ -447,34 +442,34 @@ TreeRenderer.prototype.positionConnectors = function(root) {
 
 TreeRenderer.prototype.updateTitle = function() {
   var opts = this.options;
-  if (!opts.isRerooted) return;
   var titleEl = document.getElementById('tree-title');
   if (!titleEl) return;
-  var name = (opts.selfName || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
-  var from = opts.currentName || '';
-  var span = titleEl.querySelector('span');
-  if (span) {
-    var textNodes = [];
-    for (var i = 0; i < titleEl.childNodes.length; i++) {
-      if (titleEl.childNodes[i] === span) break;
-      textNodes.push(titleEl.childNodes[i]);
-    }
-    for (var i = 0; i < textNodes.length; i++) {
-      titleEl.removeChild(textNodes[i]);
-    }
-    var newText = document.createTextNode('Ascendants tree of ' + name + ' ');
-    titleEl.insertBefore(newText, span);
+
+  var gens = opts.generations || 0;
+  var sosa1Name = (opts.selfName || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  var currentName = opts.currentName || '';
+
+  titleEl.innerHTML = '';
+
+  if (opts.isRerooted) {
+    titleEl.appendChild(document.createTextNode('Ancestors of ' + sosa1Name + ' '));
     var fromSpan = document.createElement('span');
     fromSpan.className = 'text-small text-muted font-weight-lighter';
-    fromSpan.textContent = '(shown from ' + from + ')';
-    titleEl.insertBefore(fromSpan, span);
-    span.style.display = 'none';
+    fromSpan.textContent = '(from ' + currentName + ')';
+    titleEl.appendChild(fromSpan);
+  } else {
+    titleEl.appendChild(document.createTextNode('Ancestors of ' + currentName + ' '));
   }
+
+  var genSpan = document.createElement('span');
+  genSpan.className = 'text-small text-muted font-weight-lighter';
+  genSpan.textContent = ' \u2014 ' + gens + ' generation' + (gens !== 1 ? 's' : '');
+  titleEl.appendChild(genSpan);
 
   var selfBtn = document.getElementById('self');
   if (selfBtn && opts.selfAccess) {
     selfBtn.href = opts.selfAccess;
-    selfBtn.title = name;
+    selfBtn.title = sosa1Name;
   }
 };
 

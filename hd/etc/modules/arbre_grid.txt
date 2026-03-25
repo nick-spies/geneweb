@@ -20,7 +20,7 @@
 </div>
 
 <link rel="stylesheet" href="css/tree_render.css?v=31">
-<script src="js/tree_render.js?v=60"></script>
+<script src="js/tree_render.js?v=62"></script>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
@@ -94,4 +94,36 @@
     }
   });
 </script>
-%include;buttons_dag
+%( Panoramic tree: generation-only toolbar %)
+%let;sosa1_p;%if;(evar.pz!="")%evar.pz;%else;%evar.p;%end;%in;
+%let;sosa1_n;%if;(evar.nz!="")%evar.nz;%else;%evar.n;%end;%in;
+%let;sosa1_oc;%evar.ocz;%in;
+%let;maxgen;%if;(max_anc_level<16)%max_anc_level;%else;15%end;%in;
+%if;(not cancel_links)
+<nav class="navbar fixed-bottom navbar-light bg-light justify-content-center py-1">
+  <div class="btn-toolbar align-items-center" role="toolbar">
+    <div class="btn-group border rounded" role="group" aria-label="generation buttons">
+      <span class="btn btn-sm btn-primary disabled border border-info rounded-left">Generations</span>
+      %for;i;1;maxgen;
+        <a role="button" class="btn btn-sm px-%if;(i<10)2%else;1%end; btn-outline-primary border-%if;(e_v=i)2 rounded disabled font-weight-bold%else;0%end;"
+          %if;(e_v!=i)href="%prefix;m=A&t=T&t1=GR&p=%sosa1_p;&n=%sosa1_n;&oc=%sosa1_oc;&pz=%sosa1_p;&nz=%sosa1_n;&ocz=%sosa1_oc;&v=%expr(i)"%end;
+          title="%i; generation%if;(i>1)s%end;%if;(i=maxgen) (max)%end;">%i;</a>
+      %end;
+      <span class="ml-1" style="display:inline-flex;align-items:center;">
+        <input id="gen-input" type="number" min="1" max="%max_anc_level;" value="%e_v;" style="width:3.5em;text-align:center;padding:2px 4px;font-size:0.8rem;border:1px solid #007bff;border-radius:3px;" title="Type generation (max %max_anc_level;) and press Enter">
+        <a role="button" id="gen-go" class="btn btn-sm btn-outline-primary border-0 px-1 ml-1" title="Go to generation">Go</a>
+      </span>
+      <script>
+      (function(){
+        var inp=document.getElementById('gen-input');
+        var go=document.getElementById('gen-go');
+        var base='%prefix;m=A&t=T&t1=GR&p=%sosa1_p;&n=%sosa1_n;&oc=%sosa1_oc;&pz=%sosa1_p;&nz=%sosa1_n;&ocz=%sosa1_oc;&v=';
+        function nav(){var v=parseInt(inp.value);if(v&&v>=1){window.location.href=base+v;}}
+        go.addEventListener('click',nav);
+        inp.addEventListener('keydown',function(e){if(e.key==='Enter')nav();});
+      })();
+      </script>
+    </div>
+  </div>
+</nav>
+%end;
