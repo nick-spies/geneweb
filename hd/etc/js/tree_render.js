@@ -92,6 +92,8 @@ PersonBox.prototype.render = function() {
     nameLink.addEventListener('click', function(e) {
       if (e.metaKey || e.ctrlKey) return;
       e.preventDefault();
+      var container = document.getElementById('tree-grid-container');
+      if (container && container._renderer && container._renderer._highlightedSosa) return;
       window.location.href = treeAccess(p.access);
     });
   }
@@ -117,14 +119,6 @@ PersonBox.prototype.render = function() {
       dateEl.className = 'person-dates';
       dateEl.textContent = dates;
       dateEl.style.fontSize = (this.fontSize * 0.85) + 'rem';
-      if (this.options && this.options.wizard && p.access) {
-        dateEl.title = 'Update ' + this.displayName();
-        dateEl.style.cursor = 'pointer';
-        dateEl.addEventListener('click', function() {
-          var sep = p.access.indexOf('?') >= 0 ? '&' : '?';
-          window.location.href = p.access + sep + 'm=U';
-        });
-      }
       box.appendChild(dateEl);
     }
   }
@@ -231,6 +225,7 @@ TreeRenderer.prototype.render = function() {
     return url;
   };
 
+  this._sosaMap = sosaMap;
   var self = this;
   var maxSosa = Math.pow(2, topGen + 1) - 1; // highest possible sosa in this tree
 
@@ -287,6 +282,7 @@ TreeRenderer.prototype.render = function() {
       // Connector placeholder (positioned by JS after layout)
       var conn = document.createElement('div');
       conn.className = 'fu-conn';
+      conn.setAttribute('data-sosa', sosa);
       conn.setAttribute('data-father', fatherSosa);
       conn.setAttribute('data-mother', motherSosa);
 
@@ -317,7 +313,9 @@ TreeRenderer.prototype.render = function() {
       pb.options = opts;
 
 
-      personEl.appendChild(pb.render());
+      var renderedBox = pb.render();
+      renderedBox.setAttribute('data-sosa', sosa);
+      personEl.appendChild(renderedBox);
       unit.appendChild(personEl);
     }
 
@@ -331,10 +329,12 @@ TreeRenderer.prototype.render = function() {
   this.container.innerHTML = '';
   this.container.appendChild(tree);
 
-
-
   // Position connector lines after layout
   this.positionConnectors(tree);
+
+  // Ancestor line highlighting on sosa badge click
+  this.container._renderer = this;
+  this.setupLineHighlight(tree);
 
   // Auto-scroll to center Sosa 1
   var container = this.container;
@@ -448,6 +448,84 @@ TreeRenderer.prototype.positionConnectors = function(root) {
   }
 };
 
+// ── Ancestor line highlighting ────────────────────────────────────────────
+
+TreeRenderer.prototype.setupLineHighlight = function(tree) {
+  var self = this;
+  var sosaMap = this._sosaMap;
+  this._highlightedSosa = null;
+
+  // Collect all sosa subtree members (sosa and all ancestors above it)
+  function getSubtreeSosas(sosa) {
+    var set = {};
+    var queue = [sosa];
+    while (queue.length > 0) {
+      var s = queue.shift();
+      if (set[s]) continue;
+      if (!sosaMap[s]) continue;
+      set[s] = true;
+      if (sosaMap[s * 2]) queue.push(s * 2);
+      if (sosaMap[s * 2 + 1]) queue.push(s * 2 + 1);
+    }
+    return set;
+  }
+
+  function clearHighlight() {
+    var highlighted = tree.querySelectorAll('.hl-ancestor');
+    for (var i = 0; i < highlighted.length; i++) {
+      highlighted[i].classList.remove('hl-ancestor');
+    }
+    var hlConns = tree.querySelectorAll('.hl-conn');
+    for (var i = 0; i < hlConns.length; i++) {
+      hlConns[i].classList.remove('hl-conn');
+    }
+    self._highlightedSosa = null;
+    if (self._redrawMinimap) self._redrawMinimap();
+  }
+
+  function highlightSubtree(sosa) {
+    if (self._highlightedSosa === sosa) return;
+    clearHighlight();
+    var set = getSubtreeSosas(sosa);
+    self._highlightedSosa = sosa;
+
+    // Highlight person boxes
+    var boxes = tree.querySelectorAll('.person-box[data-sosa]');
+    for (var i = 0; i < boxes.length; i++) {
+      var s = parseInt(boxes[i].getAttribute('data-sosa'));
+      if (set[s]) boxes[i].classList.add('hl-ancestor');
+    }
+
+    // Highlight connectors whose child sosa is in the set
+    var conns = tree.querySelectorAll('.fu-conn[data-sosa]');
+    for (var i = 0; i < conns.length; i++) {
+      var s = parseInt(conns[i].getAttribute('data-sosa'));
+      if (set[s]) conns[i].classList.add('hl-conn');
+    }
+
+    if (self._redrawMinimap) self._redrawMinimap();
+  }
+
+  // Attach click handler to sosa badges
+  var badges = tree.querySelectorAll('.person-sosa');
+  for (var i = 0; i < badges.length; i++) {
+    (function(badge) {
+      badge.style.cursor = 'pointer';
+      badge.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var box = badge.closest('.person-box');
+        var sosa = box ? parseInt(box.getAttribute('data-sosa')) : null;
+        if (sosa) highlightSubtree(sosa);
+      });
+    })(badges[i]);
+  }
+
+  // Double-click on empty space clears highlight
+  tree.addEventListener('dblclick', function(e) {
+    if (!e.target.closest('.person-sosa')) clearHighlight();
+  });
+};
+
 // ── Title, Home Button, Minimap (unchanged) ──────────────────────────────
 
 TreeRenderer.prototype.updateTitle = function() {
@@ -559,22 +637,40 @@ TreeRenderer.prototype.buildMinimap = function(tree) {
 
   var ctx = canvas.getContext('2d');
 
-  var personBoxes = tree.querySelectorAll('.person-box');
+  function drawMinimapDots() {
+    var personBoxes = tree.querySelectorAll('.person-box');
+    ctx.fillStyle = '#f8f8f8';
+    ctx.fillRect(0, 0, mapW, mapH);
 
-  ctx.fillStyle = '#f8f8f8';
-  ctx.fillRect(0, 0, mapW, mapH);
-
-  for (var i = 0; i < personBoxes.length; i++) {
-    var pb = personBoxes[i];
-    var parent = pb.parentNode;
-    var px = parent.offsetLeft + parent.offsetWidth / 2;
-    var py = parent.offsetTop + parent.offsetHeight / 2;
-    var isMale = pb.classList.contains('person-male');
-    ctx.fillStyle = isMale ? '#4a7ab5' : '#b54a7a';
-    var dotX = Math.round(px * scaleX);
-    var dotY = Math.round(py * scaleY);
-    ctx.fillRect(dotX - 2, dotY - 1, 4, 3);
+    var sosa2x = mapW / 2, sosa3x = mapW / 2;
+    for (var i = 0; i < personBoxes.length; i++) {
+      var pb = personBoxes[i];
+      var parent = pb.parentNode;
+      var px = parent.offsetLeft + parent.offsetWidth / 2;
+      var py = parent.offsetTop + parent.offsetHeight / 2;
+      var isHighlighted = pb.classList.contains('hl-ancestor');
+      var isMale = pb.classList.contains('person-male');
+      var dotX = Math.round(px * scaleX);
+      var dotY = Math.round(py * scaleY);
+      var sosaNum = pb.getAttribute('data-sosa');
+      if (sosaNum === '2') { sosa2x = dotX; }
+      if (sosaNum === '3') { sosa3x = dotX; }
+      if (sosaNum === '1') continue;
+      if (isHighlighted) {
+        ctx.fillStyle = '#d4a017';
+        ctx.fillRect(dotX - 3, dotY - 2, 6, 4);
+      } else {
+        ctx.fillStyle = isMale ? '#4a7ab5' : '#b54a7a';
+        ctx.fillRect(dotX - 2, dotY - 1, 4, 3);
+      }
+    }
+    // Sosa 1: green dot centered between parents at bottom
+    var s1x = Math.round((sosa2x + sosa3x) / 2);
+    ctx.fillStyle = '#28a745';
+    ctx.fillRect(s1x - 4, mapH - 6, 8, 6);
   }
+  drawMinimapDots();
+  this._redrawMinimap = drawMinimapDots;
 
   var vpRect = document.createElement('div');
   vpRect.className = 'tree-minimap-viewport';
