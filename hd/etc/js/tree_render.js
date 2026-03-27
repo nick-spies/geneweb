@@ -404,43 +404,65 @@ TreeRenderer.prototype.render = function() {
   var zoomFactor = 1.06; // 6% multiplicative per step
   this._zoomLevel = zoomLevel;
   this._zoomWrap = zoomWrap;
-  var self3 = this;
 
   var treeContentW = tree.scrollWidth;
+  var treeContentH = tree.scrollHeight;
 
-  // Fixed padding (in unscaled px) so edge persons can scroll to mid-screen
-  // Use half the viewport width at render time, divided by initial zoom
-  var treePadPx = Math.round(container.clientWidth / 2 / zoomLevel);
-  tree.style.marginLeft = treePadPx + 'px';
-  tree.style.marginRight = treePadPx + 'px';
+  // Padding so any person can be scrolled to center of viewport at any zoom.
+  // Dynamically grows when zooming out so scroll position never goes negative.
+  var treePadPx = Math.round(container.clientWidth / zoomLevel);
+  var treePadPxV = Math.round(container.clientHeight / zoomLevel);
 
-  function applyZoom() {
-    zoomWrap.style.transform = 'scale(' + zoomLevel + ')';
-    var scaledW = (treeContentW + treePadPx * 2) * zoomLevel;
-    var scaledH = tree.scrollHeight * zoomLevel;
-    zoomWrap.style.width = Math.max(scaledW, container.clientWidth) + 'px';
-    zoomWrap.style.height = Math.max(scaledH, container.clientHeight) + 'px';
-    self3._zoomLevel = zoomLevel;
-    if (self3._redrawMinimap) self3._redrawMinimap();
-    if (self3._updateGenLabels) self3._updateGenLabels();
+  function updatePadding() {
+    tree.style.marginLeft = treePadPx + 'px';
+    tree.style.marginRight = treePadPx + 'px';
+    tree.style.marginTop = treePadPxV + 'px';
+    tree.style.marginBottom = treePadPxV + 'px';
   }
+  updatePadding();
+
+  function updateWrapSize() {
+    var scaledW = (treeContentW + treePadPx * 2) * zoomLevel;
+    var scaledH = (treeContentH + treePadPxV * 2) * zoomLevel;
+    zoomWrap.style.width = (scaledW + container.clientWidth) + 'px';
+    zoomWrap.style.height = (scaledH + container.clientHeight) + 'px';
+    zoomWrap.style.transform = 'scale(' + zoomLevel + ')';
+  }
+  updateWrapSize();
 
   // Zoom anchored on a point (anchorX/Y in viewport-relative coords)
   function zoomAt(newZoom, anchorX, anchorY) {
     var oldZoom = zoomLevel;
-    // Snap to clean log steps for symmetry
     newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
     newZoom = Math.round(newZoom * 1000) / 1000;
     if (newZoom === oldZoom) return;
-    // Unscaled content coords under the anchor point
-    var contentX = (container.scrollLeft + anchorX) / oldZoom;
-    var contentY = (container.scrollTop + anchorY) / oldZoom;
+
+    // Capture position within tree border box (independent of padding)
+    var treePosX = (container.scrollLeft + anchorX) / oldZoom - treePadPx;
+    var treePosY = (container.scrollTop + anchorY) / oldZoom - treePadPxV;
+
     zoomLevel = newZoom;
-    applyZoom();
-    // Reposition so the same content point stays under the anchor
-    container.scrollLeft = contentX * zoomLevel - anchorX;
-    container.scrollTop = contentY * zoomLevel - anchorY;
-    // No scroll clamping — allow edge persons to reach mid-screen
+    self._zoomLevel = zoomLevel;
+
+    // Grow padding if needed so scroll position stays non-negative
+    var neededPadX = Math.round(container.clientWidth / zoomLevel);
+    var neededPadY = Math.round(container.clientHeight / zoomLevel);
+    if (neededPadX > treePadPx || neededPadY > treePadPxV) {
+      treePadPx = Math.max(treePadPx, neededPadX);
+      treePadPxV = Math.max(treePadPxV, neededPadY);
+      updatePadding();
+    }
+
+    // Set dimensions BEFORE scroll to prevent browser clamping
+    updateWrapSize();
+    void container.scrollWidth; // force layout
+
+    // Reposition so the same tree point stays under the anchor
+    container.scrollLeft = (treePosX + treePadPx) * zoomLevel - anchorX;
+    container.scrollTop = (treePosY + treePadPxV) * zoomLevel - anchorY;
+
+    if (self._redrawMinimap) self._redrawMinimap();
+    if (self._updateGenLabels) self._updateGenLabels();
   }
 
   // Zoom centered on viewport (direction: 1 = in, -1 = out)
@@ -555,7 +577,7 @@ TreeRenderer.prototype.render = function() {
       setTimeout(function() {
         var elCenter = sosa1El.offsetLeft + sosa1El.offsetWidth / 2;
         var viewCenter = container.clientWidth / 2;
-        container.scrollLeft = Math.max(0, elCenter - viewCenter);
+        container.scrollLeft = elCenter - viewCenter;
       }, 200);
     }
   }
@@ -563,14 +585,13 @@ TreeRenderer.prototype.render = function() {
 
   this.updateTitle();
 
-  var self2 = this;
   this._treeAccess = treeAccess;
   this._zoomCenter = zoomCenter;
   this._getZoom = function() { return zoomLevel; };
   requestAnimationFrame(function() {
     requestAnimationFrame(function() {
-      self2.buildToolbar(tree);
-      self2.addGenCursorLabel(tree, container);
+      self.buildToolbar(tree);
+      self.addGenCursorLabel(tree, container);
     });
   });
 };
@@ -788,18 +809,14 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
     var treeRect = treeEl.getBoundingClientRect();
     var cursorY = (e.clientY - treeRect.top) / zoom;
     var cursorX = (e.clientX - treeRect.left) / zoom;
-    var treeW = treeEl.scrollWidth;
 
     // Find nearest person box to cursor to determine generation
-    var treeElAll = container.querySelector('.fu-root');
-    if (!treeElAll) return;
-    var allPersons = treeElAll.querySelectorAll('.fu-person[data-gen]');
+    var allPersons = treeEl.querySelectorAll('.fu-person[data-gen]');
     var bestGen = -1, bestDist = Infinity;
-    var treeRAll = treeElAll.getBoundingClientRect();
     for (var ai = 0; ai < allPersons.length; ai++) {
       var ap = allPersons[ai];
       var ar = ap.getBoundingClientRect();
-      var ay = (ar.top + ar.height / 2 - treeRAll.top) / zoom;
+      var ay = (ar.top + ar.height / 2 - treeRect.top) / zoom;
       var dy = Math.abs(cursorY - ay);
       if (dy < bestDist) {
         bestDist = dy;
@@ -809,19 +826,16 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
     if (bestGen < 0) { debugEl.style.display = 'none'; return; }
 
     var lowSosa = Math.pow(2, bestGen - 1);
-    var highSosa = Math.pow(2, bestGen) - 1;
 
-    // Find actual persons on this gen row, sorted by X position (use getBoundingClientRect for accuracy)
-    var treeEl = container.querySelector('.fu-root');
-    var treeRect2 = treeEl ? treeEl.getBoundingClientRect() : { left: 0 };
-    var genPersons = treeEl ? treeEl.querySelectorAll('.fu-person[data-gen="' + bestGen + '"]') : [];
+    // Find actual persons on this gen row, sorted by X position
+    var genPersons = treeEl.querySelectorAll('.fu-person[data-gen="' + bestGen + '"]');
     var posArr = [];
     for (var pi = 0; pi < genPersons.length; pi++) {
       var pel = genPersons[pi];
       var s = parseInt(pel.getAttribute('data-sosa'));
       if (!s) continue;
       var r = pel.getBoundingClientRect();
-      var px = (r.left + r.width / 2 - treeRect2.left) / zoom;
+      var px = (r.left + r.width / 2 - treeRect.left) / zoom;
       posArr.push({ sosa: s, x: px });
     }
     posArr.sort(function(a, b) { return a.x - b.x; });
@@ -1139,12 +1153,6 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
   right.style.height = btnH;
 };
 
-TreeRenderer.prototype._makeSep = function() {
-  var sep = document.createElement('div');
-  sep.className = 'pano-sep';
-  return sep;
-};
-
 // ── Minimap (called from buildToolbar) ────────────────────────────────────
 
 TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
@@ -1176,13 +1184,20 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   var totalGens = this.options.generations || 3;
   var margin = 6; // top/bottom margin in minimap pixels
 
+  // Minimap dot data: { gen -> [{sosa, dotX}] } for hover lookup
+  var minimapDotsByGen = {};
+
   function drawMinimapDots_dotsOnly() {
     var personBoxes = tree.querySelectorAll('.person-box');
     var sosa2x = mapW / 2, sosa3x = mapW / 2;
+    var treeRect = tree.getBoundingClientRect();
+    var zoom = self._zoomLevel || 1;
+    minimapDotsByGen = {};
     for (var i = 0; i < personBoxes.length; i++) {
       var pb = personBoxes[i];
       var parent = pb.parentNode;
-      var px = parent.offsetLeft + parent.offsetWidth / 2;
+      var parentRect = parent.getBoundingClientRect();
+      var px = (parentRect.left + parentRect.width / 2 - treeRect.left) / zoom;
       var isHighlighted = pb.classList.contains('hl-ancestor');
       var isMale = pb.classList.contains('person-male');
       var dotX = Math.round(px * scaleX);
@@ -1191,6 +1206,10 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
       if (!s || s < 1) continue;
       var gen = sosaGen(s);
       var dotY = Math.round(mapH - margin - (gen / Math.max(totalGens - 1, 1)) * (mapH - 2 * margin));
+      // Store dot info for hover lookup (1-based gen key)
+      var genKey = gen + 1;
+      if (!minimapDotsByGen[genKey]) minimapDotsByGen[genKey] = [];
+      minimapDotsByGen[genKey].push({ sosa: s, dotX: dotX, dotY: dotY });
       if (sosaNum === '2') { sosa2x = dotX; }
       if (sosaNum === '3') { sosa3x = dotX; }
       if (sosaNum === '1') continue;
@@ -1241,10 +1260,21 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
 
   function updateViewport() {
     var zoom = self._zoomLevel || 1;
-    vpX = Math.round((container.scrollLeft / zoom) * scaleX);
-    vpY = Math.round((container.scrollTop / zoom) * scaleY);
+    // Account for tree padding (margins) when mapping scroll to minimap
+    var padPx = parseFloat(tree.style.marginLeft) || 0;
+    var padPxV = parseFloat(tree.style.marginTop) || 0;
+    var scrollInTree = container.scrollLeft / zoom - padPx;
+    vpX = Math.round(scrollInTree * scaleX);
+    vpY = Math.round((container.scrollTop / zoom - padPxV) * scaleY);
     vpW = Math.min(Math.max(Math.round((container.clientWidth / zoom) * scaleX), 8), mapW);
     vpH = Math.min(Math.max(Math.round((container.clientHeight / zoom) * scaleY), 8), mapH);
+    // Clamp nav box within minimap bounds
+    if (vpX < 0) { vpW += vpX; vpX = 0; }
+    if (vpY < 0) { vpH += vpY; vpY = 0; }
+    if (vpX + vpW > mapW) vpW = mapW - vpX;
+    if (vpY + vpH > mapH) vpH = mapH - vpY;
+    vpW = Math.max(vpW, 4);
+    vpH = Math.max(vpH, 4);
     drawAll();
   }
   updateViewport();
@@ -1256,14 +1286,144 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     var rect = canvas.getBoundingClientRect();
     var clickX = e.clientX - rect.left;
     var clickY = e.clientY - rect.top;
-    container.scrollLeft = Math.max(0, (clickX / mapW) * treeW * zoom - container.clientWidth / 2);
-    container.scrollTop = Math.max(0, (clickY / mapH) * treeH * zoom - container.clientHeight / 2);
+
+    // Find nearest dot to click position
+    var bestDot = null, bestDist = Infinity;
+    for (var g in minimapDotsByGen) {
+      var dots = minimapDotsByGen[g];
+      for (var i = 0; i < dots.length; i++) {
+        var dx = clickX - dots[i].dotX;
+        var dy = clickY - dots[i].dotY;
+        var dist = dx * dx + dy * dy;
+        if (dist < bestDist) { bestDist = dist; bestDot = dots[i]; }
+      }
+    }
+    if (!bestDot) return;
+
+    // Find the actual person element and scroll to center it
+    var personEl = tree.querySelector('.person-box[data-sosa="' + bestDot.sosa + '"]');
+    if (!personEl) return;
+    var treeRect = tree.getBoundingClientRect();
+    var personRect = personEl.getBoundingClientRect();
+    // Person center in unscaled tree coords
+    var personX = (personRect.left + personRect.width / 2 - treeRect.left) / zoom;
+    var personY = (personRect.top + personRect.height / 2 - treeRect.top) / zoom;
+    // But use the minimap X for horizontal (interpolate between persons, not snap to nearest)
+    // Compute interpolated X: use dot X proportion between the clicked position
+    var nearGen = Math.floor(Math.log(bestDot.sosa) / Math.LN2) + 1;
+    var genDots = (minimapDotsByGen[nearGen] || []).slice().sort(function(a,b) { return a.dotX - b.dotX; });
+
+    var targetTreeX;
+    if (genDots.length < 2 || clickX <= genDots[0].dotX || clickX >= genDots[genDots.length-1].dotX) {
+      targetTreeX = personX;
+    } else {
+      // Interpolate between two bracketing persons
+      for (var i = 0; i < genDots.length - 1; i++) {
+        if (clickX >= genDots[i].dotX && clickX <= genDots[i+1].dotX) {
+          var t = (clickX - genDots[i].dotX) / (genDots[i+1].dotX - genDots[i].dotX);
+          var leftEl = tree.querySelector('.person-box[data-sosa="' + genDots[i].sosa + '"]');
+          var rightEl = tree.querySelector('.person-box[data-sosa="' + genDots[i+1].sosa + '"]');
+          if (leftEl && rightEl) {
+            var lr = leftEl.getBoundingClientRect();
+            var rr = rightEl.getBoundingClientRect();
+            var lx = (lr.left + lr.width/2 - treeRect.left) / zoom;
+            var rx = (rr.left + rr.width/2 - treeRect.left) / zoom;
+            targetTreeX = lx + t * (rx - lx);
+          } else {
+            targetTreeX = personX;
+          }
+          break;
+        }
+      }
+      if (targetTreeX === undefined) targetTreeX = personX;
+    }
+
+    // Scroll to center on target position (use actual DOM positions, no scaleX math)
+    // No clamping — allow blank space so edge persons can be truly centered
+    var padPx = parseFloat(tree.style.marginLeft) || 0;
+    container.scrollLeft = (targetTreeX + padPx) * zoom - container.clientWidth / 2;
+    var padPxV = parseFloat(tree.style.marginTop) || 0;
+    container.scrollTop = (personY + padPxV) * zoom - container.clientHeight / 2;
   }
   canvas.addEventListener('click', panToMinimap);
   var dragging = false;
   wrapper.addEventListener('mousedown', function(e) { dragging = true; e.preventDefault(); });
   document.addEventListener('mousemove', function(e) { if (dragging) panToMinimap(e); });
   document.addEventListener('mouseup', function() { dragging = false; });
+
+  // Minimap hover: compute Sosa overlay directly from dot data
+  function minimapSosaOverlay(e) {
+    var debugEl = document.getElementById('sosa-debug-overlay');
+    if (!debugEl) return;
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    if (mx < 0 || mx > mapW || my < 0 || my > mapH) { debugEl.style.display = 'none'; return; }
+
+    // Find nearest gen by dotY distance
+    var bestGen = -1, bestDist = Infinity;
+    for (var g in minimapDotsByGen) {
+      var dots = minimapDotsByGen[g];
+      if (dots.length === 0) continue;
+      var dy = Math.abs(my - dots[0].dotY);
+      if (dy < bestDist) { bestDist = dy; bestGen = parseInt(g); }
+    }
+    if (bestGen < 0) { debugEl.style.display = 'none'; return; }
+
+    // Get dots for this gen, sorted by X
+    var dots = minimapDotsByGen[bestGen].slice().sort(function(a, b) { return a.dotX - b.dotX; });
+    var snapPx = 6;
+    var guessedSosa, leftActual = null, rightActual = null, onPerson = false;
+
+    if (dots.length === 0) {
+      debugEl.style.display = 'none'; return;
+    } else if (mx <= dots[0].dotX) {
+      guessedSosa = dots[0].sosa;
+      if (Math.abs(mx - dots[0].dotX) < snapPx) onPerson = true;
+      else rightActual = dots[0].sosa;
+    } else if (mx >= dots[dots.length - 1].dotX) {
+      guessedSosa = dots[dots.length - 1].sosa;
+      if (Math.abs(mx - dots[dots.length - 1].dotX) < snapPx) onPerson = true;
+      else leftActual = dots[dots.length - 1].sosa;
+    } else {
+      for (var i = 0; i < dots.length - 1; i++) {
+        if (mx >= dots[i].dotX && mx <= dots[i + 1].dotX) {
+          var span = dots[i + 1].dotX - dots[i].dotX;
+          var t = span > 0 ? (mx - dots[i].dotX) / span : 0;
+          if (t <= 0.10) { guessedSosa = dots[i].sosa; onPerson = true; }
+          else if (t >= 0.90) { guessedSosa = dots[i + 1].sosa; onPerson = true; }
+          else {
+            guessedSosa = Math.round(dots[i].sosa + t * (dots[i + 1].sosa - dots[i].sosa));
+            leftActual = dots[i].sosa;
+            rightActual = dots[i + 1].sosa;
+          }
+          break;
+        }
+      }
+      if (guessedSosa === undefined) guessedSosa = dots[0].sosa;
+    }
+
+    var display;
+    if (onPerson) display = 'Sosa ' + guessedSosa;
+    else if (leftActual !== null && rightActual !== null) display = leftActual + '\u2013' + rightActual;
+    else if (leftActual !== null) display = leftActual + '\u2013';
+    else if (rightActual !== null) display = '\u2013' + rightActual;
+    else display = '\u2013';
+
+    debugEl.textContent = '(Gen ' + bestGen + ')  ' + display;
+    debugEl.style.display = '';
+    var mm = document.querySelector('.tree-minimap.pano-minimap');
+    if (mm) {
+      var mmr = mm.getBoundingClientRect();
+      debugEl.style.left = (mmr.right + 8) + 'px';
+      debugEl.style.bottom = (window.innerHeight - mmr.bottom) + 'px';
+    }
+  }
+  wrapper.addEventListener('mousemove', minimapSosaOverlay);
+  wrapper.addEventListener('mouseleave', function() {
+    var debugEl = document.getElementById('sosa-debug-overlay');
+    if (debugEl) debugEl.style.display = 'none';
+  });
 };
 
 // ── Generation controls (called from buildToolbar) ───────────────────────
@@ -1414,9 +1574,10 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
             var s1y = p.offsetTop + p.offsetHeight / 2;
             var targetX = (s1x + savedOffsetFromSosa1X) * newZoom;
             var targetY = (s1y + savedOffsetFromSosa1Y) * newZoom;
-            container.scrollLeft = Math.max(0, targetX - container.clientWidth / 2);
-            container.scrollTop = Math.max(0, targetY - container.clientHeight / 2);
+            container.scrollLeft = targetX - container.clientWidth / 2;
+            container.scrollTop = targetY - container.clientHeight / 2;
           }
+          // Clamp so nav box stays within minimap
 
           history.pushState(null, '', url);
 
