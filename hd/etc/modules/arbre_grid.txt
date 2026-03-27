@@ -19,9 +19,9 @@
 %end;
 </div>
 
-<link rel="stylesheet" href="css/tree_render.css?v=34">
-<script src="js/tree_render.js?v=91"></script>
-<div style="position:fixed;top:50px;right:10px;background:#f00;color:#fff;padding:4px 12px;font-size:13px;z-index:99999;opacity:0.9;border-radius:4px;" id="build-badge">Build 91</div>
+<link rel="stylesheet" href="css/tree_render.css?v=55">
+<script src="js/tree_render.js?v=160"></script>
+<div style="position:fixed;top:50px;right:10px;background:#f00;color:#fff;padding:4px 12px;font-size:13px;z-index:99999;opacity:0.9;border-radius:4px;">Build 160</div>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
@@ -56,4 +56,10 @@
     }
   });
 </script>
-%include;buttons_dag
+%( Panoramic tree: custom toolbar — built by tree_render.js %)
+%if;(not cancel_links)
+<nav class="fixed-bottom py-0" id="pano-toolbar" style="background:transparent;">
+  <div id="pano-toolbar-inner">
+  </div>
+</nav>
+%end;

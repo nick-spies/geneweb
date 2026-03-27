@@ -186,8 +186,8 @@ TreeRenderer.prototype.rowStyle = function(numCells) {
   if (numCells <= 4)  return { fontSize: 0.80, imgSize: 45, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
   if (numCells <= 8)  return { fontSize: 0.75, imgSize: 38, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
   if (numCells <= 16) return { fontSize: 0.70, imgSize: 30, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
-  if (numCells <= 32) return { fontSize: 0.65, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true  };
-  if (numCells <= 64) return { fontSize: 0.60, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 32) return { fontSize: 0.65, imgSize: 25, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
+  if (numCells <= 64) return { fontSize: 0.60, imgSize: 20, showImage: true,  showSurname: true,  showSosa: true,  showDates: true  };
   return                      { fontSize: 0.55, imgSize: 0,  showImage: false, showSurname: true,  showSosa: true,  showDates: true  };
 };
 
@@ -471,6 +471,87 @@ TreeRenderer.prototype.render = function() {
     zoomAt(newZoom, anchorX, anchorY);
   }, { passive: false });
 
+  // Click-and-drag to pan with pointer lock + visible fake cursor that wraps
+  (function() {
+    var dragging = false, moved = false, totalMove = 0;
+    var cursorX = 0, cursorY = 0;
+
+    // Fake cursor element
+    var fakeCursor = document.createElement('div');
+    fakeCursor.style.cssText = 'position:fixed;pointer-events:none;z-index:999999;display:none;width:32px;height:32px;transform:translate(-16px,-16px);background-image:url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><path d="M16 2l5 5h-3v7h7v-3l5 5-5 5v-3h-7v7h3l-5 5-5-5h3v-7H7v3l-5-5 5-5v3h7V7h-3l5-5z" fill="black"/></svg>') + '");background-size:contain;';
+    document.body.appendChild(fakeCursor);
+
+    function showFakeCursor(x, y) {
+      cursorX = x; cursorY = y;
+      fakeCursor.style.left = x + 'px';
+      fakeCursor.style.top = y + 'px';
+      fakeCursor.style.display = 'block';
+    }
+    function hideFakeCursor() { fakeCursor.style.display = 'none'; }
+
+    var startX, startY, locked = false, dragEndTime = 0;
+    var zoomWrap = container.querySelector('.tree-zoom-wrap');
+    container.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      dragging = true; moved = false; totalMove = 0; locked = false;
+      startX = e.clientX; startY = e.clientY;
+      if (zoomWrap) zoomWrap.style.pointerEvents = 'none';
+    });
+    document.addEventListener('pointerlockchange', function() {
+      if (!document.pointerLockElement && dragging && locked) {
+        dragging = false; locked = false;
+        hideFakeCursor();
+      }
+    });
+    window.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      var dx, dy;
+      if (!locked) {
+        // Before pointer lock: track with regular coords
+        dx = e.clientX - startX; dy = e.clientY - startY;
+        totalMove = Math.abs(dx) + Math.abs(dy);
+        if (totalMove > 5) {
+          // Threshold met — engage pointer lock
+          moved = true; locked = true;
+          showFakeCursor(e.clientX, e.clientY);
+          container.requestPointerLock();
+          container.scrollLeft -= dx;
+          container.scrollTop -= dy;
+        }
+        return;
+      }
+      // Pointer locked — use movementX/Y
+      if (!document.pointerLockElement) return;
+      dx = e.movementX; dy = e.movementY;
+      if (dx === 0 && dy === 0) return;
+      container.scrollLeft -= dx;
+      container.scrollTop -= dy;
+      var w = window.innerWidth, h = window.innerHeight;
+      cursorX += dx; cursorY += dy;
+      cursorX = ((cursorX % w) + w) % w;
+      cursorY = ((cursorY % h) + h) % h;
+      fakeCursor.style.left = cursorX + 'px';
+      fakeCursor.style.top = cursorY + 'px';
+    });
+    window.addEventListener('mouseup', function() {
+      if (!dragging) return;
+      dragEndTime = Date.now();
+      dragging = false;
+      if (locked) {
+        hideFakeCursor();
+        if (document.pointerLockElement) document.exitPointerLock();
+        locked = false;
+      }
+      moved = false;
+      if (zoomWrap) zoomWrap.style.pointerEvents = '';
+    });
+    container.addEventListener('click', function(e) {
+      if (e.target.closest('.person-sosa')) return; // sosa clicks always pass
+      if (Date.now() - dragEndTime < 300) { e.preventDefault(); e.stopPropagation(); return; }
+    }, true);
+    container.style.cursor = 'move';
+  })();
+
   // Ancestor line highlighting on sosa badge click
   this.container._renderer = this;
   this.setupLineHighlight(tree);
@@ -485,18 +566,15 @@ TreeRenderer.prototype.render = function() {
     }, 200);
   }
 
-  if (!this._controlsAdded) {
-    this.addHomeButton(treeAccess);
-    this.addGenControls();
-    this.addZoomControls(zoomCenter, function() { return zoomLevel; });
-    this._controlsAdded = true;
-  }
   this.updateTitle();
 
   var self2 = this;
+  this._treeAccess = treeAccess;
+  this._zoomCenter = zoomCenter;
+  this._getZoom = function() { return zoomLevel; };
   requestAnimationFrame(function() {
     requestAnimationFrame(function() {
-      self2.buildMinimap(tree);
+      self2.buildToolbar(tree);
       self2.addGenCursorLabel(tree, container);
     });
   });
@@ -753,23 +831,26 @@ TreeRenderer.prototype.setupLineHighlight = function(tree) {
     if (self._redrawMinimap) self._redrawMinimap();
   }
 
-  // Attach click handler to sosa badges
+  // Click on sosa badge toggles ancestor line highlight
   var badges = tree.querySelectorAll('.person-sosa');
   for (var i = 0; i < badges.length; i++) {
     (function(badge) {
-      badge.style.cursor = 'pointer';
+      badge.addEventListener('mousedown', function(e) {
+        e.stopPropagation(); // prevent drag from starting
+      });
       badge.addEventListener('click', function(e) {
         e.stopPropagation();
         var box = badge.closest('.person-box');
         var sosa = box ? parseInt(box.getAttribute('data-sosa')) : null;
-        if (sosa) highlightSubtree(sosa);
+        if (sosa === self._highlightedSosa) clearHighlight();
+        else if (sosa) highlightSubtree(sosa);
       });
     })(badges[i]);
   }
 
-  // Double-click on empty space clears highlight
-  tree.addEventListener('dblclick', function(e) {
-    if (!e.target.closest('.person-sosa')) clearHighlight();
+  // Click on empty space clears highlight
+  tree.addEventListener('click', function(e) {
+    if (!e.target.closest('.person-sosa, .person-box, a')) clearHighlight();
   });
 };
 
@@ -808,346 +889,155 @@ TreeRenderer.prototype.updateTitle = function() {
   }
 };
 
-TreeRenderer.prototype.addHomeButton = function(treeAccess) {
-  var opts = this.options;
-  if (!opts.selfAccess) return;
+// ── Unified Toolbar ──────────────────────────────────────────────────────
+// Layout: [Sosa 1] [Move arrows] [Zoom] [Minimap] [Generations] [Options]
 
-  var ascGroup = document.querySelector('nav.navbar.fixed-bottom .btn-group[aria-label="ascendant tree button group"]');
-  if (!ascGroup) return;
-
-  var isSelf = !opts.isRerooted;
-
-  var selfTreeUrl = treeAccess(opts.selfAccess);
-  var sosa1Name = (opts.selfName || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
-
-  var homeBtn = document.createElement('a');
-  homeBtn.setAttribute('role', 'button');
-  var i18n = opts.i18n || {};
-  if (isSelf) {
-    homeBtn.className = 'btn btn-outline-success border-2 rounded mr-1 px-2 pt-1 h-100 font-weight-bold';
-    homeBtn.title = (i18n.homeTipSelf || 'Sosa 1') + ': ' + sosa1Name;
-  } else {
-    homeBtn.className = 'btn btn-outline-danger border-2 rounded mr-1 px-2 pt-1 h-100';
-    homeBtn.href = selfTreeUrl;
-    homeBtn.title = (i18n.homeTipOther || 'Restore default Sosa 1') + ': ' + sosa1Name;
-  }
-  homeBtn.innerHTML = '<i class="fa fa-sitemap fa-flip-vertical fa-lg"></i><br>Sosa 1';
-
-  ascGroup.parentNode.insertBefore(homeBtn, ascGroup);
-};
-
-TreeRenderer.prototype.addGenControls = function() {
-  var opts = this.options;
-  var absMax = opts.maxGenerations || 30;
-  var fastMax = 12;
-  var currentGen = opts.generations || 3;
-  var urlTpl = opts.genUrlTemplate || '';
-  if (!urlTpl) return;
-
-  // Find and replace the existing generation button group
-  var existingGrp = document.querySelector('.btn-group[aria-label="generation pickup buttons group"]');
-  if (!existingGrp) return;
-  var parentEl = existingGrp.parentNode;
-
-  // Deep mode: unlocks generations beyond fastMax
-  var deepMode = currentGen > fastMax;
-  var effectiveMax = deepMode ? absMax : fastMax;
-
-  // Match height to the Mother/Father button row
-  var toolbar = parentEl.closest('.btn-toolbar');
-  var navCol = toolbar ? toolbar.querySelector('.d-flex.flex-column.justify-content-center') : null;
-  var fmRow = navCol ? navCol.querySelector('.d-flex.flex-nowrap') : null;
-  var refBtn = fmRow ? fmRow.querySelector('a.btn') : null;
-  var targetH = refBtn ? refBtn.offsetHeight + 'px' : '28px';
-
-  var i18n = opts.i18n || {};
-  var genLabelText = i18n.generations || 'Generations';
-
-  var grp = document.createElement('div');
-  grp.className = 'btn-group border rounded mr-1 align-items-center';
-  grp.setAttribute('role', 'group');
-  grp.style.height = targetH;
-
-  // "Up to nn" toggle button — only show if database has more than fastMax
-  var btnDeep = null;
-  if (absMax > fastMax) {
-    btnDeep = document.createElement('button');
-    btnDeep.className = 'btn btn-sm btn-outline-' + (deepMode ? 'danger' : 'secondary') + ' px-1 h-100';
-    btnDeep.style.cssText = 'font-size:0.65rem;font-weight:600;white-space:nowrap;';
-    btnDeep.textContent = 'Up to ' + absMax;
-    btnDeep.title = deepMode
-      ? 'Deep mode ON (up to ' + absMax + ' gen) \u2014 click to limit to ' + fastMax
-      : 'Enable deep mode for up to ' + absMax + ' generations (slow beyond ~' + fastMax + ')';
-  }
-
-  var genLabel = document.createElement('span');
-  genLabel.className = 'btn btn-sm btn-primary disabled px-1 h-100 d-flex align-items-center';
-  genLabel.style.cssText = 'font-size:0.7rem;white-space:nowrap;';
-  genLabel.textContent = genLabelText;
-
-  var btnMinus = document.createElement('button');
-  btnMinus.className = 'btn btn-sm btn-outline-primary px-2 h-100';
-  btnMinus.innerHTML = '<b>\u2212</b>';
-  btnMinus.title = 'Fewer generations';
-
-  var input = document.createElement('input');
-  input.type = 'number';
-  input.min = 1;
-  input.max = effectiveMax;
-  input.value = currentGen;
-  input.title = 'Type generation (max ' + effectiveMax + ') and press Enter';
-  input.style.cssText = 'width:3em;text-align:center;padding:1px;font-size:0.85rem;font-weight:600;border:1px solid #007bff;border-radius:0;border-left:0;border-right:0;outline:none;-moz-appearance:textfield;height:100%;';
-
-  var btnPlus = document.createElement('button');
-  btnPlus.className = 'btn btn-sm btn-outline-primary px-2 h-100';
-  btnPlus.innerHTML = '<b>+</b>';
-  btnPlus.title = 'More generations';
-
-  var self = this;
-  var navigating = false;
-
-  function updateLimits() {
-    effectiveMax = deepMode ? absMax : fastMax;
-    input.max = effectiveMax;
-    input.title = 'Type generation (max ' + effectiveMax + ') and press Enter';
-    btnPlus.classList.toggle('disabled', currentGen >= effectiveMax);
-    btnMinus.classList.toggle('disabled', currentGen <= 1);
-    if (btnDeep) {
-      btnDeep.className = 'btn btn-sm btn-outline-' + (deepMode ? 'danger' : 'secondary') + ' px-1 h-100';
-      btnDeep.style.cssText = 'font-size:0.65rem;font-weight:600;white-space:nowrap;';
-      btnDeep.title = deepMode
-        ? 'Deep mode ON (up to ' + absMax + ' gen) \u2014 click to limit to ' + fastMax
-        : 'Enable deep mode for up to ' + absMax + ' generations (slow beyond ~' + fastMax + ')';
-    }
-  }
-
-  function navigate(v) {
-    v = Math.max(1, Math.min(effectiveMax, v));
-    if (v === currentGen || navigating) return;
-    navigating = true;
-
-    // Disable controls but keep showing current values
-    btnMinus.style.pointerEvents = 'none';
-    btnPlus.style.pointerEvents = 'none';
-    input.readOnly = true;
-    if (btnDeep) btnDeep.style.pointerEvents = 'none';
-
-    // Semi-transparent overlay centered on screen
-    var overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.4);z-index:99998;display:flex;align-items:center;justify-content:center;pointer-events:none;';
-    overlay.innerHTML = '<div style="font-size:1.3rem;color:#555;font-weight:600;background:#fff;padding:14px 28px;border-radius:8px;border:1px solid #ccc;box-shadow:0 2px 10px rgba(0,0,0,0.15);">Loading ' + v + ' generations\u2026</div>';
-    document.body.appendChild(overlay);
-    self._loadingOverlay = overlay;
-
-    var url = urlTpl.replace('__V__', v);
-
-    // Fetch new page, extract tree data, re-render in place
-    fetch(url)
-      .then(function(resp) { return resp.text(); })
-      .then(function(html) {
-        var parser = new DOMParser();
-        var doc = parser.parseFromString(html, 'text/html');
-        var dataEl = doc.getElementById('tree-data');
-        if (!dataEl) throw new Error('No tree data in response');
-
-        var newData = TreeRenderer.parseTreeData(dataEl.textContent);
-
-        // Remove gen label columns (will be recreated)
-        var wrapper = self.container.parentNode;
-        if (wrapper && wrapper.querySelector('.gen-label-col')) {
-          var cols = wrapper.querySelectorAll('.gen-label-col');
-          for (var i = 0; i < cols.length; i++) cols[i].remove();
-        }
-
-        // Update state and re-render
-        self.data = newData;
-        self.options.generations = v;
-        currentGen = v;
-        self.render();
-
-        // Update URL without page reload
-        history.pushState(null, '', url);
-
-        // Remove overlay and update gen controls
-        if (self._loadingOverlay) {
-          self._loadingOverlay.remove();
-          self._loadingOverlay = null;
-        }
-        input.value = v;
-        input.readOnly = false;
-        btnMinus.style.pointerEvents = '';
-        btnPlus.style.pointerEvents = '';
-        if (btnDeep) btnDeep.style.pointerEvents = '';
-        updateLimits();
-        navigating = false;
-      })
-      .catch(function(err) {
-        console.error('Gen navigate error:', err);
-        // Fallback: full page navigation
-        window.location.href = url;
-      });
-  }
-
-  btnMinus.addEventListener('click', function() {
-    navigate(currentGen - 1);
-  });
-  btnPlus.addEventListener('click', function() {
-    navigate(currentGen + 1);
-  });
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      var v = parseInt(input.value);
-      if (!v || v < 1) { input.value = currentGen; return; }
-      if (v > effectiveMax) { input.value = effectiveMax; v = effectiveMax; }
-      navigate(v);
-    }
-  });
-  input.addEventListener('wheel', function(e) { e.stopPropagation(); });
-
-  if (btnDeep) {
-    btnDeep.addEventListener('click', function() {
-      deepMode = !deepMode;
-      updateLimits();
-      // If currently beyond new limit, navigate down
-      if (!deepMode && currentGen > fastMax) {
-        navigate(fastMax);
-      }
-    });
-  }
-
-  updateLimits();
-
-  if (btnDeep) grp.appendChild(btnDeep);
-  grp.appendChild(genLabel);
-  grp.appendChild(btnMinus);
-  grp.appendChild(input);
-  grp.appendChild(btnPlus);
-
-  // Replace existing generation group
-  parentEl.replaceChild(grp, existingGrp);
-};
-
-TreeRenderer.prototype.addZoomControls = function(onZoom, getZoom) {
-  var navbar = document.querySelector('nav.navbar.fixed-bottom');
-  if (!navbar) return;
-  var toolbar = navbar.querySelector('.btn-toolbar');
+TreeRenderer.prototype.buildToolbar = function(tree) {
+  var toolbar = document.getElementById('pano-toolbar-inner');
   if (!toolbar) return;
+  toolbar.innerHTML = '';
 
-  var grp = document.createElement('div');
-  grp.className = 'btn-group border rounded ml-1 align-items-stretch';
-  grp.setAttribute('role', 'group');
+  var opts = this.options;
+  var self = this;
+  var container = this.container;
+  var treeAccess = this._treeAccess;
+  var zoomCenter = this._zoomCenter;
+  var getZoom = this._getZoom;
 
-  var btnOut = document.createElement('button');
-  btnOut.className = 'btn btn-outline-primary px-2 pt-1 h-100';
-  btnOut.innerHTML = '<b>\u2212</b>';
-  btnOut.title = 'Zoom out (\u21e7\u2318+wheel)';
+  // Three sections
+  var left = document.createElement('div');
+  left.className = 'pano-left';
+  var center = document.createElement('div');
+  center.className = 'pano-center';
+  var right = document.createElement('div');
+  right.className = 'pano-right';
 
-  var label = document.createElement('span');
-  label.className = 'btn btn-outline-primary px-1 pt-1 h-100 disabled';
-  label.style.fontSize = '0.85rem';
-  label.style.minWidth = '3.5em';
-  label.style.fontWeight = '600';
-  label.innerHTML = '100%<br><span style="font-size:0.6rem;font-weight:normal">Zoom</span>';
-
-  var btnIn = document.createElement('button');
-  btnIn.className = 'btn btn-outline-primary px-2 pt-1 h-100';
-  btnIn.innerHTML = '<b>+</b>';
-  btnIn.title = 'Zoom in (\u21e7\u2318+wheel)';
-
-  var btnReset = document.createElement('button');
-  btnReset.className = 'btn btn-outline-primary px-2 pt-1 h-100';
-  btnReset.innerHTML = '<i class="fa fa-compress"></i><br><span style="font-size:0.6rem">Reset</span>';
-  btnReset.title = 'Reset zoom to 100%';
-  btnReset.addEventListener('click', function() {
-    var current = getZoom();
-    onZoom(1.0 - current);
-  });
-
-  grp.appendChild(btnOut);
-  grp.appendChild(label);
-  grp.appendChild(btnIn);
-  grp.appendChild(btnReset);
-  toolbar.appendChild(grp);
-
-  // Match zoom group height to Sosa 1 button
-  var homeBtn = toolbar.querySelector('.btn-outline-success, .btn-outline-danger');
-  if (homeBtn) {
-    var h = homeBtn.offsetHeight + 'px';
-    grp.style.height = h;
+  // ── LEFT: Sosa 1 ──
+  var isSelf = !opts.isRerooted;
+  var sosa1Name = (opts.selfName || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  if (opts.selfAccess) {
+    var homeBtn = document.createElement('a');
+    homeBtn.setAttribute('role', 'button');
+    homeBtn.className = 'pano-btn' + (isSelf ? ' pano-btn-active' : ' pano-btn-alert');
+    homeBtn.title = isSelf ? 'Sosa 1: ' + sosa1Name : 'Return to Sosa 1: ' + sosa1Name;
+    if (!isSelf) homeBtn.href = treeAccess(opts.selfAccess);
+    homeBtn.innerHTML = '<i class="fa fa-sitemap fa-flip-vertical"></i><br>Sosa 1';
+    left.appendChild(homeBtn);
   }
 
-  // Update label on zoom change
-  function updateLabel() {
-    label.innerHTML = Math.round(getZoom() * 100) + '%<br><span style="font-size:0.6rem;font-weight:normal">Zoom</span>';
-  }
-  function doZoom(direction) {
-    onZoom(direction);
-    updateLabel();
+  // ── LEFT: Move arrows ──
+  var arrows = [
+    { icon: 'fa-arrow-left', dx: -200, dy: 0, title: 'Scroll left' },
+    { icon: 'fa-arrow-right', dx: 200, dy: 0, title: 'Scroll right' },
+    { icon: 'fa-arrow-up', dx: 0, dy: -200, title: 'Scroll up' },
+    { icon: 'fa-arrow-down', dx: 0, dy: 200, title: 'Scroll down' }
+  ];
+  for (var a = 0; a < arrows.length; a++) {
+    var ab = document.createElement('button');
+    ab.className = 'pano-btn';
+    ab.innerHTML = '<i class="fa ' + arrows[a].icon + '"></i>';
+    ab.title = arrows[a].title;
+    (function(btn, dx, dy) {
+      function doScroll() { container.scrollBy({ left: dx, top: dy }); }
+      var timer = null, interval = null;
+      btn.addEventListener('mousedown', function(e) {
+        e.preventDefault(); doScroll();
+        timer = setTimeout(function() { interval = setInterval(doScroll, 120); }, 400);
+      });
+      function stop() { clearTimeout(timer); clearInterval(interval); timer = interval = null; }
+      btn.addEventListener('mouseup', stop);
+      btn.addEventListener('mouseleave', stop);
+    })(ab, arrows[a].dx, arrows[a].dy);
+    left.appendChild(ab);
   }
 
-  // Auto-repeat on hold
-  function repeatBtn(btn, direction) {
-    var timer = null;
-    var interval = null;
+  // ── LEFT: Zoom ──
+  var btnZoomOut = document.createElement('button');
+  btnZoomOut.className = 'pano-btn';
+  btnZoomOut.innerHTML = '<b>\u2212</b>';
+  btnZoomOut.title = 'Zoom out';
+
+  var zoomLabel = document.createElement('span');
+  zoomLabel.className = 'pano-zoom-label';
+  zoomLabel.textContent = Math.round(getZoom() * 100) + '%';
+
+  var btnZoomIn = document.createElement('button');
+  btnZoomIn.className = 'pano-btn';
+  btnZoomIn.innerHTML = '<b>+</b>';
+  btnZoomIn.title = 'Zoom in';
+
+  var btnZoomReset = document.createElement('button');
+  btnZoomReset.className = 'pano-btn';
+  btnZoomReset.innerHTML = '<i class="fa fa-compress"></i><br>Reset';
+  btnZoomReset.title = 'Reset zoom';
+
+  function updateZoomLabel() {
+    zoomLabel.textContent = Math.round(getZoom() * 100) + '%';
+  }
+  function doZoom(dir) { zoomCenter(dir); updateZoomLabel(); }
+
+  function repeatBtn(btn, dir) {
+    var timer = null, interval = null;
     btn.addEventListener('mousedown', function(e) {
-      e.preventDefault();
-      doZoom(direction);
-      timer = setTimeout(function() {
-        interval = setInterval(function() { doZoom(direction); }, 80);
-      }, 400);
+      e.preventDefault(); doZoom(dir);
+      timer = setTimeout(function() { interval = setInterval(function() { doZoom(dir); }, 80); }, 400);
     });
-    function stop() {
-      if (timer) { clearTimeout(timer); timer = null; }
-      if (interval) { clearInterval(interval); interval = null; }
-    }
+    function stop() { clearTimeout(timer); clearInterval(interval); timer = interval = null; }
     btn.addEventListener('mouseup', stop);
     btn.addEventListener('mouseleave', stop);
   }
-  repeatBtn(btnOut, -1);
-  repeatBtn(btnIn, 1);
-
-  var self = this;
-  btnReset.onclick = function() {
+  repeatBtn(btnZoomOut, -1);
+  repeatBtn(btnZoomIn, 1);
+  btnZoomReset.addEventListener('click', function() {
     self._zoomAt(1.0, container.clientWidth / 2, container.clientHeight / 2);
-    updateLabel();
-  };
-
-  // Update label on wheel zoom
-  this.container.addEventListener('wheel', function() {
-    setTimeout(updateLabel, 20);
+    updateZoomLabel();
   });
+  container.addEventListener('wheel', function() { setTimeout(updateZoomLabel, 20); });
+
+  // ── RIGHT: Generations (also creates Deep button) ──
+  this._buildGenControls(right);
+
+  left.appendChild(btnZoomOut);
+  left.appendChild(zoomLabel);
+  left.appendChild(btnZoomIn);
+  left.appendChild(btnZoomReset);
+
+  // ── CENTER: Minimap ──
+  this._buildMinimapInToolbar(tree, center);
+
+  toolbar.appendChild(left);
+  toolbar.appendChild(center);
+  toolbar.appendChild(right);
+
+  // Fixed button height: half of minimap (120/2 = 60px)
+  var btnH = '60px';
+  var allBtns = left.querySelectorAll('.pano-btn, .pano-zoom-label, .pano-gen-input');
+  for (var i = 0; i < allBtns.length; i++) {
+    allBtns[i].style.height = btnH;
+  }
+  var rightBtns = right.querySelectorAll('.pano-btn, .pano-zoom-label, .pano-gen-input');
+  for (var i = 0; i < rightBtns.length; i++) {
+    rightBtns[i].style.height = btnH;
+  }
+  left.style.height = btnH;
+  right.style.height = btnH;
 };
 
-// ── Minimap ────────────────────────────────────────────────────────────────
+TreeRenderer.prototype._makeSep = function() {
+  var sep = document.createElement('div');
+  sep.className = 'pano-sep';
+  return sep;
+};
 
-TreeRenderer.prototype.buildMinimap = function(tree) {
+// ── Minimap (called from buildToolbar) ────────────────────────────────────
+
+TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   var container = this.container;
   var treeW = tree.scrollWidth;
   var treeH = tree.scrollHeight;
-  var viewW = container.clientWidth;
-  var viewH = container.clientHeight;
 
-  var navbar = document.querySelector('nav.navbar.fixed-bottom');
-  if (!navbar) return;
-  var toolbar = navbar.querySelector('.btn-toolbar');
-  if (!toolbar) return;
-
-  var placeholder = document.createElement('div');
-  placeholder.style.cssText = 'flex:1;min-width:0;visibility:hidden;';
-  toolbar.insertBefore(placeholder, toolbar.firstChild);
-  var availW = placeholder.offsetWidth - 16;
-  toolbar.removeChild(placeholder);
-
-  if (availW < 60) availW = Math.min(200, viewW * 0.2);
-
-  var navbarH = navbar.offsetHeight - 8;
-  var mapW = Math.max(60, Math.min(availW, 450));
-  var mapH = navbarH;
-  var treeAspect = treeW / treeH;
-  var mapAspect = mapW / mapH;
-  if (mapAspect > treeAspect) {
-    mapW = Math.round(mapH * treeAspect);
-  }
+  var mapH = 120;
+  var mapW = 300;
 
   var scaleX = mapW / treeW;
   var scaleY = mapH / treeH;
@@ -1158,23 +1048,21 @@ TreeRenderer.prototype.buildMinimap = function(tree) {
   canvas.className = 'tree-minimap-canvas';
 
   var wrapper = document.createElement('div');
-  wrapper.className = 'tree-minimap';
+  wrapper.className = 'tree-minimap pano-minimap';
   wrapper.appendChild(canvas);
-
-  wrapper.style.marginRight = '8px';
-  // Replace old minimap in-place to avoid toolbar layout shift
-  var oldMinimap = toolbar.querySelector('.tree-minimap');
-  if (oldMinimap) {
-    toolbar.replaceChild(wrapper, oldMinimap);
-  } else {
-    toolbar.insertBefore(wrapper, toolbar.firstChild);
-  }
+  toolbar.appendChild(wrapper);
 
   var ctx = canvas.getContext('2d');
 
+  // Compute generation from sosa number: gen = floor(log2(sosa))
+  // Gen 0 = Sosa 1 (bottom), Gen 1 = Sosa 2-3, etc.
+  function sosaGen(s) { return Math.floor(Math.log(s) / Math.LN2); }
+  var totalGens = this.options.generations || 3;
+  var margin = 6; // top/bottom margin in minimap pixels
+
   function drawMinimapDots() {
     var personBoxes = tree.querySelectorAll('.person-box');
-    ctx.fillStyle = '#f8f8f8';
+    ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, mapW, mapH);
 
     var sosa2x = mapW / 2, sosa3x = mapW / 2;
@@ -1182,77 +1070,231 @@ TreeRenderer.prototype.buildMinimap = function(tree) {
       var pb = personBoxes[i];
       var parent = pb.parentNode;
       var px = parent.offsetLeft + parent.offsetWidth / 2;
-      var py = parent.offsetTop + parent.offsetHeight / 2;
       var isHighlighted = pb.classList.contains('hl-ancestor');
       var isMale = pb.classList.contains('person-male');
       var dotX = Math.round(px * scaleX);
-      var dotY = Math.round(py * scaleY);
       var sosaNum = pb.getAttribute('data-sosa');
+      var s = parseInt(sosaNum);
+      if (!s || s < 1) continue;
+      // Equal vertical spacing: gen 0 (Sosa 1) at bottom, highest gen at top
+      var gen = sosaGen(s);
+      var dotY = Math.round(mapH - margin - (gen / Math.max(totalGens - 1, 1)) * (mapH - 2 * margin));
       if (sosaNum === '2') { sosa2x = dotX; }
       if (sosaNum === '3') { sosa3x = dotX; }
       if (sosaNum === '1') continue;
       if (isHighlighted) {
-        ctx.fillStyle = '#d4a017';
-        ctx.fillRect(dotX - 3, dotY - 2, 6, 4);
+        ctx.fillStyle = '#c8900a';
+        ctx.fillRect(dotX - 2, dotY - 2, 4, 4);
       } else {
         ctx.fillStyle = isMale ? '#4a7ab5' : '#b54a7a';
-        ctx.fillRect(dotX - 2, dotY - 1, 4, 3);
+        ctx.fillRect(dotX - 2, dotY - 2, 4, 4);
       }
     }
-    // Sosa 1: green dot centered between parents at bottom
     var s1x = Math.round((sosa2x + sosa3x) / 2);
     ctx.fillStyle = '#28a745';
-    ctx.fillRect(s1x - 4, mapH - 6, 8, 6);
+    ctx.fillRect(s1x - 3, mapH - margin - 2, 6, 5);
   }
-  drawMinimapDots();
-  this._redrawMinimap = drawMinimapDots;
-
-  var vpRect = document.createElement('div');
-  vpRect.className = 'tree-minimap-viewport';
-  wrapper.appendChild(vpRect);
-
   var self = this;
-  var treeRect = tree.getBoundingClientRect();
+  var vpX = 0, vpY = 0, vpW = mapW, vpH = mapH;
+
+  function drawAll() {
+    drawMinimapDots();
+    // Dim area outside viewport, leave viewport bright white
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+    ctx.fillRect(0, 0, mapW, vpY);
+    ctx.fillRect(0, vpY + vpH, mapW, mapH - vpY - vpH);
+    ctx.fillRect(0, vpY, vpX, vpH);
+    ctx.fillRect(vpX + vpW, vpY, mapW - vpX - vpW, vpH);
+    ctx.restore();
+  }
+  drawAll();
+  this._redrawMinimap = drawAll;
+
   function updateViewport() {
     var zoom = self._zoomLevel || 1;
-    var rx = (container.scrollLeft / zoom) * scaleX;
-    var ry = (container.scrollTop / zoom) * scaleY;
-    var rw = (container.clientWidth / zoom) * scaleX;
-    var rh = (container.clientHeight / zoom) * scaleY;
-
-    vpRect.style.left = Math.round(rx) + 'px';
-    vpRect.style.top = Math.round(ry) + 'px';
-    vpRect.style.width = Math.min(Math.max(Math.round(rw), 8), mapW) + 'px';
-    vpRect.style.height = Math.min(Math.max(Math.round(rh), 8), mapH) + 'px';
+    vpX = Math.round((container.scrollLeft / zoom) * scaleX);
+    vpY = Math.round((container.scrollTop / zoom) * scaleY);
+    vpW = Math.min(Math.max(Math.round((container.clientWidth / zoom) * scaleX), 8), mapW);
+    vpH = Math.min(Math.max(Math.round((container.clientHeight / zoom) * scaleY), 8), mapH);
+    drawAll();
   }
   updateViewport();
-
   container.addEventListener('scroll', updateViewport);
-  window.addEventListener('scroll', updateViewport);
   window.addEventListener('resize', updateViewport);
 
-  // Minimap click/drag: scroll container in both axes
   function panToMinimap(e) {
     var zoom = self._zoomLevel || 1;
     var rect = canvas.getBoundingClientRect();
     var clickX = e.clientX - rect.left;
     var clickY = e.clientY - rect.top;
-    var targetX = (clickX / mapW) * treeW * zoom - container.clientWidth / 2;
-    var targetY = (clickY / mapH) * treeH * zoom - container.clientHeight / 2;
-    container.scrollLeft = Math.max(0, targetX);
-    container.scrollTop = Math.max(0, targetY);
+    container.scrollLeft = Math.max(0, (clickX / mapW) * treeW * zoom - container.clientWidth / 2);
+    container.scrollTop = Math.max(0, (clickY / mapH) * treeH * zoom - container.clientHeight / 2);
+  }
+  canvas.addEventListener('click', panToMinimap);
+  var dragging = false;
+  wrapper.addEventListener('mousedown', function(e) { dragging = true; e.preventDefault(); });
+  document.addEventListener('mousemove', function(e) { if (dragging) panToMinimap(e); });
+  document.addEventListener('mouseup', function() { dragging = false; });
+};
+
+// ── Generation controls (called from buildToolbar) ───────────────────────
+
+TreeRenderer.prototype._buildGenControls = function(toolbar) {
+  var opts = this.options;
+  var absMax = opts.maxGenerations || 30;
+  var fastMax = 12;
+  var currentGen = opts.generations || 3;
+  var urlTpl = opts.genUrlTemplate || '';
+  if (!urlTpl) return;
+
+  var deepMode = currentGen > fastMax;
+  var effectiveMax = deepMode ? absMax : fastMax;
+  var self = this;
+  var navigating = false;
+
+  var btnMinus = document.createElement('button');
+  btnMinus.className = 'pano-btn';
+  btnMinus.innerHTML = '<b>\u2212</b>';
+  btnMinus.title = 'Fewer generations';
+
+  var input = document.createElement('input');
+  input.type = 'number';
+  input.min = 1;
+  input.max = effectiveMax;
+  input.value = currentGen;
+  input.className = 'pano-gen-input';
+  input.title = 'Type generation and press Enter';
+
+  var btnPlus = document.createElement('button');
+  btnPlus.className = 'pano-btn';
+  btnPlus.innerHTML = '<b>+</b>';
+  btnPlus.title = 'More generations';
+
+  // Deep mode toggle: unlocks generations beyond fastMax
+  var btnDeep = document.createElement('button');
+  btnDeep.className = 'pano-btn' + (deepMode ? ' pano-btn-deep-on' : '');
+  btnDeep.style.fontSize = '0.75rem';
+  btnDeep.innerHTML = 'Deep';
+  btnDeep.title = deepMode
+    ? 'Deep mode ON (up to ' + absMax + ') \u2014 click to limit to ' + fastMax
+    : 'Unlock generations beyond ' + fastMax + ' (up to ' + absMax + ')';
+
+  var upToLabel; // set later when DOM element is created
+  function updateLimits() {
+    effectiveMax = deepMode ? absMax : fastMax;
+    input.max = effectiveMax;
+    btnDeep.className = 'pano-btn' + (deepMode ? ' pano-btn-deep-on' : '');
+    btnDeep.title = deepMode
+      ? 'Deep mode ON (up to ' + absMax + ') \u2014 click to limit to ' + fastMax
+      : 'Unlock generations beyond ' + fastMax + ' (up to ' + absMax + ')';
+    btnPlus.classList.toggle('disabled', currentGen >= effectiveMax);
+    if (upToLabel) upToLabel.textContent = 'Up to ' + effectiveMax;
   }
 
-  canvas.addEventListener('click', panToMinimap);
+  function navigate(v) {
+    v = Math.max(1, Math.min(effectiveMax, v));
+    if (v === currentGen || navigating) return;
+    navigating = true;
 
-  var dragging = false;
-  wrapper.addEventListener('mousedown', function(e) {
-    dragging = true;
-    e.preventDefault();
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.4);z-index:99998;display:flex;align-items:center;justify-content:center;pointer-events:none;';
+    overlay.innerHTML = '<div style="font-size:1.3rem;color:#555;font-weight:600;background:#fff;padding:14px 28px;border-radius:8px;border:1px solid #ccc;box-shadow:0 2px 10px rgba(0,0,0,0.15);">Loading ' + v + ' generations\u2026</div>';
+    document.body.appendChild(overlay);
+    self._loadingOverlay = overlay;
+
+    var url = urlTpl.replace('__V__', v);
+    fetch(url)
+      .then(function(resp) { return resp.text(); })
+      .then(function(html) {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+        var dataEl = doc.getElementById('tree-data');
+        if (!dataEl) throw new Error('No tree data in response');
+
+        var newData = TreeRenderer.parseTreeData(dataEl.textContent);
+        var wrapper = self.container.parentNode;
+        if (wrapper) {
+          var cols = wrapper.querySelectorAll('.gen-label-col');
+          for (var i = 0; i < cols.length; i++) cols[i].remove();
+        }
+
+        self.data = newData;
+        self.options.generations = v;
+        currentGen = v;
+        self.render();
+        history.pushState(null, '', url);
+
+        if (self._loadingOverlay) { self._loadingOverlay.remove(); self._loadingOverlay = null; }
+        input.value = v;
+        btnMinus.classList.toggle('disabled', v <= 1);
+        btnPlus.classList.toggle('disabled', v >= effectiveMax);
+        updateLimits();
+        navigating = false;
+      })
+      .catch(function(err) {
+        console.error('Gen navigate error:', err);
+        window.location.href = url;
+      });
+  }
+
+  function repeatGen(btn, delta) {
+    var timer = null, interval = null, pending = 0;
+    btn.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      pending = Math.max(1, Math.min(absMax, currentGen + delta));
+      input.value = pending;
+      timer = setTimeout(function() {
+        interval = setInterval(function() {
+          pending = Math.max(1, Math.min(absMax, pending + delta));
+          input.value = pending;
+        }, 120);
+      }, 400);
+    });
+    function stop() {
+      clearTimeout(timer); clearInterval(interval); timer = interval = null;
+      if (pending && pending !== currentGen) navigate(pending);
+      else input.value = currentGen;
+      pending = 0;
+    }
+    btn.addEventListener('mouseup', stop);
+    btn.addEventListener('mouseleave', stop);
+  }
+  repeatGen(btnMinus, -1);
+  repeatGen(btnPlus, 1);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      var v = parseInt(input.value);
+      if (!v || v < 1) { input.value = currentGen; return; }
+      if (v > effectiveMax) v = effectiveMax;
+      navigate(v);
+    }
   });
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    panToMinimap(e);
+  input.addEventListener('wheel', function(e) { e.stopPropagation(); });
+  btnDeep.addEventListener('click', function() {
+    deepMode = !deepMode;
+    updateLimits();
   });
-  document.addEventListener('mouseup', function() { dragging = false; });
+
+  btnMinus.classList.toggle('disabled', currentGen <= 1);
+  btnPlus.classList.toggle('disabled', currentGen >= effectiveMax);
+
+  // Deep button — right section, before "Up to"
+  toolbar.appendChild(btnDeep);
+
+  // "Up to nn" label
+  upToLabel = document.createElement('span');
+  upToLabel.className = 'pano-zoom-label';
+  upToLabel.textContent = 'Up to ' + effectiveMax;
+  toolbar.appendChild(upToLabel);
+
+  // "Generations" label
+  var gLabel = document.createElement('span');
+  gLabel.className = 'pano-zoom-label';
+  gLabel.textContent = 'Generations';
+  toolbar.appendChild(gLabel);
+
+  toolbar.appendChild(btnMinus);
+  toolbar.appendChild(input);
+  toolbar.appendChild(btnPlus);
 };

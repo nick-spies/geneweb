@@ -7,6 +7,8 @@
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
   box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
 }
 #tree-grid-container::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
@@ -27,7 +29,7 @@
 }
 
 .fu-root {
-  padding: 20px 100px 60px 100px;
+  padding: 20px 100px 180px 100px;
 }
 
 /* Parents row: father and mother branches side by side */
@@ -180,7 +182,7 @@
   line-height: 1;
   margin-bottom: 1px;
   user-select: none;
-  cursor: default;
+  cursor: pointer;
   white-space: nowrap;
 }
 
@@ -217,6 +219,135 @@
   pointer-events: none;
 }
 
+/* ── Panoramic Toolbar ── */
+
+#pano-toolbar {
+  z-index: 1030;
+  padding: 0 !important;
+  bottom: 10px !important;
+  pointer-events: none;
+}
+
+#pano-toolbar-inner {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  justify-content: center;
+  width: 100%;
+  pointer-events: none;
+}
+
+.pano-btn, .pano-minimap, .pano-zoom-label, .pano-gen-input {
+  pointer-events: auto;
+}
+
+.pano-left {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1 1 0;
+  justify-content: flex-end;
+}
+
+.pano-right {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1 1 0;
+  justify-content: flex-start;
+}
+
+.pano-center {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.pano-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ccc;
+  background: #fff;
+  color: #007bff;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  text-decoration: none;
+  white-space: nowrap;
+  height: 100%;
+  line-height: 1.2;
+}
+
+.pano-btn:hover {
+  background: #e8f0fe;
+  border-color: #007bff;
+}
+
+.pano-btn-active {
+  color: #28a745;
+  font-weight: 700;
+}
+
+.pano-btn-alert {
+  color: #dc3545;
+}
+
+.pano-btn-deep-on {
+  color: #fff;
+  background: #dc3545;
+  border-color: #dc3545;
+  font-weight: 700;
+}
+
+.pano-btn.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.pano-sep {
+  width: 1px;
+  background: #ccc;
+  align-self: stretch;
+  margin: 4px 0;
+}
+
+.pano-zoom-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 3em;
+  justify-content: center;
+  color: #333;
+  padding: 2px 6px;
+  border: 1px solid #ccc;
+  background: #fff;
+}
+
+.pano-gen-input {
+  width: 2.8em;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid #ccc;
+  outline: none;
+  padding: 2px;
+  -moz-appearance: textfield;
+}
+
+.pano-gen-input::-webkit-inner-spin-button,
+.pano-gen-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pano-minimap {
+  margin: 0;
+  align-self: flex-end;
+}
+
 /* ── Minimap ── */
 
 .tree-minimap {
@@ -235,26 +366,20 @@
   display: block;
 }
 
-.tree-minimap-viewport {
-  position: absolute;
-  border: 2px dashed #000;
-  border-radius: 2px;
-  pointer-events: none;
-  box-sizing: border-box;
-}
+/* viewport now drawn directly on canvas */
 
 /* ── Ancestor line highlighting ── */
 
 .person-box.hl-ancestor {
-  border-color: #d4a017;
-  background: #fef9e7;
-  box-shadow: 0 0 4px rgba(212, 160, 23, 0.5);
+  border-color: #c8900a;
+  background: #fff3c4;
+  box-shadow: 0 0 6px rgba(200, 144, 10, 0.6);
 }
 
 .fu-conn.hl-conn > .fc-vert,
 .fu-conn.hl-conn > .fc-hbar,
 .fu-conn.hl-conn > .fc-trunk {
-  background: #d4a017;
+  background: #c8900a;
 }
 
 .fu-conn.hl-conn > .tree-marriage {
@@ -262,6 +387,3 @@
   font-weight: 600;
 }
 
-.person-sosa:hover {
-  text-decoration: underline;
-}
