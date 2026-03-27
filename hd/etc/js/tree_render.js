@@ -34,7 +34,7 @@ PersonBox.prototype.dateSpan = function() {
 PersonBox.prototype.tooltipText = function() {
   var p = this.person;
   var parts = [];
-  var showSosa = p.displaySosa || p.posSosa;
+  var showSosa = this.positionSosa || p.displaySosa || p.posSosa;
   if (showSosa) parts.push('Sosa ' + showSosa);
   parts.push((p.sex === 0 ? '\u2642' : '\u2640') + ' ' + this.displayName());
   var dates = this.dateSpan();
@@ -50,7 +50,7 @@ PersonBox.prototype.render = function() {
 
 
 
-  var sosaLabel = p.displaySosa || p.posSosa;
+  var sosaLabel = this.positionSosa || p.displaySosa || p.posSosa;
   if (this.showSosa && sosaLabel) {
     var badge = document.createElement('span');
     badge.className = 'person-sosa';
@@ -366,6 +366,7 @@ TreeRenderer.prototype.render = function() {
       pb.showDates = style.showDates;
       pb.treeAccess = treeAccess;
       pb.options = opts;
+      pb.positionSosa = sosa;
 
 
       var renderedBox = pb.render();
@@ -407,15 +408,18 @@ TreeRenderer.prototype.render = function() {
 
   var treeContentW = tree.scrollWidth;
 
+  // Fixed padding (in unscaled px) so edge persons can scroll to mid-screen
+  // Use half the viewport width at render time, divided by initial zoom
+  var treePadPx = Math.round(container.clientWidth / 2 / zoomLevel);
+  tree.style.marginLeft = treePadPx + 'px';
+  tree.style.marginRight = treePadPx + 'px';
+
   function applyZoom() {
     zoomWrap.style.transform = 'scale(' + zoomLevel + ')';
-    var scaledW = treeContentW * zoomLevel;
+    var scaledW = (treeContentW + treePadPx * 2) * zoomLevel;
     var scaledH = tree.scrollHeight * zoomLevel;
     zoomWrap.style.width = Math.max(scaledW, container.clientWidth) + 'px';
     zoomWrap.style.height = Math.max(scaledH, container.clientHeight) + 'px';
-    // Center tree within wrapper when zoomed out
-    var padLeft = scaledW < container.clientWidth ? (container.clientWidth - scaledW) / 2 / zoomLevel : 0;
-    tree.style.marginLeft = padLeft ? padLeft + 'px' : '0';
     self3._zoomLevel = zoomLevel;
     if (self3._redrawMinimap) self3._redrawMinimap();
     if (self3._updateGenLabels) self3._updateGenLabels();
@@ -436,19 +440,7 @@ TreeRenderer.prototype.render = function() {
     // Reposition so the same content point stays under the anchor
     container.scrollLeft = contentX * zoomLevel - anchorX;
     container.scrollTop = contentY * zoomLevel - anchorY;
-    // Clamp scroll so tree content stays visible
-    var scaledTreeH = tree.scrollHeight * zoomLevel;
-    var scaledTreeW = treeContentW * zoomLevel;
-    // Don't scroll past bottom/right of tree
-    var maxScrollTop = scaledTreeH - container.clientHeight * 0.3;
-    var maxScrollLeft = scaledTreeW - container.clientWidth * 0.3;
-    if (container.scrollTop > maxScrollTop) container.scrollTop = Math.max(0, maxScrollTop);
-    if (container.scrollLeft > maxScrollLeft) container.scrollLeft = Math.max(0, maxScrollLeft);
-    // Keep top generation visible: don't let scrollTop push topmost boxes off-screen
-    // When tree is small-ish relative to viewport, pin top visible
-    if (scaledTreeH < container.clientHeight * 3) {
-      container.scrollTop = Math.min(container.scrollTop, Math.max(0, scaledTreeH - container.clientHeight));
-    }
+    // No scroll clamping — allow edge persons to reach mid-screen
   }
 
   // Zoom centered on viewport (direction: 1 = in, -1 = out)
@@ -556,15 +548,18 @@ TreeRenderer.prototype.render = function() {
   this.container._renderer = this;
   this.setupLineHighlight(tree);
 
-  // Auto-scroll to center Sosa 1
-  var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
-  if (sosa1El) {
-    setTimeout(function() {
-      var elCenter = sosa1El.offsetLeft + sosa1El.offsetWidth / 2;
-      var viewCenter = container.clientWidth / 2;
-      container.scrollLeft = Math.max(0, elCenter - viewCenter);
-    }, 200);
+  // Auto-scroll to center Sosa 1 (skipped during gen change — caller restores position)
+  if (!this._skipAutoScroll) {
+    var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
+    if (sosa1El) {
+      setTimeout(function() {
+        var elCenter = sosa1El.offsetLeft + sosa1El.offsetWidth / 2;
+        var viewCenter = container.clientWidth / 2;
+        container.scrollLeft = Math.max(0, elCenter - viewCenter);
+      }, 200);
+    }
   }
+  this._skipAutoScroll = false;
 
   this.updateTitle();
 
@@ -771,6 +766,127 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
   updateLabels();
   container.addEventListener('scroll', updateLabels);
   this._updateGenLabels = updateLabels;
+
+  // Debug: show sosa range at cursor position (reuse existing element)
+  var debugEl = document.getElementById('sosa-debug-overlay');
+  if (!debugEl) {
+    debugEl = document.createElement('div');
+    debugEl.id = 'sosa-debug-overlay';
+    debugEl.style.cssText = 'position:fixed;background:rgba(0,0,0,0.75);color:#fff;padding:4px 12px;font-size:12px;font-family:monospace;border-radius:4px;z-index:99999;pointer-events:none;display:none;white-space:nowrap;';
+    document.body.appendChild(debugEl);
+  }
+
+  // Remove old listeners before adding new ones
+  if (self._debugMoveHandler) container.removeEventListener('mousemove', self._debugMoveHandler);
+  if (self._debugLeaveHandler) container.removeEventListener('mouseleave', self._debugLeaveHandler);
+  if (self._debugScrollHandler) container.removeEventListener('scroll', self._debugScrollHandler);
+
+  self._debugMoveHandler = function(e) {
+    var zoom = self._zoomLevel || 1;
+    var treeEl = container.querySelector('.fu-root');
+    if (!treeEl) return;
+    var treeRect = treeEl.getBoundingClientRect();
+    var cursorY = (e.clientY - treeRect.top) / zoom;
+    var cursorX = (e.clientX - treeRect.left) / zoom;
+    var treeW = treeEl.scrollWidth;
+
+    // Find nearest person box to cursor to determine generation
+    var treeElAll = container.querySelector('.fu-root');
+    if (!treeElAll) return;
+    var allPersons = treeElAll.querySelectorAll('.fu-person[data-gen]');
+    var bestGen = -1, bestDist = Infinity;
+    var treeRAll = treeElAll.getBoundingClientRect();
+    for (var ai = 0; ai < allPersons.length; ai++) {
+      var ap = allPersons[ai];
+      var ar = ap.getBoundingClientRect();
+      var ay = (ar.top + ar.height / 2 - treeRAll.top) / zoom;
+      var dy = Math.abs(cursorY - ay);
+      if (dy < bestDist) {
+        bestDist = dy;
+        bestGen = parseInt(ap.getAttribute('data-gen'));
+      }
+    }
+    if (bestGen < 0) { debugEl.style.display = 'none'; return; }
+
+    var lowSosa = Math.pow(2, bestGen - 1);
+    var highSosa = Math.pow(2, bestGen) - 1;
+
+    // Find actual persons on this gen row, sorted by X position (use getBoundingClientRect for accuracy)
+    var treeEl = container.querySelector('.fu-root');
+    var treeRect2 = treeEl ? treeEl.getBoundingClientRect() : { left: 0 };
+    var genPersons = treeEl ? treeEl.querySelectorAll('.fu-person[data-gen="' + bestGen + '"]') : [];
+    var posArr = [];
+    for (var pi = 0; pi < genPersons.length; pi++) {
+      var pel = genPersons[pi];
+      var s = parseInt(pel.getAttribute('data-sosa'));
+      if (!s) continue;
+      var r = pel.getBoundingClientRect();
+      var px = (r.left + r.width / 2 - treeRect2.left) / zoom;
+      posArr.push({ sosa: s, x: px });
+    }
+    posArr.sort(function(a, b) { return a.x - b.x; });
+
+    var guessedSosa, leftActual = null, rightActual = null, onPerson = false;
+    var snapPx = 8 / zoom; // tolerance for "on person"
+    if (posArr.length === 0) {
+      guessedSosa = lowSosa;
+    } else if (cursorX <= posArr[0].x) {
+      guessedSosa = posArr[0].sosa;
+      if (Math.abs(cursorX - posArr[0].x) < snapPx) onPerson = true;
+      else rightActual = posArr[0].sosa;
+    } else if (cursorX >= posArr[posArr.length - 1].x) {
+      guessedSosa = posArr[posArr.length - 1].sosa;
+      if (Math.abs(cursorX - posArr[posArr.length - 1].x) < snapPx) onPerson = true;
+      else leftActual = posArr[posArr.length - 1].sosa;
+    } else {
+      for (var pi = 0; pi < posArr.length - 1; pi++) {
+        if (cursorX >= posArr[pi].x && cursorX <= posArr[pi + 1].x) {
+          var span = posArr[pi + 1].x - posArr[pi].x;
+          var t = span > 0 ? (cursorX - posArr[pi].x) / span : 0;
+          if (t <= 0.10) {
+            guessedSosa = posArr[pi].sosa; onPerson = true;
+          } else if (t >= 0.90) {
+            guessedSosa = posArr[pi + 1].sosa; onPerson = true;
+          } else {
+            guessedSosa = Math.round(posArr[pi].sosa + t * (posArr[pi + 1].sosa - posArr[pi].sosa));
+            leftActual = posArr[pi].sosa;
+            rightActual = posArr[pi + 1].sosa;
+          }
+          break;
+        }
+      }
+      if (guessedSosa === undefined) guessedSosa = lowSosa;
+    }
+
+    var display;
+    if (onPerson) {
+      display = 'Sosa ' + guessedSosa;
+    } else if (leftActual !== null && rightActual !== null) {
+      display = leftActual + '\u2013' + rightActual;
+    } else if (leftActual !== null) {
+      display = leftActual + '\u2013';
+    } else if (rightActual !== null) {
+      display = '\u2013' + rightActual;
+    } else {
+      display = '\u2013';
+    }
+    debugEl.textContent = '(Gen ' + bestGen + ')  ' + display;
+    debugEl.style.display = '';
+    // Position next to minimap, bottom-aligned
+    var mm = document.querySelector('.tree-minimap.pano-minimap');
+    if (mm) {
+      var mmr = mm.getBoundingClientRect();
+      debugEl.style.left = (mmr.right + 8) + 'px';
+      debugEl.style.bottom = (window.innerHeight - mmr.bottom) + 'px';
+    }
+  };
+  self._debugLeaveHandler = function() { debugEl.style.display = 'none'; self._lastMouseEvent = null; };
+  self._debugScrollHandler = function() { if (self._lastMouseEvent) self._debugMoveHandler(self._lastMouseEvent); };
+  var origMoveHandler = self._debugMoveHandler;
+  self._debugMoveHandler = function(e) { self._lastMouseEvent = e; origMoveHandler(e); };
+  container.addEventListener('mousemove', self._debugMoveHandler);
+  container.addEventListener('mouseleave', self._debugLeaveHandler);
+  container.addEventListener('scroll', self._debugScrollHandler);
 };
 
 // ── Ancestor line highlighting ────────────────────────────────────────────
@@ -1060,11 +1176,8 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   var totalGens = this.options.generations || 3;
   var margin = 6; // top/bottom margin in minimap pixels
 
-  function drawMinimapDots() {
+  function drawMinimapDots_dotsOnly() {
     var personBoxes = tree.querySelectorAll('.person-box');
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, mapW, mapH);
-
     var sosa2x = mapW / 2, sosa3x = mapW / 2;
     for (var i = 0; i < personBoxes.length; i++) {
       var pb = personBoxes[i];
@@ -1076,7 +1189,6 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
       var sosaNum = pb.getAttribute('data-sosa');
       var s = parseInt(sosaNum);
       if (!s || s < 1) continue;
-      // Equal vertical spacing: gen 0 (Sosa 1) at bottom, highest gen at top
       var gen = sosaGen(s);
       var dotY = Math.round(mapH - margin - (gen / Math.max(totalGens - 1, 1)) * (mapH - 2 * margin));
       if (sosaNum === '2') { sosa2x = dotX; }
@@ -1094,18 +1206,34 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     ctx.fillStyle = '#28a745';
     ctx.fillRect(s1x - 3, mapH - margin - 2, 6, 5);
   }
+  function drawMinimapDots() {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, mapW, mapH);
+    drawMinimapDots_dotsOnly();
+  }
   var self = this;
   var vpX = 0, vpY = 0, vpW = mapW, vpH = mapH;
 
   function drawAll() {
     drawMinimapDots();
-    // Dim area outside viewport, leave viewport bright white
+    // Pale shading over entire minimap
     ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-    ctx.fillRect(0, 0, mapW, vpY);
-    ctx.fillRect(0, vpY + vpH, mapW, mapH - vpY - vpH);
-    ctx.fillRect(0, vpY, vpX, vpH);
-    ctx.fillRect(vpX + vpW, vpY, mapW - vpX - vpW, vpH);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.10)';
+    ctx.fillRect(0, 0, mapW, mapH);
+    ctx.restore();
+    // Nav box: white BG with dots + thin border
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(vpX, vpY, vpW, vpH);
+    ctx.clip();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(vpX, vpY, vpW, vpH);
+    drawMinimapDots_dotsOnly();
+    ctx.restore();
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(vpX + 0.5, vpY + 0.5, vpW - 1, vpH - 1);
     ctx.restore();
   }
   drawAll();
@@ -1192,6 +1320,17 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
     if (upToLabel) upToLabel.textContent = 'Up to ' + effectiveMax;
   }
 
+  // Inject CSS animation for loading spinner (once)
+  if (!document.getElementById('gen-progress-anim')) {
+    var style = document.createElement('style');
+    style.id = 'gen-progress-anim';
+    style.textContent =
+      '@keyframes gen-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }' +
+      '.gen-spinner { width:24px;height:24px;border:3px solid #e0e0e0;border-top-color:#4a7ab5;' +
+      'border-radius:50%;animation:gen-spin 0.8s linear infinite;margin:0 auto 8px; }';
+    document.head.appendChild(style);
+  }
+
   function navigate(v) {
     v = Math.max(1, Math.min(effectiveMax, v));
     if (v === currentGen || navigating) return;
@@ -1199,40 +1338,100 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
 
     var overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.4);z-index:99998;display:flex;align-items:center;justify-content:center;pointer-events:none;';
-    overlay.innerHTML = '<div style="font-size:1.3rem;color:#555;font-weight:600;background:#fff;padding:14px 28px;border-radius:8px;border:1px solid #ccc;box-shadow:0 2px 10px rgba(0,0,0,0.15);">Loading ' + v + ' generations\u2026</div>';
+    overlay.innerHTML = '<div style="background:#fff;padding:18px 32px;border-radius:8px;border:1px solid #ccc;box-shadow:0 2px 10px rgba(0,0,0,0.15);text-align:center;">' +
+      '<div class="gen-spinner"></div>' +
+      '<div style="font-size:1.1rem;color:#555;font-weight:600;">Loading ' + v + ' generations\u2026</div>' +
+      '</div>';
     document.body.appendChild(overlay);
     self._loadingOverlay = overlay;
 
+    // Yield to browser so it can paint between heavy steps
+    function yieldThen(fn) {
+      return new Promise(function(resolve) {
+        requestAnimationFrame(function() { setTimeout(function() { resolve(fn()); }, 0); });
+      });
+    }
+
     var url = urlTpl.replace('__V__', v);
+    var parsedData, savedOffsetFromSosa1X, savedOffsetFromSosa1Y;
     fetch(url)
       .then(function(resp) { return resp.text(); })
       .then(function(html) {
-        var parser = new DOMParser();
-        var doc = parser.parseFromString(html, 'text/html');
-        var dataEl = doc.getElementById('tree-data');
-        if (!dataEl) throw new Error('No tree data in response');
+        return yieldThen(function() {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(html, 'text/html');
+          var dataEl = doc.getElementById('tree-data');
+          if (!dataEl) throw new Error('No tree data in response');
+          return dataEl.textContent;
+        });
+      })
+      .then(function(rawData) {
+        return yieldThen(function() {
+          parsedData = TreeRenderer.parseTreeData(rawData);
+        });
+      })
+      .then(function() {
+        return yieldThen(function() {
+          var wrapper = self.container.parentNode;
+          if (wrapper) {
+            var cols = wrapper.querySelectorAll('.gen-label-col');
+            for (var i = 0; i < cols.length; i++) cols[i].remove();
+          }
 
-        var newData = TreeRenderer.parseTreeData(dataEl.textContent);
-        var wrapper = self.container.parentNode;
-        if (wrapper) {
-          var cols = wrapper.querySelectorAll('.gen-label-col');
-          for (var i = 0; i < cols.length; i++) cols[i].remove();
-        }
+          // Capture viewport center's offset from Sosa 1 (in content coords)
+          var container = self.container;
+          var zoom = self._zoomLevel || 1;
+          var vpCenterX = (container.scrollLeft + container.clientWidth / 2) / zoom;
+          var vpCenterY = (container.scrollTop + container.clientHeight / 2) / zoom;
+          var oldSosa1 = container.querySelector('.fu-person[data-sosa="1"]');
+          if (oldSosa1) {
+            var p = oldSosa1.parentNode;
+            var s1x = p.offsetLeft + p.offsetWidth / 2;
+            var s1y = p.offsetTop + p.offsetHeight / 2;
+            savedOffsetFromSosa1X = vpCenterX - s1x;
+            savedOffsetFromSosa1Y = vpCenterY - s1y;
+          } else {
+            savedOffsetFromSosa1X = 0;
+            savedOffsetFromSosa1Y = 0;
+          }
 
-        self.data = newData;
-        self.options.generations = v;
-        currentGen = v;
-        self.render();
-        history.pushState(null, '', url);
+          self.data = parsedData;
+          self.options.generations = v;
+          currentGen = v;
+          self._skipAutoScroll = true;
+          self.render();
+        });
+      })
+      .then(function() {
+        return yieldThen(function() {
+          // Restore viewport center at same offset from Sosa 1
+          var container = self.container;
+          var newZoom = self._zoomLevel || 1;
+          var newSosa1 = container.querySelector('.fu-person[data-sosa="1"]');
+          if (newSosa1) {
+            var p = newSosa1.parentNode;
+            var s1x = p.offsetLeft + p.offsetWidth / 2;
+            var s1y = p.offsetTop + p.offsetHeight / 2;
+            var targetX = (s1x + savedOffsetFromSosa1X) * newZoom;
+            var targetY = (s1y + savedOffsetFromSosa1Y) * newZoom;
+            container.scrollLeft = Math.max(0, targetX - container.clientWidth / 2);
+            container.scrollTop = Math.max(0, targetY - container.clientHeight / 2);
+          }
 
-        if (self._loadingOverlay) { self._loadingOverlay.remove(); self._loadingOverlay = null; }
-        input.value = v;
-        btnMinus.classList.toggle('disabled', v <= 1);
-        btnPlus.classList.toggle('disabled', v >= effectiveMax);
-        updateLimits();
-        navigating = false;
+          history.pushState(null, '', url);
+
+          setTimeout(function() {
+            if (self._loadingOverlay) { self._loadingOverlay.remove(); self._loadingOverlay = null; }
+          }, 250);
+          input.value = v;
+          btnMinus.classList.toggle('disabled', v <= 1);
+          btnPlus.classList.toggle('disabled', v >= effectiveMax);
+          updateLimits();
+          navigating = false;
+        });
       })
       .catch(function(err) {
+        if (self._loadingOverlay) { self._loadingOverlay.remove(); self._loadingOverlay = null; }
         console.error('Gen navigate error:', err);
         window.location.href = url;
       });
@@ -1248,8 +1447,8 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
         interval = setInterval(function() {
           pending = Math.max(1, Math.min(absMax, pending + delta));
           input.value = pending;
-        }, 120);
-      }, 400);
+        }, 300);
+      }, 600);
     });
     function stop() {
       clearTimeout(timer); clearInterval(interval); timer = interval = null;
