@@ -440,11 +440,12 @@ TreeRenderer.prototype.render = function() {
   //
   var CLAMP_H_PAD = 10;     // px: min distance tree edge stays from viewport edge (small tree)
   var CLAMP_TOP_PAD = 5;    // px: tree top must stay this far below viewport top
-  var CLAMP_BOT_RESERVE = 155; // px: reserve for toolbar+minimap at bottom of container
+  var _clampBotReserve = 155; // px: computed once minimap is built; 155 = safe default (130 toolbar + 25 gap)
+  self._setClampBotReserve = function(v) { _clampBotReserve = v; };
 
   function clampScrollOverlap() {
     var vw = container.clientWidth;
-    var vh = container.clientHeight - CLAMP_BOT_RESERVE;
+    var vh = container.clientHeight - _clampBotReserve;
     var treeL = treePadPx * zoomLevel;
     var treeR = (treePadPx + treeContentW) * zoomLevel;
     var treeT = treePadPxV * zoomLevel;
@@ -1241,6 +1242,17 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   wrapper.appendChild(canvas);
   toolbar.appendChild(wrapper);
 
+  // Compute actual bottom reserve from minimap position (after layout)
+  var self2 = this;
+  requestAnimationFrame(function() {
+    var cr = container.getBoundingClientRect();
+    var mr = canvas.getBoundingClientRect();
+    var reserve = cr.bottom - mr.top + 25; // 25px gap above minimap
+    if (reserve > 50 && reserve < 400) { // sanity bounds
+      if (self2._setClampBotReserve) self2._setClampBotReserve(reserve);
+    }
+  });
+
   var ctx = canvas.getContext('2d');
 
   // Compute generation from sosa number: gen = floor(log2(sosa))
@@ -1344,7 +1356,15 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   }
   updateViewport();
   container.addEventListener('scroll', updateViewport);
-  window.addEventListener('resize', updateViewport);
+  window.addEventListener('resize', function() {
+    updateViewport();
+    // Recompute bottom reserve on resize
+    var cr = container.getBoundingClientRect();
+    var mr = canvas.getBoundingClientRect();
+    var reserve = cr.bottom - mr.top + 25;
+    if (reserve > 50 && reserve < 400 && self._setClampBotReserve)
+      self._setClampBotReserve(reserve);
+  });
 
   function panToMinimap(e) {
     var zoom = self._zoomLevel || 1;
