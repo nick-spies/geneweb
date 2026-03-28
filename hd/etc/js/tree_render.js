@@ -478,18 +478,20 @@ TreeRenderer.prototype.render = function() {
       container.scrollTop = Math.max(minST, Math.min(maxST, container.scrollTop));
   }
 
-  // RAF-deferred scroll clamp for wheel/trackpad. Skipped during zoom (150ms window).
-  var _clampRAF = 0;
+  // Debounced scroll clamp: fires 80ms after last scroll event to avoid jitter.
+  // During active scrolling (wheel momentum, trackpad), no clamping occurs —
+  // tree may briefly overshoot boundaries. Clamp snaps back once scrolling stops.
+  // Drag uses immediate clamp (called directly, not through this listener).
+  var _clampTimer = 0;
   var _clampSuppressUntil = 0;
   function suppressClamp(ms) { _clampSuppressUntil = Date.now() + (ms || 150); }
   self._suppressClamp = suppressClamp;
   container.addEventListener('scroll', function() {
-    if (_clampRAF) return;
-    _clampRAF = requestAnimationFrame(function() {
-      _clampRAF = 0;
+    clearTimeout(_clampTimer);
+    _clampTimer = setTimeout(function() {
       if (Date.now() < _clampSuppressUntil) return;
       clampScrollOverlap();
-    });
+    }, 80);
   });
 
   // Zoom anchored on a point (anchorX/Y in viewport-relative coords)
