@@ -436,7 +436,7 @@ TreeRenderer.prototype.render = function() {
   //   - Tree wider/taller than viewport: edges stay at or past viewport edges
   //   - Tree smaller than viewport: tree stays fully visible with padding
   //   - Bottom boundary = container height minus toolbar/minimap reserve
-  //   - Clamp fires on drag (immediate) and on scroll (RAF-deferred, skipped during zoom)
+  //   - Clamp fires on drag (immediate) and on scroll (80ms debounce, skipped during zoom)
   //
   var CLAMP_H_PAD = 10;     // px: min distance tree edge stays from viewport edge (small tree)
   var CLAMP_TOP_PAD = 5;    // px: tree top must stay this far below viewport top
