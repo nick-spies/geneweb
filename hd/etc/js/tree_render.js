@@ -640,9 +640,16 @@ TreeRenderer.prototype.render = function() {
     var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
     if (sosa1El) {
       setTimeout(function() {
-        var elCenter = sosa1El.offsetLeft + sosa1El.offsetWidth / 2;
-        var viewCenter = container.clientWidth / 2;
-        container.scrollLeft = elCenter - viewCenter;
+        suppressClamp(500);
+        // Horizontal: center Sosa 1
+        var treeR = tree.getBoundingClientRect();
+        var sosaR = sosa1El.getBoundingClientRect();
+        var sosaCenterX = (sosaR.left + sosaR.width / 2 - treeR.left) / zoomLevel;
+        var sosaCenterY = (sosaR.top + sosaR.height / 2 - treeR.top) / zoomLevel;
+        container.scrollLeft = (treePadPx + sosaCenterX) * zoomLevel - container.clientWidth / 2;
+        // Vertical: position Sosa 1 near visible bottom (above minimap)
+        var visibleH = container.clientHeight - _clampBotReserve;
+        container.scrollTop = (treePadPxV + sosaCenterY) * zoomLevel - visibleH + 40;
       }, 200);
     }
   }
