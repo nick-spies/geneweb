@@ -430,8 +430,70 @@ TreeRenderer.prototype.render = function() {
   }
   updateWrapSize();
 
+  // ── Scroll clamping: keep chart visible, never scrolled off-screen ──
+  //
+  // Rules:
+  //   - Tree wider/taller than viewport: edges stay at or past viewport edges
+  //   - Tree smaller than viewport: tree stays fully visible with padding
+  //   - Bottom boundary = container height minus toolbar/minimap reserve
+  //   - Clamp fires on drag (immediate) and on scroll (RAF-deferred, skipped during zoom)
+  //
+  var CLAMP_H_PAD = 10;     // px: min distance tree edge stays from viewport edge (small tree)
+  var CLAMP_TOP_PAD = 5;    // px: tree top must stay this far below viewport top
+  var CLAMP_BOT_RESERVE = 155; // px: reserve for toolbar+minimap at bottom of container
+
+  function clampScrollOverlap() {
+    var vw = container.clientWidth;
+    var vh = container.clientHeight - CLAMP_BOT_RESERVE;
+    var treeL = treePadPx * zoomLevel;
+    var treeR = (treePadPx + treeContentW) * zoomLevel;
+    var treeT = treePadPxV * zoomLevel;
+    var treeB = (treePadPxV + treeContentH) * zoomLevel;
+    var treeW = treeR - treeL;
+    var treeH = treeB - treeT;
+
+    // Horizontal clamp
+    var minSL, maxSL;
+    if (treeW >= vw) {
+      minSL = treeL;           // left tree edge at left viewport edge
+      maxSL = treeR - vw;      // right tree edge at right viewport edge
+    } else {
+      minSL = treeR - vw + CLAMP_H_PAD; // right edge stays CLAMP_H_PAD inside right viewport
+      maxSL = treeL - CLAMP_H_PAD;      // left edge stays CLAMP_H_PAD inside left viewport
+    }
+    if (minSL <= maxSL)
+      container.scrollLeft = Math.max(minSL, Math.min(maxSL, container.scrollLeft));
+
+    // Vertical clamp
+    var minST, maxST;
+    if (treeH >= vh) {
+      minST = treeT - CLAMP_TOP_PAD;  // tree top at top viewport edge (with pad)
+      maxST = treeB - vh;              // tree bottom at visible bottom
+    } else {
+      minST = treeB - vh;              // tree bottom touches visible bottom
+      maxST = treeT - CLAMP_TOP_PAD;  // tree top near viewport top
+    }
+    if (minST <= maxST)
+      container.scrollTop = Math.max(minST, Math.min(maxST, container.scrollTop));
+  }
+
+  // RAF-deferred scroll clamp for wheel/trackpad. Skipped during zoom (150ms window).
+  var _clampRAF = 0;
+  var _clampSuppressUntil = 0;
+  function suppressClamp(ms) { _clampSuppressUntil = Date.now() + (ms || 150); }
+  self._suppressClamp = suppressClamp;
+  container.addEventListener('scroll', function() {
+    if (_clampRAF) return;
+    _clampRAF = requestAnimationFrame(function() {
+      _clampRAF = 0;
+      if (Date.now() < _clampSuppressUntil) return;
+      clampScrollOverlap();
+    });
+  });
+
   // Zoom anchored on a point (anchorX/Y in viewport-relative coords)
   function zoomAt(newZoom, anchorX, anchorY) {
+    suppressClamp(150); // suppress scroll-clamp during zoom
     var oldZoom = zoomLevel;
     newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
     newZoom = Math.round(newZoom * 1000) / 1000;
@@ -531,6 +593,7 @@ TreeRenderer.prototype.render = function() {
           container.requestPointerLock();
           container.scrollLeft -= dx;
           container.scrollTop -= dy;
+          clampScrollOverlap();
         }
         return;
       }
@@ -540,6 +603,7 @@ TreeRenderer.prototype.render = function() {
       if (dx === 0 && dy === 0) return;
       container.scrollLeft -= dx;
       container.scrollTop -= dy;
+      clampScrollOverlap();
       var w = window.innerWidth, h = window.innerHeight;
       cursorX += dx; cursorY += dy;
       cursorX = ((cursorX % w) + w) % w;
@@ -744,13 +808,14 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
     var zoom = self._zoomLevel || 1;
     var scrollTop = container.scrollTop;
     var ch = container.clientHeight;
+    var padPxV = parseFloat(tree.style.marginTop) || 0;
     var gens = Object.keys(genMids).map(Number).sort(function(a, b) { return a - b; });
 
     // Compute visible label positions first, then thin if too dense
     var visible = [];
     for (var i = 0; i < gens.length; i++) {
       var g = gens[i];
-      var mid = ((genMids[g].top + genMids[g].bot) / 2) * zoom - scrollTop;
+      var mid = (padPxV + (genMids[g].top + genMids[g].bot) / 2) * zoom - scrollTop;
       if (mid < -10 || mid > ch + 10) continue;
       visible.push({ gen: g, y: mid });
     }
@@ -1339,7 +1404,7 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     }
 
     // Scroll to center on target position (use actual DOM positions, no scaleX math)
-    // No clamping — allow blank space so edge persons can be truly centered
+    if (self._suppressClamp) self._suppressClamp(200);
     var padPx = parseFloat(tree.style.marginLeft) || 0;
     container.scrollLeft = (targetTreeX + padPx) * zoom - container.clientWidth / 2;
     var padPxV = parseFloat(tree.style.marginTop) || 0;
