@@ -639,41 +639,153 @@ TreeRenderer.prototype.render = function() {
     clampScroll();
   }, { passive: false });
 
-  // Click-and-drag to pan (standard drag, no pointer lock)
+  // Click-and-drag to pan.  Normal 1:1 drag while cursor is inside the
+  // container; when cursor goes off-edge, auto-pan continues in that
+  // direction with accelerating speed (like arrow keys).
   (function() {
     var dragging = false, moved = false, dragEndTime = 0;
-    var lastX, lastY;
+    var lastX, lastY, lastMoveTime = 0;
+    var dragVelX = 0, dragVelY = 0;    // drag velocity in px/frame at exit
+    var autoPanDir = { x: 0, y: 0 };   // direction when off-edge
+    var autoPanStart = 0;               // timestamp when auto-pan began
+    var autoPanBaseSpeed = 0;           // initial speed = drag velocity at exit
+    var autoPanRAF = 0;
     var zoomWrap = container.querySelector('.tree-zoom-wrap');
+
+    function stopAutoPan() {
+      if (autoPanRAF) { cancelAnimationFrame(autoPanRAF); autoPanRAF = 0; }
+      autoPanDir.x = 0; autoPanDir.y = 0;
+    }
+
+    function autoPanStep() {
+      if (!dragging) { stopAutoPan(); return; }
+      var elapsed = Date.now() - autoPanStart;
+      // Start at drag exit velocity, accelerate aggressively to 200px/frame
+      var speed = Math.min(200, autoPanBaseSpeed + 100 * (elapsed / 1000));
+      _suppressScroll++;
+      setEffScroll(
+        getEffSL() - autoPanDir.x * speed,
+        getEffST() - autoPanDir.y * speed
+      );
+      clampScroll();
+      requestAnimationFrame(function() { _suppressScroll--; });
+      autoPanRAF = requestAnimationFrame(autoPanStep);
+    }
+
     container.addEventListener('mousedown', function(e) {
       if (e.button !== 0) return;
+      if (e.target.closest('a') && !e.target.closest('.person-sosa')) return;
+      e.preventDefault();
       dragging = true; moved = false;
       lastX = e.clientX; lastY = e.clientY;
       if (zoomWrap) zoomWrap.style.pointerEvents = 'none';
-      container.style.cursor = 'grabbing';
+      container.classList.add('is-dragging');
     });
+
     window.addEventListener('mousemove', function(e) {
       if (!dragging) return;
+      var now = Date.now();
       var dx = e.clientX - lastX;
       var dy = e.clientY - lastY;
       if (!moved && Math.abs(dx) + Math.abs(dy) > 5) moved = true;
       if (!moved) return;
+      // Track drag velocity (px per ~16ms frame)
+      var dt = Math.max(1, now - lastMoveTime);
+      dragVelX = Math.abs(dx) / dt * 16;
+      dragVelY = Math.abs(dy) / dt * 16;
       lastX = e.clientX; lastY = e.clientY;
-      setEffScroll(getEffSL() - dx, getEffST() - dy);
-      clampScroll();
+      lastMoveTime = now;
+
+      // Check if cursor is outside the container
+      var rect = container.getBoundingClientRect();
+      var outsideX = e.clientX < rect.left ? -1 : e.clientX > rect.right ? 1 : 0;
+      var outsideY = e.clientY < rect.top ? -1 : e.clientY > rect.bottom ? 1 : 0;
+
+      if (outsideX !== 0 || outsideY !== 0) {
+        // Cursor is off-edge: start/continue auto-pan
+        if (!autoPanRAF) {
+          autoPanDir.x = outsideX;
+          autoPanDir.y = outsideY;
+          autoPanBaseSpeed = Math.max(2, Math.sqrt(dragVelX * dragVelX + dragVelY * dragVelY));
+          autoPanStart = Date.now();
+          autoPanRAF = requestAnimationFrame(autoPanStep);
+        } else {
+          autoPanDir.x = outsideX;
+          autoPanDir.y = outsideY;
+        }
+      } else {
+        // Cursor back inside: stop auto-pan, resume normal drag
+        stopAutoPan();
+        _suppressScroll++;
+        setEffScroll(getEffSL() - dx, getEffST() - dy);
+        clampScroll();
+        requestAnimationFrame(function() { _suppressScroll--; });
+      }
     });
+
     window.addEventListener('mouseup', function() {
       if (!dragging) return;
       dragEndTime = Date.now();
       dragging = false;
+      stopAutoPan();
+      if (moved) clampScroll();
       moved = false;
       if (zoomWrap) zoomWrap.style.pointerEvents = '';
-      container.style.cursor = 'grab';
+      container.classList.remove('is-dragging');
     });
+
     container.addEventListener('click', function(e) {
-      if (e.target.closest('.person-sosa')) return; // sosa clicks always pass
+      if (e.target.closest('.person-sosa')) return;
       if (Date.now() - dragEndTime < 300) { e.preventDefault(); e.stopPropagation(); return; }
     }, true);
-    container.style.cursor = 'grab';
+  })();
+
+  // Arrow key panning with progressive acceleration.
+  // Speed starts at 2px/frame and accelerates to 20px/frame over ~1 second.
+  (function() {
+    var keysDown = {};   // tracks which arrow keys are held
+    var keyStart = 0;    // timestamp when first arrow key was pressed
+    var rafId = 0;
+
+    function panStep() {
+      var elapsed = Date.now() - keyStart;
+      // Accelerate from 2 to 40 px/frame over 1500ms
+      var speed = Math.min(40, 2 + 38 * (elapsed / 1500));
+      var dx = 0, dy = 0;
+      if (keysDown.ArrowLeft  || keysDown.Left)  dx -= speed;
+      if (keysDown.ArrowRight || keysDown.Right) dx += speed;
+      if (keysDown.ArrowUp    || keysDown.Up)    dy -= speed;
+      if (keysDown.ArrowDown  || keysDown.Down)  dy += speed;
+      if (dx === 0 && dy === 0) { rafId = 0; return; }
+      _suppressScroll++;
+      setEffScroll(getEffSL() + dx, getEffST() + dy);
+      clampScroll();
+      requestAnimationFrame(function() { _suppressScroll--; });
+      rafId = requestAnimationFrame(panStep);
+    }
+
+    window.addEventListener('keydown', function(e) {
+      if (!e.key.match(/^Arrow|^Left$|^Right$|^Up$|^Down$/)) return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      e.preventDefault();
+      if (keysDown[e.key]) return; // already held
+      keysDown[e.key] = true;
+      if (!rafId) {
+        keyStart = Date.now();
+        rafId = requestAnimationFrame(panStep);
+      }
+    });
+
+    window.addEventListener('keyup', function(e) {
+      delete keysDown[e.key];
+      // Stop loop if no arrow keys are held
+      var any = false;
+      for (var k in keysDown) { any = true; break; }
+      if (!any && rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+    });
   })();
 
   // Ancestor line highlighting on sosa badge click

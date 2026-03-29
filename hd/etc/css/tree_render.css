@@ -9,6 +9,11 @@
   box-sizing: border-box;
   user-select: none;
   -webkit-user-select: none;
+  cursor: grab;
+}
+#tree-grid-container.is-dragging,
+#tree-grid-container.is-dragging * {
+  cursor: grabbing !important;
 }
 #tree-grid-container::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
