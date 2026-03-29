@@ -435,12 +435,48 @@ TreeRenderer.prototype.render = function() {
   }
   updatePadding();
 
+  // ── Virtual scroll ──
+  // Browsers cap element dimensions (~17.9M px in Firefox). When the tree
+  // exceeds this, we cap the zoomWrap size and use CSS translate to shift
+  // content, making the full tree accessible via (scrollLeft + vOffX).
+  var MAX_WRAP_PX = 8000000; // safe for all browsers
+  var vOffX = 0, vOffY = 0;  // virtual offset (scaled px)
+  var fullWrapW = 0, fullWrapH = 0; // uncapped sizes
+
+  function getEffSL() { return container.scrollLeft + vOffX; }
+  function getEffST() { return container.scrollTop + vOffY; }
+  function setEffScroll(sl, st) {
+    var maxNativeSL = Math.max(0, Math.min(fullWrapW, MAX_WRAP_PX) - container.clientWidth);
+    var maxNativeST = Math.max(0, Math.min(fullWrapH, MAX_WRAP_PX) - container.clientHeight);
+    vOffX = Math.max(0, sl - maxNativeSL);
+    vOffY = Math.max(0, st - maxNativeST);
+    container.scrollLeft = sl - vOffX;
+    container.scrollTop = st - vOffY;
+    updateTransform();
+    // When virtual offsets are active, native scroll event may not fire;
+    // ensure minimap viewport stays in sync.
+    if ((vOffX > 0 || vOffY > 0) && self._updateViewport) self._updateViewport();
+  }
+  self._getEffSL = getEffSL;
+  self._getEffST = getEffST;
+  self._setEffScroll = setEffScroll;
+
+  function updateTransform() {
+    if (vOffX === 0 && vOffY === 0) {
+      zoomWrap.style.transform = 'scale(' + zoomLevel + ')';
+    } else {
+      zoomWrap.style.transform = 'translate(' + (-vOffX) + 'px,' + (-vOffY) + 'px) scale(' + zoomLevel + ')';
+    }
+  }
+
   function updateWrapSize() {
     var scaledW = (geo.treeW + treePadPx * 2) * zoomLevel;
     var scaledH = (geo.treeH + treePadPxV * 2) * zoomLevel;
-    zoomWrap.style.width = (scaledW + container.clientWidth) + 'px';
-    zoomWrap.style.height = (scaledH + container.clientHeight) + 'px';
-    zoomWrap.style.transform = 'scale(' + zoomLevel + ')';
+    fullWrapW = scaledW + container.clientWidth;
+    fullWrapH = scaledH + container.clientHeight;
+    zoomWrap.style.width = Math.min(fullWrapW, MAX_WRAP_PX) + 'px';
+    zoomWrap.style.height = Math.min(fullWrapH, MAX_WRAP_PX) + 'px';
+    updateTransform();
   }
   updateWrapSize();
 
@@ -452,19 +488,18 @@ TreeRenderer.prototype.render = function() {
     var treeR = (geo.padX + geo.treeW) * z;
     var treeT = geo.padY * z;
     var treeB = (geo.padY + geo.treeH) * z;
-    var treeW = treeR - treeL, treeH = treeB - treeT;
 
-    var minSL, maxSL;
-    if (treeW >= vw) { minSL = treeL; maxSL = treeR - vw; }
-    else { minSL = treeR - vw + 10; maxSL = treeL - 10; }
-    if (minSL <= maxSL)
-      container.scrollLeft = Math.max(minSL, Math.min(maxSL, container.scrollLeft));
+    // Allow any tree content to be scrolled to center of viewport
+    var halfW = vw / 2, halfH = vh / 2;
+    var minSL = treeL - halfW;
+    var maxSL = treeR - halfW;
+    var minST = treeT - halfH;
+    var maxST = treeB - halfH;
 
-    var minST, maxST;
-    if (treeH >= vh) { minST = treeT - 5; maxST = treeB - vh; }
-    else { minST = treeB - vh; maxST = treeT - 5; }
-    if (minST <= maxST)
-      container.scrollTop = Math.max(minST, Math.min(maxST, container.scrollTop));
+    var sl = getEffSL(), st = getEffST();
+    var newSL = (minSL <= maxSL) ? Math.max(minSL, Math.min(maxSL, sl)) : sl;
+    var newST = (minST <= maxST) ? Math.max(minST, Math.min(maxST, st)) : st;
+    if (newSL !== sl || newST !== st) setEffScroll(newSL, newST);
   }
   self._clampScroll = clampScroll;
 
@@ -491,8 +526,8 @@ TreeRenderer.prototype.render = function() {
     newZoom = Math.round(newZoom * 1000) / 1000;
     if (newZoom === oldZoom) return;
 
-    var treePosX = (container.scrollLeft + anchorX) / oldZoom - treePadPx;
-    var treePosY = (container.scrollTop + anchorY) / oldZoom - treePadPxV;
+    var treePosX = (getEffSL() + anchorX) / oldZoom - treePadPx;
+    var treePosY = (getEffST() + anchorY) / oldZoom - treePadPxV;
 
     zoomLevel = newZoom;
     self._zoomLevel = zoomLevel;
@@ -511,8 +546,9 @@ TreeRenderer.prototype.render = function() {
     updateWrapSize();
     void container.scrollWidth; // force layout
 
-    container.scrollLeft = (treePosX + treePadPx) * zoomLevel - anchorX;
-    container.scrollTop = (treePosY + treePadPxV) * zoomLevel - anchorY;
+    var newSL = (treePosX + treePadPx) * zoomLevel - anchorX;
+    var newST = (treePosY + treePadPxV) * zoomLevel - anchorY;
+    setEffScroll(newSL, newST);
     _expectSL = container.scrollLeft;
     _expectST = container.scrollTop;
 
@@ -528,103 +564,64 @@ TreeRenderer.prototype.render = function() {
   this._zoomCenter = zoomCenter;
   this._zoomAt = zoomAt;
 
-  // Ctrl/Cmd + wheel to zoom, anchored on cursor
+  // Wheel handler: Shift+Ctrl/Cmd = zoom, otherwise pan (virtual scroll aware)
   container.addEventListener('wheel', function(e) {
-    if (!(e.shiftKey && (e.metaKey || e.ctrlKey))) return;
-    e.preventDefault();
-    var rect = container.getBoundingClientRect();
-    var anchorX = e.clientX - rect.left;
-    var anchorY = e.clientY - rect.top;
-    var delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-    var newZoom = delta < 0 ? zoomLevel * zoomFactor : zoomLevel / zoomFactor;
-    zoomAt(newZoom, anchorX, anchorY);
+    if (e.shiftKey && (e.metaKey || e.ctrlKey)) {
+      // Zoom anchored on cursor
+      e.preventDefault();
+      var rect = container.getBoundingClientRect();
+      var anchorX = e.clientX - rect.left;
+      var anchorY = e.clientY - rect.top;
+      var delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+      var newZoom = delta < 0 ? zoomLevel * zoomFactor : zoomLevel / zoomFactor;
+      zoomAt(newZoom, anchorX, anchorY);
+      return;
+    }
+    // When tree exceeds native scroll limit, intercept all scroll and route
+    // through virtual scroll so the user can reach the full extent.
+    if (fullWrapW > MAX_WRAP_PX || fullWrapH > MAX_WRAP_PX) {
+      e.preventDefault();
+      var dx = e.deltaX, dy = e.deltaY;
+      setEffScroll(getEffSL() + dx, getEffST() + dy);
+      clampScroll();
+    }
   }, { passive: false });
 
-  // Click-and-drag to pan with pointer lock + visible fake cursor that wraps
+  // Click-and-drag to pan (standard drag, no pointer lock)
   (function() {
-    var dragging = false, moved = false, totalMove = 0;
-    var cursorX = 0, cursorY = 0;
-
-    // Fake cursor element
-    var fakeCursor = document.createElement('div');
-    fakeCursor.style.cssText = 'position:fixed;pointer-events:none;z-index:999999;display:none;width:32px;height:32px;transform:translate(-16px,-16px);background-image:url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><path d="M16 2l5 5h-3v7h7v-3l5 5-5 5v-3h-7v7h3l-5 5-5-5h3v-7H7v3l-5-5 5-5v3h7V7h-3l5-5z" fill="black"/></svg>') + '");background-size:contain;';
-    document.body.appendChild(fakeCursor);
-
-    function showFakeCursor(x, y) {
-      cursorX = x; cursorY = y;
-      fakeCursor.style.left = x + 'px';
-      fakeCursor.style.top = y + 'px';
-      fakeCursor.style.display = 'block';
-    }
-    function hideFakeCursor() { fakeCursor.style.display = 'none'; }
-
-    var startX, startY, locked = false, dragEndTime = 0;
+    var dragging = false, moved = false, dragEndTime = 0;
+    var lastX, lastY;
     var zoomWrap = container.querySelector('.tree-zoom-wrap');
     container.addEventListener('mousedown', function(e) {
       if (e.button !== 0) return;
-      dragging = true; moved = false; totalMove = 0; locked = false;
-      startX = e.clientX; startY = e.clientY;
+      dragging = true; moved = false;
+      lastX = e.clientX; lastY = e.clientY;
       if (zoomWrap) zoomWrap.style.pointerEvents = 'none';
-    });
-    document.addEventListener('pointerlockchange', function() {
-      if (!document.pointerLockElement && dragging && locked) {
-        dragging = false; locked = false;
-        hideFakeCursor();
-      }
+      container.style.cursor = 'grabbing';
     });
     window.addEventListener('mousemove', function(e) {
       if (!dragging) return;
-      var dx, dy;
-      if (!locked) {
-        // Before pointer lock: track with regular coords
-        dx = e.clientX - startX; dy = e.clientY - startY;
-        totalMove = Math.abs(dx) + Math.abs(dy);
-        if (totalMove > 5) {
-          // Threshold met — engage pointer lock
-          moved = true; locked = true;
-          showFakeCursor(e.clientX, e.clientY);
-          container.requestPointerLock();
-          var oldSL = container.scrollLeft, oldST = container.scrollTop;
-          container.scrollLeft -= dx;
-          container.scrollTop -= dy;
-          clampScroll();
-        }
-        return;
-      }
-      // Pointer locked — use movementX/Y
-      if (!document.pointerLockElement) return;
-      dx = e.movementX; dy = e.movementY;
-      if (dx === 0 && dy === 0) return;
-      var oldSL = container.scrollLeft, oldST = container.scrollTop;
-      container.scrollLeft -= dx;
-      container.scrollTop -= dy;
+      var dx = e.clientX - lastX;
+      var dy = e.clientY - lastY;
+      if (!moved && Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+      if (!moved) return;
+      lastX = e.clientX; lastY = e.clientY;
+      setEffScroll(getEffSL() - dx, getEffST() - dy);
       clampScroll();
-      var actualDx = oldSL - container.scrollLeft;
-      var actualDy = oldST - container.scrollTop;
-      var w = window.innerWidth, h = window.innerHeight;
-      cursorX += actualDx; cursorY += actualDy;
-      cursorX = ((cursorX % w) + w) % w;
-      cursorY = ((cursorY % h) + h) % h;
-      fakeCursor.style.left = cursorX + 'px';
-      fakeCursor.style.top = cursorY + 'px';
     });
     window.addEventListener('mouseup', function() {
       if (!dragging) return;
       dragEndTime = Date.now();
       dragging = false;
-      if (locked) {
-        hideFakeCursor();
-        if (document.pointerLockElement) document.exitPointerLock();
-        locked = false;
-      }
       moved = false;
       if (zoomWrap) zoomWrap.style.pointerEvents = '';
+      container.style.cursor = 'grab';
     });
     container.addEventListener('click', function(e) {
       if (e.target.closest('.person-sosa')) return; // sosa clicks always pass
       if (Date.now() - dragEndTime < 300) { e.preventDefault(); e.stopPropagation(); return; }
     }, true);
-    container.style.cursor = 'move';
+    container.style.cursor = 'grab';
   })();
 
   // Ancestor line highlighting on sosa badge click
@@ -636,13 +633,28 @@ TreeRenderer.prototype.render = function() {
     var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
     if (sosa1El) {
       setTimeout(function() {
-        var treeR = tree.getBoundingClientRect();
+        // Strip transform so getBoundingClientRect gives raw layout px
+        var savedTransform = zoomWrap.style.transform;
+        zoomWrap.style.transform = 'none';
+        container.scrollLeft = 0;
+        container.scrollTop = 0;
+        vOffX = 0; vOffY = 0;
+        void zoomWrap.offsetWidth; // force layout
+
+        // Measure sosa1 position relative to zoomWrap origin
+        var wrapR = zoomWrap.getBoundingClientRect();
         var sosaR = sosa1El.getBoundingClientRect();
-        var sosaCenterX = (sosaR.left + sosaR.width / 2 - treeR.left) / zoomLevel;
-        var sosaCenterY = (sosaR.top + sosaR.height / 2 - treeR.top) / zoomLevel;
-        container.scrollLeft = (treePadPx + sosaCenterX) * zoomLevel - container.clientWidth / 2;
+        var contentX = sosaR.left + sosaR.width / 2 - wrapR.left;
+        var contentY = sosaR.top + sosaR.height / 2 - wrapR.top;
+
+        // Restore transform
+        zoomWrap.style.transform = savedTransform;
+
+        // Scroll so this content point is centered in viewport
+        var newSL = contentX * zoomLevel - container.clientWidth / 2;
         var visibleH = geo.containerH - geo.botReserve;
-        container.scrollTop = (treePadPxV + sosaCenterY) * zoomLevel - visibleH + 40;
+        var newST = contentY * zoomLevel - visibleH + 40;
+        setEffScroll(newSL, newST);
         clampScroll();
         _expectSL = container.scrollLeft;
         _expectST = container.scrollTop;
@@ -810,7 +822,7 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
     leftCol.innerHTML = '';
     rightCol.innerHTML = '';
     var zoom = self._geo.zoom;
-    var scrollTop = container.scrollTop;
+    var scrollTop = self._getEffST();
     var ch = container.clientHeight;
     var padPxV = self._geo.padY;
     var gens = Object.keys(genMids).map(Number).sort(function(a, b) { return a - b; });
@@ -1232,9 +1244,6 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   var mapH = 120;
   var mapW = 300;
 
-  var scaleX = mapW / treeW;
-  var scaleY = mapH / treeH;
-
   var canvas = document.createElement('canvas');
   canvas.width = mapW;
   canvas.height = mapH;
@@ -1259,18 +1268,21 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   var ctx = canvas.getContext('2d');
 
   // Compute generation from sosa number: gen = floor(log2(sosa))
-  // Gen 0 = Sosa 1 (bottom), Gen 1 = Sosa 2-3, etc.
   function sosaGen(s) { return Math.floor(Math.log(s) / Math.LN2); }
   var totalGens = this.options.generations || 3;
   var margin = 6; // top/bottom margin in minimap pixels
 
-  // Minimap dot data: { gen -> [{sosa, dotX}] } for hover lookup
+  var scaleX = mapW / treeW;
+  var scaleY = mapH / treeH;
+
+  // Minimap dot data: { gen -> [{sosa, dotX, dotY}] } for hover lookup
   var minimapDotsByGen = {};
 
   function drawMinimapDots_dotsOnly() {
     var personBoxes = tree.querySelectorAll('.person-box');
-    var sosa2x = mapW / 2, sosa3x = mapW / 2;
     var treeRect = tree.getBoundingClientRect();
+    var sosa2x = mapW / 2, sosa3x = mapW / 2;
+    var sosa1y = mapH - margin;
     var zoom = self._zoomLevel || 1;
     minimapDotsByGen = {};
     for (var i = 0; i < personBoxes.length; i++) {
@@ -1278,21 +1290,21 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
       var parent = pb.parentNode;
       var parentRect = parent.getBoundingClientRect();
       var px = (parentRect.left + parentRect.width / 2 - treeRect.left) / zoom;
+      var py = (parentRect.top + parentRect.height / 2 - treeRect.top) / zoom;
       var isHighlighted = pb.classList.contains('hl-ancestor');
       var isMale = pb.classList.contains('person-male');
       var dotX = Math.round(px * scaleX);
+      var dotY = Math.round(py * scaleY);
       var sosaNum = pb.getAttribute('data-sosa');
       var s = parseInt(sosaNum);
       if (!s || s < 1) continue;
       var gen = sosaGen(s);
-      var dotY = Math.round(mapH - margin - (gen / Math.max(totalGens - 1, 1)) * (mapH - 2 * margin));
-      // Store dot info for hover lookup (1-based gen key)
       var genKey = gen + 1;
       if (!minimapDotsByGen[genKey]) minimapDotsByGen[genKey] = [];
       minimapDotsByGen[genKey].push({ sosa: s, dotX: dotX, dotY: dotY });
       if (sosaNum === '2') { sosa2x = dotX; }
       if (sosaNum === '3') { sosa3x = dotX; }
-      if (sosaNum === '1') continue;
+      if (sosaNum === '1') { sosa1y = dotY; continue; }
       if (isHighlighted) {
         ctx.fillStyle = '#c8900a';
         ctx.fillRect(dotX - 2, dotY - 2, 4, 4);
@@ -1303,7 +1315,7 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     }
     var s1x = Math.round((sosa2x + sosa3x) / 2);
     ctx.fillStyle = '#28a745';
-    ctx.fillRect(s1x - 3, mapH - margin - 2, 6, 5);
+    ctx.fillRect(s1x - 3, sosa1y - 2, 6, 5);
   }
   function drawMinimapDots() {
     ctx.fillStyle = '#fff';
@@ -1342,12 +1354,12 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     var zoom = self._geo.zoom;
     var padPx = self._geo.padX;
     var padPxV = self._geo.padY;
-    var scrollInTree = container.scrollLeft / zoom - padPx;
+    var scrollInTree = self._getEffSL() / zoom - padPx;
     vpX = Math.round(scrollInTree * scaleX);
-    vpY = Math.round((container.scrollTop / zoom - padPxV) * scaleY);
-    vpW = Math.min(Math.max(Math.round((container.clientWidth / zoom) * scaleX), 8), mapW);
-    vpH = Math.min(Math.max(Math.round((container.clientHeight / zoom) * scaleY), 8), mapH);
-    // Clamp nav box within minimap bounds
+    vpY = Math.round((self._getEffST() / zoom - padPxV) * scaleY);
+    vpW = Math.max(Math.round((container.clientWidth / zoom) * scaleX), 8);
+    vpH = Math.max(Math.round((container.clientHeight / zoom) * scaleY), 8);
+    // Clip nav box to minimap bounds
     if (vpX < 0) { vpW += vpX; vpX = 0; }
     if (vpY < 0) { vpH += vpY; vpY = 0; }
     if (vpX + vpW > mapW) vpW = mapW - vpX;
@@ -1357,6 +1369,7 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     drawAll();
   }
   updateViewport();
+  this._updateViewport = updateViewport;
   container.addEventListener('scroll', updateViewport);
   window.addEventListener('resize', function() {
     self._geo.containerW = container.clientWidth;
@@ -1373,10 +1386,12 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     var rect = canvas.getBoundingClientRect();
     var clickX = Math.max(0, Math.min(mapW, e.clientX - rect.left));
     var clickY = Math.max(0, Math.min(mapH, e.clientY - rect.top));
+    // Convert minimap coords back to tree coords (via content bounds)
     var treeX = clickX / scaleX;
     var treeY = clickY / scaleY;
-    container.scrollLeft = (treeX + self._geo.padX) * zoom - container.clientWidth / 2;
-    container.scrollTop = (treeY + self._geo.padY) * zoom - container.clientHeight / 2;
+    var targetSL = (treeX + self._geo.padX) * zoom - container.clientWidth / 2;
+    var targetST = (treeY + self._geo.padY) * zoom - container.clientHeight / 2;
+    self._setEffScroll(targetSL, targetST);
     if (self._clampScroll) self._clampScroll();
   }
   canvas.addEventListener('click', panToMinimap);
@@ -1575,8 +1590,8 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
           // Capture viewport center's offset from Sosa 1 (in content coords)
           var container = self.container;
           var zoom = self._zoomLevel || 1;
-          var vpCenterX = (container.scrollLeft + container.clientWidth / 2) / zoom;
-          var vpCenterY = (container.scrollTop + container.clientHeight / 2) / zoom;
+          var vpCenterX = (self._getEffSL() + container.clientWidth / 2) / zoom;
+          var vpCenterY = (self._getEffST() + container.clientHeight / 2) / zoom;
           var oldSosa1 = container.querySelector('.fu-person[data-sosa="1"]');
           if (oldSosa1) {
             var p = oldSosa1.parentNode;
@@ -1608,8 +1623,7 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
             var s1y = p.offsetTop + p.offsetHeight / 2;
             var targetX = (s1x + savedOffsetFromSosa1X) * newZoom;
             var targetY = (s1y + savedOffsetFromSosa1Y) * newZoom;
-            container.scrollLeft = targetX - container.clientWidth / 2;
-            container.scrollTop = targetY - container.clientHeight / 2;
+            self._setEffScroll(targetX - container.clientWidth / 2, targetY - container.clientHeight / 2);
           }
           // Clamp so nav box stays within minimap
 
