@@ -274,7 +274,7 @@ TreeRenderer.prototype.render = function() {
 
   var treeAccess = function(personAccess) {
     var sep = personAccess.indexOf('?') >= 0 ? '&' : '?';
-    var url = personAccess + sep + 'm=A&t=T&t1=GR';
+    var url = personAccess + sep + 'm=A&t=T&t1=GR&v=' + Math.min(gens, 20);
     if (sosa1Pz) url += '&pz=' + sosa1Pz + '&nz=' + sosa1Nz + '&ocz=' + sosa1Ocz;
     return url;
   };
@@ -478,6 +478,8 @@ TreeRenderer.prototype.render = function() {
   self._getEffSL = getEffSL;
   self._getEffST = getEffST;
   self._setEffScroll = setEffScroll;
+  self._suppressScrollInc = function() { _suppressScroll++; };
+  self._suppressScrollDec = function() { _suppressScroll--; };
 
   function updateTransform() {
     if (vOffX === 0 && vOffY === 0) {
@@ -512,29 +514,22 @@ TreeRenderer.prototype.render = function() {
     var treeT = treePadPxV * z;
     var treeB = (treePadPxV + geo.treeH) * z;
 
-    // Don't scroll tree edge beyond viewport edge (tight clamp)
-    var minSL, maxSL, minST, maxST;
-    if (treeR - treeL >= vw) {
-      minSL = treeL;
-      maxSL = treeR - vw;
-    } else {
-      // Tree smaller than viewport: keep it centered-ish
-      var centerSL = (treeL + treeR) / 2 - vw / 2;
-      minSL = centerSL;
-      maxSL = centerSL;
-    }
-    if (treeB - treeT >= vh) {
-      minST = treeT;
-      maxST = treeB - vh;
-    } else {
-      var centerST = (treeT + treeB) / 2 - vh / 2;
-      minST = centerST;
-      maxST = centerST;
-    }
-
+    // Don't scroll tree edge beyond viewport edge.
+    // When tree fits in viewport: loose clamp — tree can't fully leave.
     var sl = getEffSL(), st = getEffST();
-    var newSL = Math.max(minSL, Math.min(maxSL, sl));
-    var newST = Math.max(minST, Math.min(maxST, st));
+    var newSL = sl, newST = st;
+    var treeW = treeR - treeL, treeH = treeB - treeT;
+    if (treeW >= vw) {
+      newSL = Math.max(treeL, Math.min(treeR - vw, sl));
+    } else {
+      // Tree fits: keep at least half visible
+      newSL = Math.max(treeR - vw, Math.min(treeL, sl));
+    }
+    if (treeH >= vh) {
+      newST = Math.max(treeT, Math.min(treeB - vh, st));
+    } else {
+      newST = Math.max(treeB - vh, Math.min(treeT, st));
+    }
     if (Math.abs(newSL - sl) > 1 || Math.abs(newST - st) > 1) {
       setEffScroll(newSL, newST);
     }
@@ -660,12 +655,14 @@ TreeRenderer.prototype.render = function() {
     function autoPanStep() {
       if (!dragging) { stopAutoPan(); return; }
       var elapsed = Date.now() - autoPanStart;
-      // Start at drag exit velocity, accelerate aggressively to 200px/frame
-      var speed = Math.min(200, autoPanBaseSpeed + 100 * (elapsed / 1000));
+      // Horizontal: accelerate from drag velocity to 200px/frame
+      var speedH = Math.min(200, autoPanBaseSpeed + 100 * (elapsed / 1000));
+      // Vertical: constant gentle speed (no acceleration)
+      var speedV = Math.max(4, autoPanBaseSpeed);
       _suppressScroll++;
       setEffScroll(
-        getEffSL() - autoPanDir.x * speed,
-        getEffST() - autoPanDir.y * speed
+        getEffSL() - autoPanDir.x * speedH,
+        getEffST() - autoPanDir.y * speedV
       );
       clampScroll();
       requestAnimationFrame(function() { _suppressScroll--; });
@@ -792,35 +789,40 @@ TreeRenderer.prototype.render = function() {
   this.container._renderer = this;
   this.setupLineHighlight(tree);
 
-  // Auto-scroll to center Sosa 1 (skipped during gen change — caller restores position)
+  // Scroll to center Sosa 1 in the viewport
+  var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
+  function scrollToSosa1() {
+    if (!sosa1El) return;
+    requestAnimationFrame(function() {
+      _suppressScroll++;
+      var savedTransform = zoomWrap.style.transform;
+      zoomWrap.style.transform = 'none';
+      container.scrollLeft = 0;
+      container.scrollTop = 0;
+      vOffX = 0; vOffY = 0;
+      void zoomWrap.offsetWidth;
+
+      var wrapR = zoomWrap.getBoundingClientRect();
+      var sosaR = sosa1El.getBoundingClientRect();
+      var contentX = sosaR.left + sosaR.width / 2 - wrapR.left;
+      var contentY = sosaR.top + sosaR.height / 2 - wrapR.top;
+
+      zoomWrap.style.transform = savedTransform;
+
+      var newSL = contentX * zoomLevel - container.clientWidth / 2;
+      var visibleH = geo.containerH - geo.botReserve;
+      var newST = contentY * zoomLevel - visibleH + 40;
+      setEffScroll(newSL, newST);
+      clampScroll();
+      requestAnimationFrame(function() { _suppressScroll--; });
+    });
+  }
+  self._scrollToSosa1 = scrollToSosa1;
+
+  // Auto-scroll on initial load (skipped during gen change — caller restores position)
   if (!this._skipAutoScroll) {
-    var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
     if (sosa1El) {
-      requestAnimationFrame(function() {
-        // Strip transform so getBoundingClientRect gives raw layout px
-        var savedTransform = zoomWrap.style.transform;
-        zoomWrap.style.transform = 'none';
-        container.scrollLeft = 0;
-        container.scrollTop = 0;
-        vOffX = 0; vOffY = 0;
-        void zoomWrap.offsetWidth; // force layout
-
-        // Measure sosa1 position relative to zoomWrap origin
-        var wrapR = zoomWrap.getBoundingClientRect();
-        var sosaR = sosa1El.getBoundingClientRect();
-        var contentX = sosaR.left + sosaR.width / 2 - wrapR.left;
-        var contentY = sosaR.top + sosaR.height / 2 - wrapR.top;
-
-        // Restore transform
-        zoomWrap.style.transform = savedTransform;
-
-        // Scroll so this content point is centered in viewport
-        var newSL = contentX * zoomLevel - container.clientWidth / 2;
-        var visibleH = geo.containerH - geo.botReserve;
-        var newST = contentY * zoomLevel - visibleH + 40;
-        setEffScroll(newSL, newST);
-        clampScroll();
-      });
+      scrollToSosa1();
     }
   }
   this._skipAutoScroll = false;
@@ -1292,8 +1294,15 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
     var homeBtn = document.createElement('a');
     homeBtn.setAttribute('role', 'button');
     homeBtn.className = 'pano-btn' + (isSelf ? ' pano-btn-active' : ' pano-btn-alert');
-    homeBtn.title = isSelf ? 'Sosa 1: ' + sosa1Name : 'Return to Sosa 1: ' + sosa1Name;
-    if (!isSelf) homeBtn.href = treeAccess(opts.selfAccess);
+    homeBtn.title = isSelf ? 'Scroll to Sosa 1: ' + sosa1Name : 'Return to Sosa 1: ' + sosa1Name;
+    if (!isSelf) {
+      homeBtn.href = treeAccess(opts.selfAccess);
+    } else {
+      homeBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (self._scrollToSosa1) self._scrollToSosa1();
+      });
+    }
     homeBtn.innerHTML = '<i class="fa fa-sitemap fa-flip-vertical"></i><br>Sosa 1';
     left.appendChild(homeBtn);
   }
@@ -1333,6 +1342,7 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
   var zoomLabel = document.createElement('span');
   zoomLabel.className = 'pano-zoom-label';
   zoomLabel.textContent = Math.round(getZoom() * 100) + '%';
+  zoomLabel.title = 'Zoom level (Shift+Ctrl+scroll to zoom)';
 
   var btnZoomIn = document.createElement('button');
   btnZoomIn.className = 'pano-btn';
@@ -1409,6 +1419,71 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
   }
   left.style.height = btnH;
   right.style.height = btnH;
+
+  // ── Help button: positioned below Sosa 1, left-aligned with it ──
+  var helpBtn = document.createElement('button');
+  helpBtn.className = 'pano-btn pano-help-btn';
+  helpBtn.style.height = btnH;
+  helpBtn.innerHTML = '<i class="fa fa-question-circle"></i> Help';
+  helpBtn.title = 'Panoramic chart controls';
+  helpBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    self._showHelpOverlay();
+  });
+  toolbar.appendChild(helpBtn);
+
+  // Position help button under Sosa 1 after layout
+  var ref = homeBtn || left.querySelector('.pano-btn');
+  function positionHelp() {
+    if (!ref) return;
+    var tbRect = toolbar.getBoundingClientRect();
+    var refRect = ref.getBoundingClientRect();
+    helpBtn.style.left = (refRect.left - tbRect.left) + 'px';
+    helpBtn.style.top = (refRect.bottom - tbRect.top) + 'px';
+    helpBtn.style.width = refRect.width + 'px';
+  }
+  requestAnimationFrame(function() { requestAnimationFrame(positionHelp); });
+  window.addEventListener('resize', positionHelp);
+};
+
+// ── Help overlay ──────────────────────────────────────────────────────────
+
+TreeRenderer.prototype._showHelpOverlay = function() {
+  // Remove existing overlay if any
+  var existing = document.getElementById('pano-help-overlay');
+  if (existing) { existing.remove(); return; }
+
+  var overlay = document.createElement('div');
+  overlay.id = 'pano-help-overlay';
+  overlay.innerHTML =
+    '<div class="pano-help-card">' +
+      '<div class="pano-help-header">' +
+        '<b>Panoramic Ancestor Chart</b>' +
+        '<button class="pano-help-close" title="Close">&times;</button>' +
+      '</div>' +
+      '<table class="pano-help-table">' +
+        '<tr><td class="pano-help-key">Drag</td><td>Click and drag to pan the chart in any direction. If the cursor leaves the window, panning continues automatically with increasing speed.</td></tr>' +
+        '<tr><td class="pano-help-key">Scroll</td><td>Scroll wheel or trackpad to pan vertically (and horizontally with Shift).</td></tr>' +
+        '<tr><td class="pano-help-key">Zoom</td><td>Shift+Ctrl+scroll to zoom in/out, anchored at the cursor position. Use the +/\u2212 buttons or Reset in the toolbar.</td></tr>' +
+        '<tr><td class="pano-help-key">Arrow keys</td><td>Press and hold arrow keys to pan. Speed accelerates the longer the key is held.</td></tr>' +
+        '<tr><td class="pano-help-key">Minimap</td><td>Click or drag on the minimap to jump to that area of the chart. The rectangle shows the current viewport.</td></tr>' +
+        '<tr><td class="pano-help-key">Minimap hover</td><td>Hover over the minimap to see estimated Sosa numbers at each generation level.</td></tr>' +
+        '<tr><td class="pano-help-key">Person click</td><td>Click a name to open that person\u2019s page.</td></tr>' +
+        '<tr><td class="pano-help-key">Sosa badge</td><td>Click a Sosa number on a person box to re\u2011root the chart at that person (making them the new Sosa\u00a01).</td></tr>' +
+        '<tr><td class="pano-help-key">Sosa 1 button</td><td>Scroll back to the root person. If re\u2011rooted, navigates back to the original reference person.</td></tr>' +
+        '<tr><td class="pano-help-key">Generations +/\u2212</td><td>Increase or decrease the number of ancestor generations shown (max\u00a020). Hold for rapid change.</td></tr>' +
+        '<tr><td class="pano-help-key">Zoom direction</td><td>The \u2191+/\u2193+ button toggles whether scroll\u2011up means zoom\u2011in or zoom\u2011out.</td></tr>' +
+      '</table>' +
+    '</div>';
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('.pano-help-close').addEventListener('click', function() {
+    overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
 };
 
 // ── Minimap (called from buildToolbar) ────────────────────────────────────
@@ -1568,7 +1643,9 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     var treeY = clickY / scaleY;
     var targetSL = (treeX + self._geo.padX) * zoom - container.clientWidth / 2;
     var targetST = (treeY + self._geo.padY) * zoom - container.clientHeight / 2;
+    self._suppressScrollInc();
     self._setEffScroll(targetSL, targetST);
+    requestAnimationFrame(function() { self._suppressScrollDec(); });
   }
   var mmDragging = false, mmMoved = false;
   canvas.addEventListener('mousedown', function(e) {
