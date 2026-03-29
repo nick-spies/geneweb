@@ -397,9 +397,14 @@ TreeRenderer.prototype.render = function() {
 
   // Zoom state — min zoom fits the entire tree in the viewport
   var zoomLevel = 1.0;
-  var minZoom = 0.05;
+  var minZoom = 0.20;
   var maxZoom = 2.0;
   var zoomFactor = 1.06; // 6% multiplicative per step
+  // Default: scroll up = zoom in (natural). Toggle stores '1' for inverted.
+  var zoomInvert = localStorage.getItem('treeZoomInvert') === '1' ? -1 : 1;
+  this._setZoomInvert = function() {
+    zoomInvert = localStorage.getItem('treeZoomInvert') === '1' ? -1 : 1;
+  };
   this._zoomLevel = zoomLevel;
   this._zoomWrap = zoomWrap;
 
@@ -421,9 +426,9 @@ TreeRenderer.prototype.render = function() {
   self._geo = geo;
 
   // Padding so any person can be scrolled to center of viewport at any zoom.
-  // Dynamically grows when zooming out so scroll position never goes negative.
-  var treePadPx = Math.round(container.clientWidth / zoomLevel);
-  var treePadPxV = Math.round(container.clientHeight / zoomLevel);
+  // Sized for the full zoom range so it never needs to grow mid-zoom.
+  var treePadPx = Math.round(container.clientWidth / minZoom);
+  var treePadPxV = Math.round(container.clientHeight / minZoom);
   geo.padX = treePadPx;
   geo.padY = treePadPxV;
 
@@ -445,17 +450,30 @@ TreeRenderer.prototype.render = function() {
 
   function getEffSL() { return container.scrollLeft + vOffX; }
   function getEffST() { return container.scrollTop + vOffY; }
+  var _suppressScroll = 0;
+  // Track the last intended effective scroll position so zoomAt can
+  // read it instead of getEffSL/ST (which may be wrong if the browser
+  // auto-clamped scrollLeft/Top between zoom steps).
+  var _intendedSL = 0, _intendedST = 0;
   function setEffScroll(sl, st) {
+    _suppressScroll++;
+    // Clamp to valid effective scroll range so _intendedSL/ST never
+    // store impossible values (prevents compounding error across zoom steps)
+    var maxEffSL = Math.max(0, fullWrapW - container.clientWidth);
+    var maxEffST = Math.max(0, fullWrapH - container.clientHeight);
+    sl = Math.max(0, Math.min(maxEffSL, sl));
+    st = Math.max(0, Math.min(maxEffST, st));
+    _intendedSL = sl;
+    _intendedST = st;
     var maxNativeSL = Math.max(0, Math.min(fullWrapW, MAX_WRAP_PX) - container.clientWidth);
     var maxNativeST = Math.max(0, Math.min(fullWrapH, MAX_WRAP_PX) - container.clientHeight);
     vOffX = Math.max(0, sl - maxNativeSL);
     vOffY = Math.max(0, st - maxNativeST);
     container.scrollLeft = sl - vOffX;
     container.scrollTop = st - vOffY;
+    _suppressScroll--;
     updateTransform();
-    // When virtual offsets are active, native scroll event may not fire;
-    // ensure minimap viewport stays in sync.
-    if ((vOffX > 0 || vOffY > 0) && self._updateViewport) self._updateViewport();
+    if (self._updateViewport) self._updateViewport();
   }
   self._getEffSL = getEffSL;
   self._getEffST = getEffST;
@@ -476,47 +494,64 @@ TreeRenderer.prototype.render = function() {
     fullWrapH = scaledH + container.clientHeight;
     zoomWrap.style.width = Math.min(fullWrapW, MAX_WRAP_PX) + 'px';
     zoomWrap.style.height = Math.min(fullWrapH, MAX_WRAP_PX) + 'px';
-    updateTransform();
+    // Don't call updateTransform here — let setEffScroll handle it
+    // to avoid a flash with stale vOffX/vOffY during zoom.
   }
   updateWrapSize();
+  updateTransform(); // initial transform only
 
+  // Scroll clamp: prevents tree from scrolling off viewport.
+  // Uses rAF coalescing to avoid jitter from fighting with scroll events.
+  var _clampRAF = 0;
   function clampScroll() {
-    var z = geo.zoom;
-    var vw = geo.containerW;
-    var vh = geo.containerH - geo.botReserve;
-    var treeL = geo.padX * z;
-    var treeR = (geo.padX + geo.treeW) * z;
-    var treeT = geo.padY * z;
-    var treeB = (geo.padY + geo.treeH) * z;
+    var z = zoomLevel;
+    var vw = container.clientWidth;
+    var vh = container.clientHeight - geo.botReserve;
+    var treeL = treePadPx * z;
+    var treeR = (treePadPx + geo.treeW) * z;
+    var treeT = treePadPxV * z;
+    var treeB = (treePadPxV + geo.treeH) * z;
 
-    // Allow any tree content to be scrolled to center of viewport
-    var halfW = vw / 2, halfH = vh / 2;
-    var minSL = treeL - halfW;
-    var maxSL = treeR - halfW;
-    var minST = treeT - halfH;
-    var maxST = treeB - halfH;
+    // Don't scroll tree edge beyond viewport edge (tight clamp)
+    var minSL, maxSL, minST, maxST;
+    if (treeR - treeL >= vw) {
+      minSL = treeL;
+      maxSL = treeR - vw;
+    } else {
+      // Tree smaller than viewport: keep it centered-ish
+      var centerSL = (treeL + treeR) / 2 - vw / 2;
+      minSL = centerSL;
+      maxSL = centerSL;
+    }
+    if (treeB - treeT >= vh) {
+      minST = treeT;
+      maxST = treeB - vh;
+    } else {
+      var centerST = (treeT + treeB) / 2 - vh / 2;
+      minST = centerST;
+      maxST = centerST;
+    }
 
     var sl = getEffSL(), st = getEffST();
-    var newSL = (minSL <= maxSL) ? Math.max(minSL, Math.min(maxSL, sl)) : sl;
-    var newST = (minST <= maxST) ? Math.max(minST, Math.min(maxST, st)) : st;
-    if (newSL !== sl || newST !== st) setEffScroll(newSL, newST);
-  }
-  self._clampScroll = clampScroll;
-
-  var _clamping = false;
-  var _expectSL = -1, _expectST = -1;
-  container.addEventListener('scroll', function() {
-    if (_clamping) return;
-    if (_expectSL >= 0 &&
-        Math.abs(container.scrollLeft - _expectSL) < 2 &&
-        Math.abs(container.scrollTop - _expectST) < 2) {
-      _expectSL = -1; _expectST = -1;
-      return;
+    var newSL = Math.max(minSL, Math.min(maxSL, sl));
+    var newST = Math.max(minST, Math.min(maxST, st));
+    if (Math.abs(newSL - sl) > 1 || Math.abs(newST - st) > 1) {
+      setEffScroll(newSL, newST);
     }
-    _expectSL = -1; _expectST = -1;
-    _clamping = true;
-    clampScroll();
-    _clamping = false;
+  }
+  // Fallback clamp for keyboard/scrollbar scrolling (wheel is handled above).
+  // Wraps clampScroll in _suppressScroll so its setEffScroll doesn't trigger
+  // another scroll→clamp cycle.
+  container.addEventListener('scroll', function() {
+    if (_suppressScroll > 0) return;
+    if (_clampRAF) return;
+    _clampRAF = requestAnimationFrame(function() {
+      _clampRAF = 0;
+      if (_suppressScroll > 0) return;
+      _suppressScroll++;
+      clampScroll();
+      requestAnimationFrame(function() { _suppressScroll--; });
+    });
   });
 
   // Zoom anchored on a point (anchorX/Y in viewport-relative coords)
@@ -526,31 +561,50 @@ TreeRenderer.prototype.render = function() {
     newZoom = Math.round(newZoom * 1000) / 1000;
     if (newZoom === oldZoom) return;
 
-    var treePosX = (getEffSL() + anchorX) / oldZoom - treePadPx;
-    var treePosY = (getEffST() + anchorY) / oldZoom - treePadPxV;
+    // Use intended position (immune to browser auto-clamping between steps)
+    var treePosX = (_intendedSL + anchorX) / oldZoom - treePadPx;
+    var treePosY = (_intendedST + anchorY) / oldZoom - treePadPxV;
 
     zoomLevel = newZoom;
     self._zoomLevel = zoomLevel;
     geo.zoom = zoomLevel;
 
-    var neededPadX = Math.round(container.clientWidth / zoomLevel);
-    var neededPadY = Math.round(container.clientHeight / zoomLevel);
-    if (neededPadX > treePadPx || neededPadY > treePadPxV) {
-      treePadPx = Math.max(treePadPx, neededPadX);
-      treePadPxV = Math.max(treePadPxV, neededPadY);
-      geo.padX = treePadPx;
-      geo.padY = treePadPxV;
-      updatePadding();
-    }
+    // Suppress scroll clamp during zoom (including async scroll events)
+    _suppressScroll++;
 
-    updateWrapSize();
-    void container.scrollWidth; // force layout
-
+    // Compute target scroll BEFORE changing the DOM
     var newSL = (treePosX + treePadPx) * zoomLevel - anchorX;
     var newST = (treePosY + treePadPxV) * zoomLevel - anchorY;
-    setEffScroll(newSL, newST);
-    _expectSL = container.scrollLeft;
-    _expectST = container.scrollTop;
+
+    // Update wrap dimensions (sets fullWrapW/H and CSS width/height)
+    updateWrapSize();
+
+    // Pre-compute the effective scroll + vOff split so we can set the
+    // transform BEFORE forcing layout.  This eliminates flash frames
+    // where the browser reflows with stale scroll + wrong transform.
+    var maxEffSL = Math.max(0, fullWrapW - container.clientWidth);
+    var maxEffST = Math.max(0, fullWrapH - container.clientHeight);
+    newSL = Math.max(0, Math.min(maxEffSL, newSL));
+    newST = Math.max(0, Math.min(maxEffST, newST));
+    var maxNativeSL = Math.max(0, Math.min(fullWrapW, MAX_WRAP_PX) - container.clientWidth);
+    var maxNativeST = Math.max(0, Math.min(fullWrapH, MAX_WRAP_PX) - container.clientHeight);
+    vOffX = Math.max(0, newSL - maxNativeSL);
+    vOffY = Math.max(0, newST - maxNativeST);
+
+    // Set transform first (visual-only, no reflow) so the correct
+    // position is shown even if the browser paints during forced layout.
+    updateTransform();
+
+    // Now force layout and set scroll position
+    void container.scrollWidth;
+    _intendedSL = newSL;
+    _intendedST = newST;
+    container.scrollLeft = newSL - vOffX;
+    container.scrollTop = newST - vOffY;
+    // Delay _suppressScroll decrement to next frame so async scroll events
+    // from the scrollLeft/scrollTop assignment above are still suppressed.
+    if (_clampRAF) { cancelAnimationFrame(_clampRAF); _clampRAF = 0; }
+    requestAnimationFrame(function() { _suppressScroll--; });
 
     if (self._redrawMinimap) self._redrawMinimap();
     if (self._updateGenLabels) self._updateGenLabels();
@@ -572,19 +626,17 @@ TreeRenderer.prototype.render = function() {
       var rect = container.getBoundingClientRect();
       var anchorX = e.clientX - rect.left;
       var anchorY = e.clientY - rect.top;
-      var delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+      var delta = (e.deltaY !== 0 ? e.deltaY : e.deltaX) * zoomInvert;
       var newZoom = delta < 0 ? zoomLevel * zoomFactor : zoomLevel / zoomFactor;
       zoomAt(newZoom, anchorX, anchorY);
       return;
     }
-    // When tree exceeds native scroll limit, intercept all scroll and route
-    // through virtual scroll so the user can reach the full extent.
-    if (fullWrapW > MAX_WRAP_PX || fullWrapH > MAX_WRAP_PX) {
-      e.preventDefault();
-      var dx = e.deltaX, dy = e.deltaY;
-      setEffScroll(getEffSL() + dx, getEffST() + dy);
-      clampScroll();
-    }
+    // Intercept all wheel scroll and apply manually with boundary clamping.
+    // This prevents native scroll → clamp → scroll jitter loops.
+    e.preventDefault();
+    var dx = e.deltaX, dy = e.deltaY;
+    setEffScroll(getEffSL() + dx, getEffST() + dy);
+    clampScroll();
   }, { passive: false });
 
   // Click-and-drag to pan (standard drag, no pointer lock)
@@ -632,7 +684,7 @@ TreeRenderer.prototype.render = function() {
   if (!this._skipAutoScroll) {
     var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
     if (sosa1El) {
-      setTimeout(function() {
+      requestAnimationFrame(function() {
         // Strip transform so getBoundingClientRect gives raw layout px
         var savedTransform = zoomWrap.style.transform;
         zoomWrap.style.transform = 'none';
@@ -656,9 +708,7 @@ TreeRenderer.prototype.render = function() {
         var newST = contentY * zoomLevel - visibleH + 40;
         setEffScroll(newSL, newST);
         clampScroll();
-        _expectSL = container.scrollLeft;
-        _expectST = container.scrollTop;
-      }, 200);
+      });
     }
   }
   this._skipAutoScroll = false;
@@ -1208,10 +1258,25 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
   // ── RIGHT: Generations (also creates Deep button) ──
   this._buildGenControls(right);
 
+  var btnZoomDir = document.createElement('button');
+  btnZoomDir.className = 'pano-btn';
+  var isInverted = localStorage.getItem('treeZoomInvert') === '1';
+  btnZoomDir.innerHTML = isInverted ? '<b>&darr;+</b>' : '<b>&uarr;+</b>';
+  btnZoomDir.title = 'Zoom: scroll ' + (isInverted ? 'down' : 'up') + ' = zoom in (click to toggle)';
+  btnZoomDir.addEventListener('click', function() {
+    var inv = localStorage.getItem('treeZoomInvert') === '1';
+    localStorage.setItem('treeZoomInvert', inv ? '0' : '1');
+    btnZoomDir.innerHTML = inv ? '<b>&uarr;+</b>' : '<b>&darr;+</b>';
+    btnZoomDir.title = 'Zoom: scroll ' + (inv ? 'up' : 'down') + ' = zoom in (click to toggle)';
+    // Update the live zoomInvert variable in the render closure
+    if (self._setZoomInvert) self._setZoomInvert();
+  });
+
   left.appendChild(btnZoomOut);
   left.appendChild(zoomLabel);
   left.appendChild(btnZoomIn);
   left.appendChild(btnZoomReset);
+  left.appendChild(btnZoomDir);
 
   // ── CENTER: Minimap ──
   this._buildMinimapInToolbar(tree, center);
@@ -1392,13 +1457,33 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     var targetSL = (treeX + self._geo.padX) * zoom - container.clientWidth / 2;
     var targetST = (treeY + self._geo.padY) * zoom - container.clientHeight / 2;
     self._setEffScroll(targetSL, targetST);
-    if (self._clampScroll) self._clampScroll();
   }
-  canvas.addEventListener('click', panToMinimap);
-  var dragging = false;
-  wrapper.addEventListener('mousedown', function(e) { dragging = true; e.preventDefault(); });
-  document.addEventListener('mousemove', function(e) { if (dragging) panToMinimap(e); });
-  document.addEventListener('mouseup', function() { dragging = false; });
+  var mmDragging = false, mmMoved = false;
+  canvas.addEventListener('mousedown', function(e) {
+    mmDragging = true; mmMoved = false;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!mmDragging) return;
+    mmMoved = true;
+    panToMinimap(e);
+  });
+  document.addEventListener('mouseup', function() { mmDragging = false; });
+  canvas.addEventListener('click', function(e) {
+    if (mmMoved) { mmMoved = false; return; }
+    panToMinimap(e);
+  });
+
+  // Wheel on minimap: zoom centered on viewport center
+  wrapper.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var zi = localStorage.getItem('treeZoomInvert') === '1' ? -1 : 1;
+    var delta = (e.deltaY !== 0 ? e.deltaY : e.deltaX) * zi;
+    var newZoom = delta < 0
+      ? self._zoomLevel * 1.15
+      : self._zoomLevel / 1.15;
+    self._zoomAt(newZoom, container.clientWidth / 2, container.clientHeight / 2);
+  }, { passive: false });
 
   // Minimap hover: compute Sosa overlay directly from dot data
   function minimapSosaOverlay(e) {
@@ -1479,7 +1564,7 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
 
 TreeRenderer.prototype._buildGenControls = function(toolbar) {
   var opts = this.options;
-  var absMax = opts.maxGenerations || 30;
+  var absMax = Math.min(opts.maxGenerations || 20, 20);
   var fastMax = 12;
   var currentGen = opts.generations || 3;
   var urlTpl = opts.genUrlTemplate || '';
