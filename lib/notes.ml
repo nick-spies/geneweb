@@ -187,6 +187,7 @@ let safe_gallery conf base s =
     List.map
       (function
         | key, `String s when key = "title" -> (key, `String (html s))
+        | key, `String s when key = "chronicle" -> (key, `String (html s))
         | key, `String s when key = "desc" -> (key, `String (html s))
         | "map", `List lmap -> ("map", `List (List.map safe_map lmap))
         | "images", `List images_l ->
@@ -201,6 +202,7 @@ let safe_gallery conf base s =
                                 | "map", `List lmap ->
                                     ("map", `List (List.map safe_map lmap))
                                 | "img", `String s -> ("img", `String s)
+                                | "desc", `String s -> ("desc", `String (html s))
                                 | e -> e)
                               img_l)
                      | e -> e)
@@ -374,6 +376,44 @@ let _print_key label (fn, sn, oc) =
 
 let lower_key (fn, sn, oc) = (Name.lower fn, Name.lower sn, oc)
 
+let json_gallery_items_for_key conf s key =
+  let json = try Yojson.Basic.from_string s with _ -> `Null in
+  let lkey = lower_key key in
+  let has_key ml =
+    let l = match ml with `List l -> l | _ -> [] in
+    List.exists
+      (fun e -> Def.NLDB.equal_key (lower_key (extract_pnoc e)) lkey)
+      l
+  in
+  let url f =
+    if f = "" then "" else (Util.commd conf :> string) ^ "m=DOC&s=" ^ f
+  in
+  let str k l =
+    try match List.assoc k l with `String v -> v | _ -> ""
+    with Not_found -> ""
+  in
+  let process images =
+    let _, r =
+      List.fold_left
+        (fun (i, acc) img ->
+          let i = i + 1 in
+          match img with
+          | `Assoc il
+            when has_key (try List.assoc "map" il with Not_found -> `Null) ->
+              let f = str "img" il in
+              (i, (i, url f, f, str "desc" il) :: acc)
+          | _ -> (i, acc))
+        (0, []) images
+    in
+    List.rev r
+  in
+  match json with
+  | `Assoc l -> (
+      match List.assoc_opt "images" l with
+      | Some (`List imgs) -> process imgs
+      | _ -> process [ `Assoc l ])
+  | _ -> []
+
 let replace_person person_json (new_fn, new_sn, new_oc) =
   `Assoc
     (List.map
@@ -387,23 +427,37 @@ let replace_person person_json (new_fn, new_sn, new_oc) =
 (* Processes the map to replace target person
    with new values if the condition is met *)
 let update_map json oldk newk =
-  let map_data =
-    json |> Yojson.Basic.Util.member "map" |> Yojson.Basic.Util.to_list
-  in
-  let updated_map =
+  let update_map_list lmap =
     List.map
       (fun person_json ->
         let current_person = extract_pnoc person_json |> lower_key in
         if current_person = lower_key oldk then replace_person person_json newk
         else person_json)
-      map_data
+      lmap
   in
-  `Assoc
-    (List.map
-       (function
-         | "map", _ -> ("map", `List updated_map)
-         | field -> field (* Preserve all other top-level fields *))
-       (Yojson.Basic.Util.to_assoc json))
+  let update_fields l =
+    List.map
+      (function
+        | "map", `List lmap -> ("map", `List (update_map_list lmap))
+        | "images", `List imgs ->
+            ( "images",
+              `List
+                (List.map
+                   (function
+                     | `Assoc il ->
+                         `Assoc
+                           (List.map
+                              (function
+                                | "map", `List lmap ->
+                                    ("map", `List (update_map_list lmap))
+                                | e -> e)
+                              il)
+                     | e -> e)
+                   imgs) )
+        | field -> field)
+      l
+  in
+  `Assoc (update_fields (Yojson.Basic.Util.to_assoc json))
 
 let update_gallery s oldk newk =
   (* assumes the json part starts at the first { *)
@@ -424,7 +478,9 @@ let update_gallery s oldk newk =
 
 let rewrite_key s oldk newk _file =
   let s =
-    if Mutil.contains s "TYPE=gallery" then update_gallery s oldk newk else s
+    if Mutil.contains s "TYPE=gallery" || Mutil.contains s "TYPE=album" then
+      update_gallery s oldk newk
+    else s
   in
   let slen = String.length s in
   let rec rebuild rs i =

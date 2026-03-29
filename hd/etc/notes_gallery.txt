@@ -1,8 +1,8 @@
-<!-- $Id: notes_gallery.txt v7.1 29/12/2025 00:39:49 $ -->
+<!-- $Id: notes_gallery.txt v7.1 20/03/2026 05:14:20 $ -->
 <!DOCTYPE html>
-<html>
+<html lang="%lang;">
 <head>
-  <title>Gallerie</title>
+  <title>[*gallery]</title>
   <meta name="robots" content="none">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -15,49 +15,35 @@
 <div class="container-fluid">
   %include;home
   <div class="small float-right mr-2 mt-2">
-    (<a href="%url;&ref=on"
-        title="[pages where page appears]"><-</a>)
+    (<a href="%url;&ref=on" title="[*gallery backlinks]">&lt;-</a>)
+    %if(wizard)(<a id="edit_link" href="%prefix;m=MOD_NOTES&f=%e.f;">[modify::]</a>)%end;
   </div>
-  <h1 id="h1" class="ml-3 mb-0">Chargement en cours…</h1>
-  %if(wizard)
-    <div class="small float-right mr-2">
-      (<a href="%prefix;m=MOD_NOTES&f=%e.f;">[modify::]</a>)
-    </div>
-  %end;
+  <h1 id="h1" class="ml-3 mb-0">[*loading/error]0</h1>
+  <p id="chronicle" class="ml-3 mb-0 text-muted d-none"></p>
+  <div id="index-wall" class="flex-wrap mt-3 ml-3 d-none"></div>
   <div id="album-nav" class="d-none justify-content-center">
-    <div class="p-2 bd-highlight"><a id="first" href="#" onclick="loadFirstImage(); return false;"><i class="fa-solid fa-backward"></i></a></div>
-    <div class="p-2 bd-highlight"><a id="previous" href="#" onclick="loadPreviousImage(); return false;"><i class="fa-solid fa-caret-left"></i></a> </div>
-    <div class="p-2 bd-highlight"><a id="current"></a> / <a id="imageCount"></a></div>
-    <div class="p-2 bd-highlight"><a id="next" href="#" onclick="loadNextImage(); return false;"><i class="fa-solid fa-caret-right"></i></a></div>
-    <div class="p-2 bd-highlight"><a id="last" href="#" onclick="loadLastImage(); return false;"><i class="fa-solid fa-forward"></i></a></div>
+    <div class="p-2 bd-highlight"><a id="home" href="#" onclick="loadIndex(); return false;" title="[*gallery index]"><i class="fa-solid fa-house"></i></a></div>
+    <div class="p-2 bd-highlight"><a id="first" href="#" title="[*first]" onclick="loadFirstImage(); return false;"><i class="fa-solid fa-backward"></i></a></div>
+    <div class="p-2 bd-highlight"><a id="previous" href="#" title="[*previous]" onclick="loadPreviousImage(); return false;"><i class="fa-solid fa-caret-left"></i></a></div>
+    <div class="p-2 bd-highlight"><span id="current"></span> / <span id="imageCount"></span></div>
+    <div class="p-2 bd-highlight"><a id="next" href="#" title="[*next]" onclick="loadNextImage(); return false;"><i class="fa-solid fa-caret-right"></i></a></div>
+    <div class="p-2 bd-highlight"><a id="last" href="#" title="[*last]" onclick="loadLastImage(); return false;"><i class="fa-solid fa-forward"></i></a></div>
   </div>
-  <div class="d-inline-flex ml-3">
-  <map id="map" name="map"></map>
-  <div>
-  <img id="image" usemap="#map" alt=""><!-- no src, managed on javascript side -->
-  <span id="description" class="ml-3 mt-3"></span>
-  </div>
-  <div class="d-none ml-3" id="div_legend">%nn;
-    [*on this image][:]
-    <a id="rlm" href="%prefix;m=RLM" title="[*relations tree]"><img src="%image_prefix;/gui_create.png" height="18" alt="Tree"></a>
-    <div id="legend" class="list-comma list-unstyled pl-1"></div>
-  </div>
-
-  <div class="d-none" id="div_unknown">%nn;
-    [*unknown person][:]%nn; <ul id="unknown" class="d-inline list-comma list-unstyled pl-0"></ul>
-  </div>
-  <div class="d-none" id="grp_table_container">
-    <table id="grp_table" border="1">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Label</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Group rows will be inserted here -->
-      </tbody>
-    </table>
+  <div id="gallery-view" class="ml-3">
+    <map id="map" name="map"></map>
+    <div>
+      <!-- next img pops a w3c error “no src” attribute: managed on javascript side -->
+      <img id="image" usemap="#map" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+      <span id="description" class="mx-1"></span>
+    </div>
+    <div class="d-none ml-3" id="div_legend">%nn;
+      [*on this image][:]
+      <a id="rlm" href="%prefix;m=RLM" title="[*relations tree]"><img src="%image_prefix;/gui_create.png" height="18" alt="relation tree"></a>
+      <div id="legend" class="list-comma list-unstyled pl-1"></div>
+    </div>
+    <div class="d-none" id="div_unknown">%nn;
+      [*unknown person][:]%nn; <ul id="unknown" class="d-inline list-comma list-unstyled pl-0"></ul>
+    </div>
   </div>
 </div>
 %include;trl
@@ -66,7 +52,7 @@
 %include;js
 %query_time;
 %if;(b.use_cdn="yes")
-  <script src="https://cdn.jsdelivr.net/npm/maphilight@1.4.2/jquery.maphilight.min.js">
+  <script src="https://cdn.jsdelivr.net/npm/maphilight@1.4.2/jquery.maphilight.min.js"
     integrity="sha256-CMISu7vXb6gfvgekngAzo/Mk2GOoFeLy9UIqjtJrt5Y=
                sha384-+gw07sufgVITpP4bHCQQeafUY2NQfyPBM3+931FUWejozbZ0+hCcd8dTUP4epnQK
                sha512-1YiTT24MNHA6DRzyu+w9F5Egc8evYlyEnzSSTD4/M7q42xEb5fSpNgn0+1CPy3evubHs3xdlh8uXgae0DOhR7Q=="
@@ -121,87 +107,106 @@ function get(v) { return v !== undefined ? v : ""; }
 
 function displayImage(img) {
   $("#map, #legend").empty();
+  $("#div_legend").addClass("d-none");
   $("#h1").html(json.title);
-  $("#description").html(json.desc);
+  $("#description").html(img.desc || json.desc || "");
   $("#image").attr("src", "%prefix;m=DOC&s=" + img.img);
   
   let cnt = 1, cnt_rlm = 1;
   const hasGroups = img.groups?.length;
-  
-  // Structure par groupe
-  if (hasGroups) {
-    const groupedItems = {};
-    
-    // Préparer les groupes
-    img.groups.forEach(g => {
-      groupedItems[g.name] = { label: g.label, items: [] };
-    });
-    
-    // Assigner les items aux groupes
-    img.map.forEach(r => {
-      if (!r.fn || !r.sn) return;
-      
-      const oc = get(r.oc) && r.oc != "0" ? `&oc=${r.oc}` : "";
-      const href = `%prefix;&p=${r.fn}&n=${r.sn}${oc}`;
-      const txt = `${r.fn} ${r.sn}`;
-      const comment = get(r.alt) ? ` (${r.alt})` : "";
-      const groupNum = r.group || 0;
-      
-      const item = {
-        id: cnt,
-        href: href,
-        txt: txt,
-        comment: comment,
-        groupNum: groupNum,
-        shape: get(r.shape),
-        coords: get(r.coords),
-        rlmParams: `&p${cnt_rlm}=${r.fn}&n${cnt_rlm}=${r.sn}${oc}`
-      };
-      
-      if (groupNum && groupedItems[groupNum]) {
-        groupedItems[groupNum].items.push(item);
+  const ungrouped = [];
+
+  img.map.forEach(r => {
+    const t = get(r.t) || "p";
+    let href, txt, rlmParams = "";
+    let comment = get(r.alt) ? ` (${r.alt})` : "";
+    if (t === "p") {
+      if (!r.fn && !r.sn) { cnt++; return; }
+      const oc = get(r.oc) && r.oc != "0"
+        ? `&oc=${r.oc}` : "";
+      href = `%prefix;&p=${r.fn}&n=${r.sn}${oc}`;
+      txt = `${r.fn} ${r.sn}`;
+      rlmParams =
+        `&p${cnt_rlm}=${r.fn}&n${cnt_rlm}=${r.sn}${oc}`;
+      cnt_rlm++;
+    } else if (t === "g") {
+      href = `%prefix;${get(r.href)}`;
+      txt = get(r.alt) || get(r.href);
+      comment = "";
+    } else if (t === "e") {
+      href = get(r.href);
+      txt = get(r.alt) || get(r.href);
+      comment = "";
+    } else { cnt++; return; }
+
+    const groupNum = r.group || 0;
+    const groupClass = (hasGroups && groupNum)
+      ? ` class='group${groupNum}'` : "";
+    const areaHtml = `<area id='area${cnt}'`
+      + ` shape='${get(r.shape)}'`
+      + ` coords='${get(r.coords)}'`
+      + ` alt='${txt}${comment}'`
+      + ` title='${txt}${comment}'`
+      + ` href='${href}'${groupClass}`
+      + ` target='_blank'>`;
+    const legendHtml = `<li class='legend' id='a${cnt}'>`
+      + `<span><a href="${href}" target='_blank'>`
+      + `${txt}</a>${comment}</span></li>`;
+
+    if (rlmParams) {
+      $("#rlm").attr("href",
+        $("#rlm").attr("href") + rlmParams);
+    }
+
+    const item = {
+      id: cnt, areaHtml: areaHtml,
+      legendHtml: legendHtml, groupNum: groupNum
+    };
+
+    if (hasGroups && groupNum) {
+      const bucket = img.groups.find(
+        g => g.name == groupNum);
+      if (bucket) {
+        if (!bucket._items) bucket._items = [];
+        bucket._items.push(item);
+      } else {
+        ungrouped.push(item);
       }
-      
-      cnt++; cnt_rlm++;
-    });
-    
-    // Générer HTML par groupe
-    Object.entries(groupedItems).forEach(([groupNum, group]) => {
-      const groupHtml = `
-        <div class="imap-group mb-2">
-          <div class="imap-group-legend" id="g${groupNum}">
-            <a href="#" title="[*lock group]">${group.label}</a>
-          </div>
-          <ul class="list-comma list-unstyled pl-3">
-            ${group.items.map(item => {
-              $("#map").append(`<area id='area${item.id}' shape='${item.shape}' coords='${item.coords}' alt='${item.txt}${item.comment}' title='${item.txt}${item.comment}' href='${item.href}' class='group${groupNum}' target='_blank'>`);
-              $("#rlm").attr("href", $("#rlm").attr("href") + item.rlmParams);
-              
-              return `<li class='legend' id='a${item.id}'><span><a href="${item.href}" target='_blank'>${item.txt}</a>${item.comment}</span></li>`;
-            }).join('')}
-          </ul>
-        </div>
-      `;
-      $("#legend").append(groupHtml);
-    });
-  } else {
-    img.map.forEach(r => {
-      if (!r.fn || !r.sn) return;
-      
-      const oc = get(r.oc) && r.oc != "0" ? `&oc=${r.oc}` : "";
-      const href = `%prefix;&p=${r.fn}&n=${r.sn}${oc}`;
-      const txt = `${r.fn} ${r.sn}`;
-      const comment = get(r.alt) ? ` (${r.alt})` : "";
-      
-      $("#map").append(`<area id='area${cnt}' shape='${get(r.shape)}' coords='${get(r.coords)}' alt='${txt}${comment}' title='${txt}${comment}' href='${href}' target='_blank'>`);
-      $("#legend").append(`<li class='legend' id='a${cnt}'><span><a href="${href}" target='_blank'>${txt}</a>${comment}</span></li>`);
-      $("#rlm").attr("href", $("#rlm").attr("href") + `&p${cnt_rlm}=${r.fn}&n${cnt_rlm}=${r.sn}${oc}`);
-      
-      cnt++; cnt_rlm++;
+    } else {
+      ungrouped.push(item);
+    }
+    cnt++;
+  });
+
+  // Render grouped items
+  if (hasGroups) {
+    img.groups.forEach(g => {
+      if (!g._items || !g._items.length) return;
+      let itemsHtml = "";
+      g._items.forEach(item => {
+        $("#map").append(item.areaHtml);
+        itemsHtml += item.legendHtml;
+      });
+      $("#legend").append(
+        `<div class="imap-group mb-2">`
+        + `<div class="imap-group-legend" id="g${g.name}">`
+        + `<a href="#" title="[*lock group]">`
+        + `${g.label}</a></div>`
+        + `<ul class="list-comma list-unstyled pl-3">`
+        + `${itemsHtml}</ul></div>`);
+      delete g._items;
     });
   }
-  
-  $("#div_legend").removeClass("d-none");
+
+  // Render ungrouped items
+  ungrouped.forEach(item => {
+    $("#map").append(item.areaHtml);
+    $("#legend").append(item.legendHtml);
+  });
+
+  if (cnt > 1 || ungrouped.length) {
+    $("#div_legend").removeClass("d-none");
+  }
   $("#image").maphilight(MAPHILIGHT_CONFIG);
 }
 
@@ -413,28 +418,109 @@ $(document).on("click", ".imap-group-legend", function(e) {
   }
 });
 
+function updateNavButtons() {
+  $("#first, #previous").toggleClass("disabled text-muted",
+    current <= 0);
+  $("#next, #last").toggleClass("disabled text-muted",
+    current >= imagesCount - 1);
+}
+
 function loadCurrentImage() {
   displayImage(images_l[current]);
   $("#current").text(current + 1);
   $("#imageCount").text(imagesCount);
+  $("#index-wall").removeClass("d-flex").addClass("d-none");
+  $("#gallery-view").addClass("d-inline-flex").removeClass("d-none");
+  if (imagesCount > 1) {
+    $("#album-nav").addClass("d-flex");
+  }
+  var u = new URL(window.location);
+  u.searchParams.set("img", current + 1);
+  history.replaceState(null, "", u);
+  var $edit = $("#edit_link");
+  if ($edit.length) {
+    var base = "%prefix;m=MOD_NOTES&f=%e.f;";
+    $edit.attr("href", base + "&img=" + (current + 1));
+  }
+  updateNavButtons();
 }
 
-function loadFirstImage() { current = 0; loadCurrentImage(); }
-function loadLastImage() { current = imagesCount - 1; loadCurrentImage(); }
-function loadNextImage() { if (current < imagesCount - 1) { current++; loadCurrentImage(); } }
-function loadPreviousImage() { if (current > 0) { current--; loadCurrentImage(); } }
+function loadIndex() {
+  $("#map, #legend").empty();
+  $("#gallery-view").removeClass("d-inline-flex").addClass("d-none");
+  $("#index-wall").empty().addClass("d-flex").removeClass("d-none");
+  $("#h1").html(json.title);
+  var chr = json.chronicle || "";
+  if (chr) { $("#chronicle").html(chr).removeClass("d-none"); }
+  else { $("#chronicle").addClass("d-none"); }
+  $("#album-nav").removeClass("d-flex");
+  images_l.forEach(function(img, i) {
+    var desc = img.desc || "";
+    var label = desc ? (i + 1) + ". " + desc : ". " + (i + 1);
+    var url = "%prefix;m=DOC&s=" + img.img;
+    var html = '<div class="imap-gallery" data-img="' + (i + 1) + '"'
+      + ' data-toggle="tooltip" data-html="true"'
+      + ' title="' + label.replace(/"/g, '&quot;') + '"'
+      + ' style="cursor:pointer">'
+      + '<img src="' + url + '" alt="">'
+      + '<div class="gallery-legend">' + label + '</div></div>';
+    $("#index-wall").append(html);
+  });
+  $("#index-wall [data-toggle='tooltip']").tooltip();
+  var u = new URL(window.location);
+  u.searchParams.delete("img");
+  history.replaceState(null, "", u);
+  current = -1;
+  var $edit = $("#edit_link");
+  if ($edit.length) {
+    $edit.attr("href", "%prefix;m=MOD_NOTES&f=%e.f;");
+  }
+}
+
+function loadFirstImage() {
+  if (current <= 0) return;
+  current = 0; loadCurrentImage();
+}
+function loadLastImage() {
+  if (current >= imagesCount - 1) return;
+  current = imagesCount - 1; loadCurrentImage();
+}
+function loadNextImage() {
+  if (current >= imagesCount - 1) return;
+  current++; loadCurrentImage();
+}
+function loadPreviousImage() {
+  if (current <= 0) return;
+  current--; loadCurrentImage();
+}
 
 $(document).ready(function() {
+  $("#index-wall").on("click", "[data-img]", function(e) {
+    e.preventDefault();
+    current = parseInt($(this).data("img")) - 1;
+    loadCurrentImage();
+  });
   $.ajax("%url;&ajax=on")
     .done(function(j) {
       json = j;
-      images_l = j.images?.length ? j.images : [{ img: j.img, map: j.map, groups: j.groups }];
+      images_l = j.images?.length
+        ? j.images
+        : [{ img: j.img, map: j.map, groups: j.groups }];
       imagesCount = images_l.length;
-      if (imagesCount > 1) $("#album-nav").addClass('d-flex');
       document.title = json.title;
-      loadCurrentImage();
+      var p = new URLSearchParams(window.location.search);
+      var si = parseInt(p.get("img")) || 0;
+      if (si > 0 && si <= imagesCount) {
+        current = si - 1;
+        loadCurrentImage();
+      } else if (imagesCount > 1) {
+        loadIndex();
+      } else {
+        current = 0;
+        loadCurrentImage();
+      }
     })
-    .fail(() => $("#h1").text("Erreur de chargement"));
+    .fail(() => $("#h1").text("[*loading/error]1"));
 });
 </script>
 </body>

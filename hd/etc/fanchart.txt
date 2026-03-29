@@ -56,9 +56,9 @@
         %if;(marriage_place!=""),"marriage_place":"%marriage_place;"%end;
         %if;(marriage_place.sub!=""),"marriage_sub":"%marriage_place.sub;"%nn;
           %if;(marriage_place.main!=""),"marriage_main":"%marriage_place.main;"%end;
-        %end;
-        ,"marriage_age_husband":"%if;xx.computable_marriage_age;%xx.marriage_age;%else;?%end;"
-        ,"marriage_age_wife":"%if;spouse.computable_marriage_age;%spouse.marriage_age;%else;?%end;"
+        %end;%nn;
+        ,"his_marriage_age":"%if;xx.computable_marriage_age;%xx.marriage_age.years;%else;?%end;"%nn;
+        ,"her_marriage_age":"%if;spouse.computable_marriage_age;%spouse.marriage_age.years;%else;?%end;"%nn;
         ,"marriage_length":"%nn;
         %if;(family.marriage_date.year!="")
           %if;(not (are_separated or are_divorced))
@@ -101,7 +101,7 @@
 <div id="age-legend" class="age-legend-container">
   <div class="legend-header">
     <h3 class="legend-title">[*age]</h3>
-    <button class="legend-close" title="[*close/hide]1">×</button>
+    <button class="legend-close" title="[*close]">×</button>
   </div>
   <div class="legend-section ages-section">
     <h4 class="section-label"><i class="fas fa-user" aria-hidden="true"></i>[*person/persons]1</h4>
@@ -129,7 +129,7 @@
 <div class="fanchart-controls" id="fanchart-controls">
   <div class="control-section">
     <div class="btn-group-fanchart">
-      <button id="b-home" class="btn-fanchart" title="[*home]">
+      <button id="b-home" class="btn-fanchart" title="[*home]" data-url="%prefix_no_senv;">
         <i class="fa fa-house fa-fw"></i>
       </button>
       <button id="b-help" class="btn-fanchart" title="[*help and shortcuts]">
@@ -139,11 +139,11 @@
         <i class="fa fa-dice-%apply;dice() fa-fw"></i>
       </button>
     </div>
-    <button class="btn-close" id="b-no-buttons" title="[*close/hide]1">×</button>
+    <button class="btn-close" id="b-no-buttons" title="[*visualize/show/hide/summary]2">×</button>
   </div>
 
   <div class="control-section">
-    <div class="section-title">Size</div>
+    <div class="section-title">[*view/opening]0</div>
     <div class="btn-group-fanchart">
       <button id="b-zoom-out" class="btn-fanchart" title="[*zoom/unzoom]1">
         <i class="fa fa-magnifying-glass-minus fa-fw"></i>
@@ -160,69 +160,56 @@
   <div class="control-section">
     <div class="section-title" id="generation-section-title">[generation/generations]1</div>
     <div class="btn-group-fanchart">
-      <button id="b-gen-del" class="btn-fanchart %if;(e.v <= 1)disabled%end;" title="[*one less generation]">
+      <button id="b-gen-del" class="btn-fanchart %if;(e.v <= 1)disabled%end;" title="[*add/remove one generation]1">
         <i class="fa fa-minus fa-fw"></i>
       </button>
-      <button id="b-gen-add" class="btn-fanchart %if;(e.v >= 10)disabled%end;" title="[*one additional generation]">
+      <button id="b-gen-add" class="btn-fanchart %if;(e.v >= 10)disabled%end;" title="[*add/remove one generation]0">
         <i class="fa fa-plus fa-fw"></i>
       </button>
-      <button id="b-implex" class="btn-fanchart" title="%if;(e.implex="")[*expand implex]%else;[*collapse implex]%end;">
+      <button id="b-implex" class="btn-fanchart" title="%if;(e.implex="")[*display implex]%else;[*collapse implex]%end;">
         <i class="fa fa-comment-%if;(e.implex="")dots%else;slash%end; fa-fw"></i>
       </button>
     </div>
   </div>
 
-  <div class="control-section">
-    <div class="section-title">Degrees</div>
+<div class="control-section">
+    <div class="section-title">[*view/opening]1</div>
     <div class="btn-group-fanchart">
-      <button id="b-angle-180" class="btn-fanchart" title="[*half-disc view]">180̣</button>
-      <button id="b-angle-220" class="btn-fanchart active" title="[*standard view]">220</button>
-      <button id="b-angle-359" class="btn-fanchart" title="[*full view]">359</button>
+      <button id="b-angle-180" class="btn-fanchart" title="180° ([half-disc/standard/double half-disc]0)">180</button>
+      <button id="b-angle-220" class="btn-fanchart active" title="220° ([half-disc/standard/double half-disc]1)">220</button>
+      <button id="b-angle-360" class="btn-fanchart" title="2×180° ([half-disc/standard/double half-disc]2)">360</button>
     </div>
   </div>
 
   <div class="control-section">
-    <div class="section-title">Mode</div>
-    <div class="btn-group-fanchart">
-      <button id="b-angle-360" class="btn-fanchart" title="[*circular mode]">360</button>
-    </div>
-  </div>
-
-  <div class="control-section">
-    <div class="section-title">Font</div>
+    <div class="section-title">[*font/default/large/readable]0</div>
     <div class="btn-group-fanchart">
      <select id="font-selector" class="custom-select custom-select-sm mx-0">
-       <option value="">Default</option>
+       <option value="">[*font/default/large/readable]1</option>
        <option value="mono">Mono</option>
        <option value="serif">Serif</option>
-       <option value="large">[*large]</option>
-       <option value="readable">[*readable]</option>
+       <option value="large">[*font/default/large/readable]2</option>
+       <option value="readable">[*font/default/large/readable]3</option>
     </select>
     </div>
   </div>
   <div class="control-section">
     <div class="section-title">[*tools]</div>
     <div class="btn-group-fanchart">
-      <button id="b-age" class="btn-fanchart"
-              title="[*death ages and marriage duration]">
+      <button id="b-age" class="btn-fanchart" 
+        title="[*death ages and marriage duration]">
         <i class="fa fa-cake-candles fa-fw"></i>
       </button>
        <button id="b-places-colorise" class="btn-fanchart"
         title="[*colorize places]">
         <i class="fa fa-map-location-dot fa-fw"></i>
       </button>
-     %(
-      <button id="b-sort-places" class="btn-fanchart"
-        title="[*sort alphabetically]">
-        <i class="fa fa-arrow-down-a-z fa-fw"></i>
-      </button>
-     %)
     </div>
 
 
   </div>
 </div>
-<button id="b-show-buttons" class="btn-restore-controls" style="display:none;" title="Show controls">
+<button id="b-show-buttons" class="btn-restore-controls" style="display:none;" title="[*show controls]">
   <i class="fa fa-align-justify"></i>
 </button>
 <div id="container" style="position: relative;">
@@ -230,31 +217,29 @@
   <div id="person-panel" class="identity-panel"></div>
 </div>
 
-<!-- Panneau des lieux modernisé -->
+<!-- Panneau des lieux -->
 <div class="places-panel" id="places-panel">
-  <!-- Bouton pour restaurer le panneau quand il est masqué -->
   <button class="panel-toggle" title="[*show panel]">‹</button>
 
-  <!-- Header avec bouton pour masquer -->
   <div class="places-header">
     <div class="header-left">
       <div class="places-title">[*places and events]</div>
       <div class="generation-count"></div>
     </div>
-    <button class="panel-close" title="[*close/hide]1">›</button>
+    <button class="panel-close" title="[*visualize/show/hide/summary]2">›</button>
   </div>
 
   <!-- Contrôles de recherche, tri et mode complet -->
   <div class="controls-search-section">
     <div class="search-input-wrapper">
-      <input type="text" class="search-input" placeholder="[*search]">
-      <button class="search-clear" title="[*clear]" style="display: none;">×</button>
+      <input type="text" class="search-input" placeholder="[*search/case sensitive]0…">
+      <button class="search-clear" title="[*clear input]" style="display: none;">×</button>
     </div>
     <div class="controls-buttons">
-      <button class="sort-toggle" title="[*sort]">
+      <button class="sort-toggle">
         <i class="fas fa-arrow-down-wide-short"></i>
       </button>
-      <button class="events-toggle" title="[*event/events]1">
+      <button class="events-toggle" title="[*visualize/show/hide/summary]1 [event/events]1">
         <i class="far fa-lightbulb"></i>
       </button>
     </div>
@@ -262,27 +247,27 @@
 
   <!-- Section de résumé avec compteurs -->
   <div class="summary-section">
-    <i class="fas fa-lightbulb summary-helper-icon" title="[*total]"></i>
-    <div class="summary-places-info">0 [*place/places]1</div>
+    <i class="fas fa-lightbulb summary-helper-icon" title="[*statistics]"></i>
+    <div class="summary-places-info">0 [place/places]1</div>
     <div class="summary-events-table">
       <div class="summary-event-column">
-        <span class="summary-event-label birth-label" title="[birth/births]1">N</span>
+        <span class="summary-event-label birth-label" title="[*birth/births]1">N</span>
         <span class="summary-event-count">0</span>
       </div>
       <div class="summary-event-column">
-        <span class="summary-event-label baptism-label" title="[baptism/baptisms]1">B</span>
+        <span class="summary-event-label baptism-label" title="[*baptism/baptisms]1">B</span>
         <span class="summary-event-count">0</span>
       </div>
       <div class="summary-event-column">
-        <span class="summary-event-label marriage-label" title="[marriage/marriages]1">M</span>
+        <span class="summary-event-label marriage-label" title="[*marriage/marriages]1">M</span>
         <span class="summary-event-count">0</span>
       </div>
       <div class="summary-event-column">
-        <span class="summary-event-label death-label" title="[death/deaths]1">D</span>
+        <span class="summary-event-label death-label" title="[*death/deaths]1">D</span>
         <span class="summary-event-count">0</span>
       </div>
       <div class="summary-event-column">
-        <span class="summary-event-label burial-label" title="[burial/burials]1">S</span>
+        <span class="summary-event-label burial-label" title="[*burial/burials]1">S</span>
         <span class="summary-event-count">0</span>
       </div>
     </div>
@@ -290,7 +275,7 @@
       <i class="fas fa-user summary-persons-icon" title="[*person/persons]1"></i>
       <span class="summary-persons-count">0</span>
     </div>
-    <div class="summary-total-events" title="[*total events]">0</div>
+    <div class="summary-total-events" title="[*event/events]1">0</div>
   </div>
 
   <!-- Container de la liste des lieux -->
@@ -300,7 +285,7 @@
 </div>
 
 <script>
-var link_to_person = "%prefix;";
+var base_url = "%prefix;";
 var max_gen = %e.v;;
 var tool = "%e.tool;";
 var implexMode = "%e.implex;" === "num" ? "numbered" :
@@ -345,49 +330,69 @@ var children = {
 // Translation dictionary for fanchart.js
 window.FC_TRANSLATIONS = {
   // General
-  'no_info_available': "No information available",
-  'generation': "[*generation/generations]0",
-  'generations': "[*generation/generations]1",
-  'person': "[*person/persons]0",
-  'persons': "[*person/persons]1",
-  'occurrence': "[*occurence]0",
-  'occurrences': "[*occurence]1",
+  'no_info_available': "[*no information available]",
+  'generation': "[generation/generations]0",
+  'generations': "[generation/generations]1",
+  'person': "[person/persons]0",
+  'persons': "[person/persons]1",
   'place': "[*place/places]0",
-  'places': "[*place/places]1",
-  'event': "[*event/events]0",
-  'events': "[*event/events]1",
-  'birth': "[*birth]",
+  'places': "[place/places]1",
+  'birth': "[*birth/births]0",
   'births': "[*birth/births]1",
-  'baptism': "[*baptism]",
+  'baptism': "[*baptism/baptisms]0",
   'baptisms': "[*baptism/baptisms]1",
   'marriage': "[*marriage/marriages]0",
   'marriages': "[*marriage/marriages]1",
-  'death': "[*death]",
+  'death': "[*death/deaths]0",
   'deaths': "[*death/deaths]1",
-  'burial': "[*burial]",
+  'burial': "[*burial/burials]0",
   'burials': "[*burial/burials]1",
-  'implex': "Implex",
+  'implex': "[implex/implexes]0",
   'age': "[*age]",
   'date': "[*date/dates]0",
-  'duration': "Duration",
-  'marriage_age': "Ages at marriage",
-  'marriage_years': "years",
-  'marriage_year': "year",
-  'years_old': "[*years old]",
+  'duration': "[*duration]",
+  'column': "[:]",
+  'marriage_age': "[*ages of spouses]",
+  'marriage_years': "[years old]",
+  'marriage_year': "[year/month/day]0",
+  'years_old': "[years old]",
   // Navigation
-  'recenter_tree_on': "Recenter tree on",
-  'no_known_parents': "No known parents",
-  'individual_sheet': "Individual sheet",
-  'navigation_help': "Navigation help",
-  'ctrl_click_sheet': "Ctrl+click for individual sheet",
-  // Errors
-  'error_access_sheet': "Error accessing individual sheet",
+  'recenter_tree_on': "[*recenter tree on]",
+  'no_known_parents': "[*no known parents]",
   // Interface
-  'sort_by_frequency': "Sort by frequency",
-  'sort_alphabetically': "Sort alphabetically",
+  'sort_by_frequency': "[*sort by/generation/alphabetic order]0 [frequency]",
+  'sort_alphabetically': "[*sort by/generation/alphabetic order]0 [sort by/generation/alphabetic order]2",
+  'with_places': "[*with places]",
+  'event_for_place': "[event/events for this place]0",
+  'events_for_place': "[event/events for this place]1",
+  'show_events': "[*visualize/show/hide/summary]1 [event/events]1",
+  'hide_events': "[*visualize/show/hide/summary]2 [event/events]1",
+  // Implex button states
+  'show_all_ancestors': "[*show all ancestors]",
+  'collapse_implex': "[*collapse implex]",
+  'number_implex': "[*number the implex]",
+  // Age legend
+  'no_person_age_range': "[*no person in this age range]",
+  'no_marriage_duration_range': "[*no marriage in this duration range]",
+  // Places panel
+  'place_out_of_screen': "[place/places out of screen]0",
+  'places_out_of_screen': "[place/places out of screen]1",
+  // Implex display
+  'appears': "[appears/time/times]0",
+  'time': "[appears/time/times]1",
+  'times': "[appears/time/times]2",
+  // Help panel
+  'navigation_help': "[*help and shortcuts]",
+  'help_drag': "[*drag/wheel/hover/lock/rotate]0",
+  'help_wheel': "[*drag/wheel/hover/lock/rotate]1",
+  'help_hover': "[*drag/wheel/hover/lock/rotate]2",
+  'help_click_lock': "[*drag/wheel/hover/lock/rotate]3",
+  'help_right_drag': "[*drag/wheel/hover/lock/rotate]4",
+  'help_click_sheet': "[*click sheet/navigate]0",
+  'help_nav_ancestor': "[*click sheet/navigate]1"
 };
 
-// Helper function to retrieve a translation
+// Fonction helper pour récupérer une traduction
 window.t = function(key, defaultValue = key) {
   const keys = key.split('.');
   let value = window.FC_TRANSLATIONS;
@@ -403,6 +408,6 @@ window.t = function(key, defaultValue = key) {
   return typeof value === 'string' ? value : defaultValue;
 };
 </script>
-<script src="%etc_prefix;js/fanchart.js?hash=%apply;hash%with;%etc_prefix;js/fanchart.js%end;"></script>
+<script src="%etc_prefix;js/fanchart.min.js?hash=%apply;hash%with;%etc_prefix;js/fanchart.min.js%end;"></script>
 </body>
 </html>

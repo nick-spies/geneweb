@@ -82,6 +82,18 @@ let l =
       "[[Jean Paul Sartre]]" );
     ( [ WLnone (1, "["); WLnone (2, "["); WLwizard (16, "hg", "henri") ],
       "[[[[w:hg/henri]]" );
+    ([ WLimage (19, ([], "photo.jpg"), "", None) ], "[[image:photo.jpg]]");
+    ( [ WLimage (24, ([ "albums" ], "pic.jpg"), "", None) ],
+      "[[image:albums:pic.jpg]]" );
+    ( [ WLimage (28, ([], "photo.jpg"), "my photo", None) ],
+      "[[image:photo.jpg/my photo]]" );
+    ( [ WLimage (34, ([], "photo.jpg"), "my photo", Some "200px") ],
+      "[[image:photo.jpg/my photo/200px]]" );
+    ( [ WLimage (29, ([], "photo.jpg"), "my photo", None) ],
+      "[[image:photo.jpg/my photo/]]" );
+    ([ WLnone (22, "[[image:bad path.jpg]]") ], "[[image:bad path.jpg]]");
+    ( [ WLimage (21, ([ "a"; "b" ], "c.jpg"), "t", None) ],
+      "[[image:a:b:c.jpg/t]]" );
   ]
 
 let pp_token ppf tk =

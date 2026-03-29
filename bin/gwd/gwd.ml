@@ -17,6 +17,10 @@ module Code = Geneweb_http.Code
 type opened_file = { path : string; mutable oc : out_channel }
 type log = Stdout | Stderr | File of opened_file | Syslog
 
+let timestamp_tag : unit Logs.Tag.def =
+  Logs.Tag.def "timestamp" ~doc:"POSIX timestamp" Fmt.nop
+
+let timestamp = Logs.Tag.(empty |> add timestamp_tag ())
 let pp_brackets ~style pp = Fmt.(brackets @@ styled style @@ pp)
 
 let pp_level ppf l =
@@ -37,10 +41,15 @@ let reporter ~predictable_mode ppf =
     in
     msgf @@ fun ?header ?tags fmt ->
     let timestamp =
-      if predictable_mode then Ptime.epoch else Ptime_clock.now ()
+      Option.bind tags @@ fun tags ->
+      if predictable_mode then Some Ptime.epoch
+      else
+        Option.bind (Logs.Tag.find timestamp_tag tags) @@ fun () ->
+        Some (Ptime_clock.now ())
     in
     Format.fprintf ppf "%a%a: "
-      (pp_brackets ~style:`Magenta @@ Ptime.pp_rfc3339 ())
+      Fmt.(
+        option ~none:nop @@ pp_brackets ~style:`Magenta (Ptime.pp_rfc3339 ()))
       timestamp pp_level level;
     Format.pp_open_box ppf 0;
     Format.kfprintf k ppf fmt
@@ -312,7 +321,7 @@ let log_passwd_failed ar tm from request base_file =
         (Mutil.sprintf_date tm :> string)
         (Unix.getpid ()) base_file ar.ar_passwd ar.ar_user);
   if !trace_failed_passwd then
-    Logs.info (fun k -> k " (%s)" (String.escaped ar.ar_uauth));
+    Logs.info (fun k -> k ~tags:timestamp " (%s)" (String.escaped ar.ar_uauth));
   Logs.info (fun k -> k "\n  From: %s\n  Agent: %s" from user_agent);
   if referer <> "" then Logs.info (fun k -> k "  Referer: %s" referer)
 
@@ -360,7 +369,8 @@ let only_log conf from =
 
 let refuse_auth conf from auth auth_type =
   Logs.info (fun k ->
-      k "Access failed --- From: %s --- Basic realm: %s --- Response: %s" from
+      k ~tags:timestamp
+        "Access failed --- From: %s --- Basic realm: %s --- Response: %s" from
         auth_type auth);
   Util.unauthorized conf auth_type
 
@@ -545,7 +555,8 @@ let log_redirect from request req =
   in
   Lock.control ~on_exn ~wait:true ~lock_file @@ fun () ->
   let referer = Mutil.extract_param "referer: " '\n' request in
-  Logs.info (fun k -> k "%s --- From: %s --- Referer: %s" req from referer)
+  Logs.info (fun k ->
+      k ~tags:timestamp "%s --- From: %s --- Referer: %s" req from referer)
 
 let print_redirected conf from request new_addr =
   let req = Util.get_request_string conf in
@@ -1706,7 +1717,7 @@ let log tm conf from gauth request script_name contents =
   if not (should_log_request contents referer user_agent) then ()
   else
     Logs.info (fun k ->
-        k "(%d) %s?%s\n%s%s%s%s%s" (Unix.getpid ()) script_name
+        k ~tags:timestamp "(%d) %s?%s\n%s%s%s%s%s" (Unix.getpid ()) script_name
           (if String.length contents > 200 then
              Printf.sprintf "%s..." (String.sub contents 0 200)
            else contents)
@@ -2748,8 +2759,12 @@ let main () =
   List.iter
     (fun dbn ->
       Logs.info (fun k -> k "Caching database %s in memory… %!" dbn);
-      let dbn = !GWPARAM.bpath dbn in
-      Driver.load_database dbn)
+      let bpath = !GWPARAM.bpath dbn in
+      try Driver.load_database bpath
+      with Sys_error _ ->
+        (* HOTFIX: we cannot print the Sys_error payload in tests. *)
+        Logs.err (fun k -> k "Cannot load the database %s" dbn);
+        exit 2)
     !cache_databases;
   if !auth_file <> "" && !force_cgi then
     Logs.warn (fun k ->
@@ -2846,7 +2861,7 @@ let () =
       Logs.err (fun k -> k "%s: %s" p (Dynlink.error_message e))
   | Register_plugin_failure (p, `string s) -> Logs.err (fun k -> k "%s: %s" p s)
   | exn ->
-      let bt = Printexc.get_backtrace () in
-      Logs.err (fun k -> k "%s" (Printexc.to_string exn));
-      if Printexc.backtrace_status () then
-        Logs.err (fun k -> k "Backtrace:@ %s" bt)
+      let exn = Printexc.to_string exn in
+      let lines = String.split_on_char '\n' @@ Printexc.get_backtrace () in
+      Logs.err (fun k -> k "@[%s@ %a@]" exn Fmt.(list ~sep:cut string) lines);
+      exit 2

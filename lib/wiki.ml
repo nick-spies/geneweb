@@ -25,9 +25,10 @@ open Util
    [[first_name/surname]] link (oc = 0); 'first_name surname' displayed
    [[[notes_subfile/text]]] link to a sub-file; 'text' displayed
    [[[notes_subfile]]] link to a sub-file; 'notes_subfile' displayed
-   [[image:filename.jpg]] inline image from src/ directory
-   [[image:filename.jpg/alt text]] inline image with alt text
-   [[image:filename.jpg/alt text/200px]] inline image with alt text and max-width
+   [[image:filename.jpg]] inline image from the notes image directory
+   [[image:subdir:filename.jpg]] image in a subdirectory (use ':' as separator)
+   [[image:filename.jpg/alt text]] image with alt text
+   [[image:filename.jpg/alt text/200px]] image with alt text and CSS max-width
    {{file.jpg|left|200px|caption}} floated image with text wrapping
    empty line : new paragraph
    lines starting with space : displayed as they are (providing 1/ there
@@ -451,6 +452,9 @@ let syntax_links conf wi s =
           Buffer.add_string buff t;
           loop quot_lev (pos + 1) j
       | NotesLinks.WLimage (j, (dirs, file), alt, width_opt) ->
+          (* Build the path for the ?s= parameter by joining dirs and file
+             with '/' (the ':' directory separator is already split by
+             check_file_name into the dirs list). *)
           let path = String.concat "/" (dirs @ [ file ]) in
           let src =
             Printf.sprintf "%sm=IM&s=%s" (commd conf :> string) (encode path)
