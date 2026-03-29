@@ -397,21 +397,35 @@ TreeRenderer.prototype.render = function() {
 
   // Zoom state — min zoom fits the entire tree in the viewport
   var zoomLevel = 1.0;
-  var fitW = container.clientWidth / tree.scrollWidth;
-  var fitH = container.clientHeight / tree.scrollHeight;
-  var minZoom = Math.max(0.05, Math.min(fitW, fitH));
+  var minZoom = 0.05;
   var maxZoom = 2.0;
   var zoomFactor = 1.06; // 6% multiplicative per step
   this._zoomLevel = zoomLevel;
   this._zoomWrap = zoomWrap;
 
-  var treeContentW = tree.scrollWidth;
-  var treeContentH = tree.scrollHeight;
+  // ── Scroll/Zoom/Clamp plumbing ──
+  // All geometry in `geo` object (self._geo). Clamp called:
+  //   - Synchronous scroll listener (skipped when position matches zoom target)
+  //   - Explicitly at end of zoomAt(), panToMinimap(), auto-scroll
+  //   - Explicitly in drag handler (pre-clamp pattern)
+  var geo = {
+    treeW: tree.scrollWidth,
+    treeH: tree.scrollHeight,
+    padX: 0,   // set after treePadPx init below
+    padY: 0,
+    zoom: zoomLevel,
+    containerW: container.clientWidth,
+    containerH: container.clientHeight,
+    botReserve: 155
+  };
+  self._geo = geo;
 
   // Padding so any person can be scrolled to center of viewport at any zoom.
   // Dynamically grows when zooming out so scroll position never goes negative.
   var treePadPx = Math.round(container.clientWidth / zoomLevel);
   var treePadPxV = Math.round(container.clientHeight / zoomLevel);
+  geo.padX = treePadPx;
+  geo.padY = treePadPxV;
 
   function updatePadding() {
     tree.style.marginLeft = treePadPx + 'px';
@@ -422,109 +436,85 @@ TreeRenderer.prototype.render = function() {
   updatePadding();
 
   function updateWrapSize() {
-    var scaledW = (treeContentW + treePadPx * 2) * zoomLevel;
-    var scaledH = (treeContentH + treePadPxV * 2) * zoomLevel;
+    var scaledW = (geo.treeW + treePadPx * 2) * zoomLevel;
+    var scaledH = (geo.treeH + treePadPxV * 2) * zoomLevel;
     zoomWrap.style.width = (scaledW + container.clientWidth) + 'px';
     zoomWrap.style.height = (scaledH + container.clientHeight) + 'px';
     zoomWrap.style.transform = 'scale(' + zoomLevel + ')';
   }
   updateWrapSize();
 
-  // ── Scroll clamping: keep chart visible, never scrolled off-screen ──
-  //
-  // Rules:
-  //   - Tree wider/taller than viewport: edges stay at or past viewport edges
-  //   - Tree smaller than viewport: tree stays fully visible with padding
-  //   - Bottom boundary = container height minus toolbar/minimap reserve
-  //   - Clamp fires on drag (immediate) and on scroll (80ms debounce, skipped during zoom)
-  //
-  var CLAMP_H_PAD = 10;     // px: min distance tree edge stays from viewport edge (small tree)
-  var CLAMP_TOP_PAD = 5;    // px: tree top must stay this far below viewport top
-  var _clampBotReserve = 155; // px: computed once minimap is built; 155 = safe default (130 toolbar + 25 gap)
-  self._setClampBotReserve = function(v) { _clampBotReserve = v; };
+  function clampScroll() {
+    var z = geo.zoom;
+    var vw = geo.containerW;
+    var vh = geo.containerH - geo.botReserve;
+    var treeL = geo.padX * z;
+    var treeR = (geo.padX + geo.treeW) * z;
+    var treeT = geo.padY * z;
+    var treeB = (geo.padY + geo.treeH) * z;
+    var treeW = treeR - treeL, treeH = treeB - treeT;
 
-  function clampScrollOverlap() {
-    var vw = container.clientWidth;
-    var vh = container.clientHeight - _clampBotReserve;
-    var treeL = treePadPx * zoomLevel;
-    var treeR = (treePadPx + treeContentW) * zoomLevel;
-    var treeT = treePadPxV * zoomLevel;
-    var treeB = (treePadPxV + treeContentH) * zoomLevel;
-    var treeW = treeR - treeL;
-    var treeH = treeB - treeT;
-
-    // Horizontal clamp
     var minSL, maxSL;
-    if (treeW >= vw) {
-      minSL = treeL;           // left tree edge at left viewport edge
-      maxSL = treeR - vw;      // right tree edge at right viewport edge
-    } else {
-      minSL = treeR - vw + CLAMP_H_PAD; // right edge stays CLAMP_H_PAD inside right viewport
-      maxSL = treeL - CLAMP_H_PAD;      // left edge stays CLAMP_H_PAD inside left viewport
-    }
+    if (treeW >= vw) { minSL = treeL; maxSL = treeR - vw; }
+    else { minSL = treeR - vw + 10; maxSL = treeL - 10; }
     if (minSL <= maxSL)
       container.scrollLeft = Math.max(minSL, Math.min(maxSL, container.scrollLeft));
 
-    // Vertical clamp
     var minST, maxST;
-    if (treeH >= vh) {
-      minST = treeT - CLAMP_TOP_PAD;  // tree top at top viewport edge (with pad)
-      maxST = treeB - vh;              // tree bottom at visible bottom
-    } else {
-      minST = treeB - vh;              // tree bottom touches visible bottom
-      maxST = treeT - CLAMP_TOP_PAD;  // tree top near viewport top
-    }
+    if (treeH >= vh) { minST = treeT - 5; maxST = treeB - vh; }
+    else { minST = treeB - vh; maxST = treeT - 5; }
     if (minST <= maxST)
       container.scrollTop = Math.max(minST, Math.min(maxST, container.scrollTop));
   }
+  self._clampScroll = clampScroll;
 
-  // Debounced scroll clamp: fires 80ms after last scroll event to avoid jitter.
-  // During active scrolling (wheel momentum, trackpad), no clamping occurs —
-  // tree may briefly overshoot boundaries. Clamp snaps back once scrolling stops.
-  // Drag uses immediate clamp (called directly, not through this listener).
-  var _clampTimer = 0;
-  var _clampSuppressUntil = 0;
-  function suppressClamp(ms) { _clampSuppressUntil = Date.now() + (ms || 150); }
-  self._suppressClamp = suppressClamp;
+  var _clamping = false;
+  var _expectSL = -1, _expectST = -1;
   container.addEventListener('scroll', function() {
-    clearTimeout(_clampTimer);
-    _clampTimer = setTimeout(function() {
-      if (Date.now() < _clampSuppressUntil) return;
-      clampScrollOverlap();
-    }, 80);
+    if (_clamping) return;
+    if (_expectSL >= 0 &&
+        Math.abs(container.scrollLeft - _expectSL) < 2 &&
+        Math.abs(container.scrollTop - _expectST) < 2) {
+      _expectSL = -1; _expectST = -1;
+      return;
+    }
+    _expectSL = -1; _expectST = -1;
+    _clamping = true;
+    clampScroll();
+    _clamping = false;
   });
 
   // Zoom anchored on a point (anchorX/Y in viewport-relative coords)
   function zoomAt(newZoom, anchorX, anchorY) {
-    suppressClamp(150); // suppress scroll-clamp during zoom
     var oldZoom = zoomLevel;
     newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
     newZoom = Math.round(newZoom * 1000) / 1000;
     if (newZoom === oldZoom) return;
 
-    // Capture position within tree border box (independent of padding)
     var treePosX = (container.scrollLeft + anchorX) / oldZoom - treePadPx;
     var treePosY = (container.scrollTop + anchorY) / oldZoom - treePadPxV;
 
     zoomLevel = newZoom;
     self._zoomLevel = zoomLevel;
+    geo.zoom = zoomLevel;
 
-    // Grow padding if needed so scroll position stays non-negative
     var neededPadX = Math.round(container.clientWidth / zoomLevel);
     var neededPadY = Math.round(container.clientHeight / zoomLevel);
     if (neededPadX > treePadPx || neededPadY > treePadPxV) {
       treePadPx = Math.max(treePadPx, neededPadX);
       treePadPxV = Math.max(treePadPxV, neededPadY);
+      geo.padX = treePadPx;
+      geo.padY = treePadPxV;
       updatePadding();
     }
 
-    // Set dimensions BEFORE scroll to prevent browser clamping
     updateWrapSize();
     void container.scrollWidth; // force layout
 
-    // Reposition so the same tree point stays under the anchor
     container.scrollLeft = (treePosX + treePadPx) * zoomLevel - anchorX;
     container.scrollTop = (treePosY + treePadPxV) * zoomLevel - anchorY;
+    _expectSL = container.scrollLeft;
+    _expectST = container.scrollTop;
 
     if (self._redrawMinimap) self._redrawMinimap();
     if (self._updateGenLabels) self._updateGenLabels();
@@ -594,9 +584,10 @@ TreeRenderer.prototype.render = function() {
           moved = true; locked = true;
           showFakeCursor(e.clientX, e.clientY);
           container.requestPointerLock();
+          var oldSL = container.scrollLeft, oldST = container.scrollTop;
           container.scrollLeft -= dx;
           container.scrollTop -= dy;
-          clampScrollOverlap();
+          clampScroll();
         }
         return;
       }
@@ -604,11 +595,14 @@ TreeRenderer.prototype.render = function() {
       if (!document.pointerLockElement) return;
       dx = e.movementX; dy = e.movementY;
       if (dx === 0 && dy === 0) return;
+      var oldSL = container.scrollLeft, oldST = container.scrollTop;
       container.scrollLeft -= dx;
       container.scrollTop -= dy;
-      clampScrollOverlap();
+      clampScroll();
+      var actualDx = oldSL - container.scrollLeft;
+      var actualDy = oldST - container.scrollTop;
       var w = window.innerWidth, h = window.innerHeight;
-      cursorX += dx; cursorY += dy;
+      cursorX += actualDx; cursorY += actualDy;
       cursorX = ((cursorX % w) + w) % w;
       cursorY = ((cursorY % h) + h) % h;
       fakeCursor.style.left = cursorX + 'px';
@@ -642,16 +636,16 @@ TreeRenderer.prototype.render = function() {
     var sosa1El = tree.querySelector('.fu-person[data-sosa="1"]');
     if (sosa1El) {
       setTimeout(function() {
-        suppressClamp(500);
-        // Horizontal: center Sosa 1
         var treeR = tree.getBoundingClientRect();
         var sosaR = sosa1El.getBoundingClientRect();
         var sosaCenterX = (sosaR.left + sosaR.width / 2 - treeR.left) / zoomLevel;
         var sosaCenterY = (sosaR.top + sosaR.height / 2 - treeR.top) / zoomLevel;
         container.scrollLeft = (treePadPx + sosaCenterX) * zoomLevel - container.clientWidth / 2;
-        // Vertical: position Sosa 1 near visible bottom (above minimap)
-        var visibleH = container.clientHeight - _clampBotReserve;
+        var visibleH = geo.containerH - geo.botReserve;
         container.scrollTop = (treePadPxV + sosaCenterY) * zoomLevel - visibleH + 40;
+        clampScroll();
+        _expectSL = container.scrollLeft;
+        _expectST = container.scrollTop;
       }, 200);
     }
   }
@@ -815,10 +809,10 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
   function updateLabels() {
     leftCol.innerHTML = '';
     rightCol.innerHTML = '';
-    var zoom = self._zoomLevel || 1;
+    var zoom = self._geo.zoom;
     var scrollTop = container.scrollTop;
     var ch = container.clientHeight;
-    var padPxV = parseFloat(tree.style.marginTop) || 0;
+    var padPxV = self._geo.padY;
     var gens = Object.keys(genMids).map(Number).sort(function(a, b) { return a - b; });
 
     // Compute visible label positions first, then thin if too dense
@@ -1232,8 +1226,8 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
 
 TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   var container = this.container;
-  var treeW = tree.scrollWidth;
-  var treeH = tree.scrollHeight;
+  var treeW = this._geo.treeW;
+  var treeH = this._geo.treeH;
 
   var mapH = 120;
   var mapW = 300;
@@ -1256,9 +1250,9 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   requestAnimationFrame(function() {
     var cr = container.getBoundingClientRect();
     var mr = canvas.getBoundingClientRect();
-    var reserve = cr.bottom - mr.top + 25; // 25px gap above minimap
-    if (reserve > 50 && reserve < 400) { // sanity bounds
-      if (self2._setClampBotReserve) self2._setClampBotReserve(reserve);
+    var reserve = cr.bottom - mr.top + 25;
+    if (reserve > 50 && reserve < 400) {
+      self2._geo.botReserve = reserve;
     }
   });
 
@@ -1345,10 +1339,9 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   this._redrawMinimap = drawAll;
 
   function updateViewport() {
-    var zoom = self._zoomLevel || 1;
-    // Account for tree padding (margins) when mapping scroll to minimap
-    var padPx = parseFloat(tree.style.marginLeft) || 0;
-    var padPxV = parseFloat(tree.style.marginTop) || 0;
+    var zoom = self._geo.zoom;
+    var padPx = self._geo.padX;
+    var padPxV = self._geo.padY;
     var scrollInTree = container.scrollLeft / zoom - padPx;
     vpX = Math.round(scrollInTree * scaleX);
     vpY = Math.round((container.scrollTop / zoom - padPxV) * scaleY);
@@ -1366,78 +1359,25 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   updateViewport();
   container.addEventListener('scroll', updateViewport);
   window.addEventListener('resize', function() {
-    updateViewport();
-    // Recompute bottom reserve on resize
+    self._geo.containerW = container.clientWidth;
+    self._geo.containerH = container.clientHeight;
     var cr = container.getBoundingClientRect();
     var mr = canvas.getBoundingClientRect();
     var reserve = cr.bottom - mr.top + 25;
-    if (reserve > 50 && reserve < 400 && self._setClampBotReserve)
-      self._setClampBotReserve(reserve);
+    if (reserve > 50 && reserve < 400) self._geo.botReserve = reserve;
+    updateViewport();
   });
 
   function panToMinimap(e) {
-    var zoom = self._zoomLevel || 1;
+    var zoom = self._geo.zoom;
     var rect = canvas.getBoundingClientRect();
-    var clickX = e.clientX - rect.left;
-    var clickY = e.clientY - rect.top;
-
-    // Find nearest dot to click position
-    var bestDot = null, bestDist = Infinity;
-    for (var g in minimapDotsByGen) {
-      var dots = minimapDotsByGen[g];
-      for (var i = 0; i < dots.length; i++) {
-        var dx = clickX - dots[i].dotX;
-        var dy = clickY - dots[i].dotY;
-        var dist = dx * dx + dy * dy;
-        if (dist < bestDist) { bestDist = dist; bestDot = dots[i]; }
-      }
-    }
-    if (!bestDot) return;
-
-    // Find the actual person element and scroll to center it
-    var personEl = tree.querySelector('.person-box[data-sosa="' + bestDot.sosa + '"]');
-    if (!personEl) return;
-    var treeRect = tree.getBoundingClientRect();
-    var personRect = personEl.getBoundingClientRect();
-    // Person center in unscaled tree coords
-    var personX = (personRect.left + personRect.width / 2 - treeRect.left) / zoom;
-    var personY = (personRect.top + personRect.height / 2 - treeRect.top) / zoom;
-    // But use the minimap X for horizontal (interpolate between persons, not snap to nearest)
-    // Compute interpolated X: use dot X proportion between the clicked position
-    var nearGen = Math.floor(Math.log(bestDot.sosa) / Math.LN2) + 1;
-    var genDots = (minimapDotsByGen[nearGen] || []).slice().sort(function(a,b) { return a.dotX - b.dotX; });
-
-    var targetTreeX;
-    if (genDots.length < 2 || clickX <= genDots[0].dotX || clickX >= genDots[genDots.length-1].dotX) {
-      targetTreeX = personX;
-    } else {
-      // Interpolate between two bracketing persons
-      for (var i = 0; i < genDots.length - 1; i++) {
-        if (clickX >= genDots[i].dotX && clickX <= genDots[i+1].dotX) {
-          var t = (clickX - genDots[i].dotX) / (genDots[i+1].dotX - genDots[i].dotX);
-          var leftEl = tree.querySelector('.person-box[data-sosa="' + genDots[i].sosa + '"]');
-          var rightEl = tree.querySelector('.person-box[data-sosa="' + genDots[i+1].sosa + '"]');
-          if (leftEl && rightEl) {
-            var lr = leftEl.getBoundingClientRect();
-            var rr = rightEl.getBoundingClientRect();
-            var lx = (lr.left + lr.width/2 - treeRect.left) / zoom;
-            var rx = (rr.left + rr.width/2 - treeRect.left) / zoom;
-            targetTreeX = lx + t * (rx - lx);
-          } else {
-            targetTreeX = personX;
-          }
-          break;
-        }
-      }
-      if (targetTreeX === undefined) targetTreeX = personX;
-    }
-
-    // Scroll to center on target position (use actual DOM positions, no scaleX math)
-    if (self._suppressClamp) self._suppressClamp(200);
-    var padPx = parseFloat(tree.style.marginLeft) || 0;
-    container.scrollLeft = (targetTreeX + padPx) * zoom - container.clientWidth / 2;
-    var padPxV = parseFloat(tree.style.marginTop) || 0;
-    container.scrollTop = (personY + padPxV) * zoom - container.clientHeight / 2;
+    var clickX = Math.max(0, Math.min(mapW, e.clientX - rect.left));
+    var clickY = Math.max(0, Math.min(mapH, e.clientY - rect.top));
+    var treeX = clickX / scaleX;
+    var treeY = clickY / scaleY;
+    container.scrollLeft = (treeX + self._geo.padX) * zoom - container.clientWidth / 2;
+    container.scrollTop = (treeY + self._geo.padY) * zoom - container.clientHeight / 2;
+    if (self._clampScroll) self._clampScroll();
   }
   canvas.addEventListener('click', panToMinimap);
   var dragging = false;
