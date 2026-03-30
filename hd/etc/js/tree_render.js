@@ -478,6 +478,7 @@ TreeRenderer.prototype.render = function() {
   self._getEffSL = getEffSL;
   self._getEffST = getEffST;
   self._setEffScroll = setEffScroll;
+  self._clampScroll = clampScroll;
   self._suppressScrollInc = function() { _suppressScroll++; };
   self._suppressScrollDec = function() { _suppressScroll--; };
 
@@ -1645,7 +1646,13 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     var targetST = (treeY + self._geo.padY) * zoom - container.clientHeight / 2;
     self._suppressScrollInc();
     self._setEffScroll(targetSL, targetST);
-    requestAnimationFrame(function() { self._suppressScrollDec(); });
+    self._clampScroll();
+    // Force sync reflow so Firefox async panning commits the scroll position
+    void container.scrollLeft;
+    // Delay unsuppress: two rAFs to survive Firefox async scroll delivery
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() { self._suppressScrollDec(); });
+    });
   }
   var mmDragging = false, mmMoved = false;
   canvas.addEventListener('mousedown', function(e) {
