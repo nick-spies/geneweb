@@ -815,15 +815,32 @@ TreeRenderer.prototype.render = function() {
       var newST = contentY * zoomLevel - visibleH + 40;
       setEffScroll(newSL, newST);
       clampScroll();
-      requestAnimationFrame(function() { _suppressScroll--; });
+      // Force sync reflow + double-rAF suppression (Firefox async scroll race)
+      void container.scrollLeft;
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() { _suppressScroll--; });
+      });
     });
   }
   self._scrollToSosa1 = scrollToSosa1;
 
   // Auto-scroll on initial load (skipped during gen change — caller restores position)
+  // Use setTimeout to let the browser fully settle layout before scrolling.
+  // Container height may not be final on first paint (calc(100vh-100px) resolves late).
   if (!this._skipAutoScroll) {
     if (sosa1El) {
-      scrollToSosa1();
+      setTimeout(function() {
+        // Recalculate if container height changed since render
+        var h = container.clientHeight;
+        if (Math.abs(h - geo.containerH) > 10) {
+          treePadPxV = Math.round(h / minZoom);
+          geo.padY = treePadPxV;
+          geo.containerH = h;
+          updatePadding();
+          updateWrapSize();
+        }
+        scrollToSosa1();
+      }, 100);
     }
   }
   this._skipAutoScroll = false;
