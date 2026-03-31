@@ -6,6 +6,14 @@
  * Connector lines are positioned after layout using measured DOM positions.
  */
 
+// Remove stale loading overlays when browser restores page from bfcache
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) {
+    var overlays = document.querySelectorAll('.tree-reroot-overlay');
+    for (var i = 0; i < overlays.length; i++) overlays[i].remove();
+  }
+});
+
 // ── PersonBox ──────────────────────────────────────────────────────────────
 
 function PersonBox(person) {
@@ -34,7 +42,7 @@ PersonBox.prototype.dateSpan = function() {
 PersonBox.prototype.tooltipText = function() {
   var p = this.person;
   var parts = [];
-  var showSosa = this.positionSosa || p.displaySosa || p.posSosa;
+  var showSosa = p.displaySosa || this.positionSosa || p.posSosa;
   if (showSosa) parts.push('Sosa ' + showSosa);
   parts.push((p.sex === 0 ? '\u2642' : '\u2640') + ' ' + this.displayName());
   var dates = this.dateSpan();
@@ -50,7 +58,7 @@ PersonBox.prototype.render = function() {
 
 
 
-  var sosaLabel = this.positionSosa || p.displaySosa || p.posSosa;
+  var sosaLabel = p.displaySosa || this.positionSosa || p.posSosa;
   if (this.showSosa && sosaLabel) {
     var badge = document.createElement('span');
     badge.className = 'person-sosa';
@@ -85,13 +93,20 @@ PersonBox.prototype.render = function() {
   nameLink.href = p.access;
   nameLink.className = 'person-name';
   nameLink.style.fontSize = this.fontSize + 'rem';
-  nameLink.title = this.tooltipText() + ' (click: re-root tree, \u2318-click: person page)';
+  nameLink.title = this.tooltipText() + ' (click: re-root, \u2318-click: person page)';
 
   var treeAccess = this.treeAccess;
+  var positionSosa = this.positionSosa;
   if (treeAccess) {
     nameLink.addEventListener('click', function(e) {
-      if (e.metaKey || e.ctrlKey) return;
       e.preventDefault();
+      e.stopImmediatePropagation();
+      // Cmd/Ctrl-click: open person page
+      if (e.metaKey || e.ctrlKey) {
+        window.location.href = p.access;
+        return;
+      }
+      // Plain click: re-root at this person
       var container = document.getElementById('tree-grid-container');
       if (container && container._renderer && container._renderer._highlightedSosa) return;
       window.location.href = treeAccess(p.access);
@@ -280,8 +295,14 @@ TreeRenderer.prototype.render = function() {
   };
 
   this._sosaMap = sosaMap;
+  // Gen offset: when re-rooted, display gen 1 is really gen (offset+1)
+  var rootPerson = sosaMap[1];
+  var genOffset = (rootPerson && rootPerson.displaySosa && rootPerson.displaySosa > 1)
+    ? Math.floor(Math.log2(rootPerson.displaySosa)) : 0;
+  this._genOffset = genOffset;
   var self = this;
   var maxSosa = Math.pow(2, topGen + 1) - 1; // highest possible sosa in this tree
+  this._maxSosa = maxSosa;
 
   // No per-generation sizing — uniform min-width via CSS on .fu-person
   // Compact cells get a smaller cap via maxWidth
@@ -350,6 +371,16 @@ TreeRenderer.prototype.render = function() {
       unit.appendChild(conn);
     }
 
+    // Expandable indicator: top-gen person with ancestors beyond displayed tree
+    var isTopGen = sosa * 2 > maxSosa;
+    if (isTopGen && person && person.hasParents && !showParents) {
+      var expInd = document.createElement('div');
+      expInd.className = 'fu-expandable';
+      expInd.title = 'Has ancestors beyond this display';
+      expInd.textContent = '\u25b2';
+      unit.appendChild(expInd);
+    }
+
     // Person box
     if (person) {
       var personEl = document.createElement('div');
@@ -371,6 +402,7 @@ TreeRenderer.prototype.render = function() {
 
       var renderedBox = pb.render();
       renderedBox.setAttribute('data-sosa', sosa);
+      if (isTopGen && person.hasParents) renderedBox.classList.add('has-ancestors');
       personEl.appendChild(renderedBox);
       unit.appendChild(personEl);
     }
@@ -733,9 +765,11 @@ TreeRenderer.prototype.render = function() {
     });
 
     container.addEventListener('click', function(e) {
+      if (e.metaKey || e.ctrlKey) return; // let cmd-click through for person page
       if (e.target.closest('.person-sosa')) return;
       if (Date.now() - dragEndTime < 300) { e.preventDefault(); e.stopPropagation(); return; }
     }, true);
+
   })();
 
   // Arrow key panning with progressive acceleration.
@@ -765,6 +799,7 @@ TreeRenderer.prototype.render = function() {
     window.addEventListener('keydown', function(e) {
       if (!e.key.match(/^Arrow|^Left$|^Right$|^Up$|^Down$/)) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return; // let browser handle Cmd/Ctrl+arrow (e.g. Back)
       e.preventDefault();
       if (keysDown[e.key]) return; // already held
       keysDown[e.key] = true;
@@ -1038,7 +1073,7 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
         var lbl = document.createElement('div');
         lbl.style.cssText = 'position:absolute;font-size:0.7rem;color:#666;font-weight:700;background:rgba(255,255,255,0.9);padding:1px 3px;border-radius:3px;white-space:nowrap;text-align:center;' + side;
         lbl.style.top = y + 'px';
-        lbl.textContent = v.gen;
+        lbl.textContent = v.gen + (self._genOffset || 0);
         return lbl;
       };
 
@@ -1135,25 +1170,32 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
       if (guessedSosa === undefined) guessedSosa = lowSosa;
     }
 
+    // Convert position-relative Sosa to global displaySosa when re-rooted
+    function toDisplaySosa(posSosa) {
+      var person = self._sosaMap ? self._sosaMap[posSosa] : null;
+      return (person && person.displaySosa) ? person.displaySosa : posSosa;
+    }
     var display;
     if (onPerson) {
-      display = 'Sosa ' + guessedSosa;
+      display = 'Sosa ' + toDisplaySosa(guessedSosa);
     } else if (leftActual !== null && rightActual !== null) {
-      display = leftActual + '\u2013' + rightActual;
+      display = toDisplaySosa(leftActual) + '\u2013' + toDisplaySosa(rightActual);
     } else if (leftActual !== null) {
-      display = leftActual + '\u2013';
+      display = toDisplaySosa(leftActual) + '\u2013';
     } else if (rightActual !== null) {
-      display = '\u2013' + rightActual;
+      display = '\u2013' + toDisplaySosa(rightActual);
     } else {
       display = '\u2013';
     }
-    debugEl.textContent = '(Gen ' + bestGen + ')  ' + display;
+    var realGen = bestGen + (self._genOffset || 0);
+    debugEl.textContent = '(Gen ' + realGen + ')  ' + display;
     debugEl.style.display = '';
-    // Position next to minimap, bottom-aligned
+    // Position above the minimap, centered
     var mm = document.querySelector('.tree-minimap.pano-minimap');
     if (mm) {
       var mmr = mm.getBoundingClientRect();
-      debugEl.style.left = (mmr.right + 8) + 'px';
+      debugEl.style.left = (mmr.right + 6) + 'px';
+      debugEl.style.right = '';
       debugEl.style.bottom = (window.innerHeight - mmr.bottom) + 'px';
     }
   };
@@ -1485,9 +1527,11 @@ TreeRenderer.prototype._showHelpOverlay = function() {
         '<tr><td class="pano-help-key">Zoom</td><td>Shift+Ctrl+scroll to zoom in/out, anchored at the cursor position. Use the +/\u2212 buttons or Reset in the toolbar.</td></tr>' +
         '<tr><td class="pano-help-key">Arrow keys</td><td>Press and hold arrow keys to pan. Speed accelerates the longer the key is held.</td></tr>' +
         '<tr><td class="pano-help-key">Minimap</td><td>Click or drag on the minimap to jump to that area of the chart. The rectangle shows the current viewport.</td></tr>' +
-        '<tr><td class="pano-help-key">Minimap hover</td><td>Hover over the minimap to see estimated Sosa numbers at each generation level.</td></tr>' +
-        '<tr><td class="pano-help-key">Person click</td><td>Click a name to open that person\u2019s page.</td></tr>' +
-        '<tr><td class="pano-help-key">Sosa badge</td><td>Click a Sosa number on a person box to re\u2011root the chart at that person (making them the new Sosa\u00a01).</td></tr>' +
+        '<tr><td class="pano-help-key">Minimap hover</td><td>Hover over the minimap to see estimated Sosa numbers at each generation level. When over an actual person dot, their name is shown.</td></tr>' +
+        '<tr><td class="pano-help-key">Gold indicators</td><td>Top\u2011generation persons who have ancestors beyond this display are marked with a gold border on the chart and a gold dot with upward tick on the minimap.</td></tr>' +
+        '<tr><td class="pano-help-key">Shift-click minimap</td><td>Shift-click a person dot to re\u2011root the chart at that ancestor. Shift-click root person dot to go back. Use browser Back to return to any previous view.</td></tr>' +
+        '<tr><td class="pano-help-key">Click name</td><td>Click any name to re\u2011root the chart at that person (revealing their ancestors). \u2318\u2011click opens the person\u2019s page.</td></tr>' +
+        '<tr><td class="pano-help-key">Sosa badge</td><td>Click a Sosa number on a person box to highlight the ancestor line.</td></tr>' +
         '<tr><td class="pano-help-key">Sosa 1 button</td><td>Scroll back to the root person. If re\u2011rooted, navigates back to the original reference person.</td></tr>' +
         '<tr><td class="pano-help-key">Generations +/\u2212</td><td>Increase or decrease the number of ancestor generations shown (max\u00a020). Hold for rapid change.</td></tr>' +
         '<tr><td class="pano-help-key">Zoom direction</td><td>The \u2191+/\u2193+ button toggles whether scroll\u2011up means zoom\u2011in or zoom\u2011out.</td></tr>' +
@@ -1521,6 +1565,7 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
 
   var wrapper = document.createElement('div');
   wrapper.className = 'tree-minimap pano-minimap';
+  wrapper.style.cursor = 'default';
   wrapper.appendChild(canvas);
   toolbar.appendChild(wrapper);
 
@@ -1575,9 +1620,18 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
       if (sosaNum === '2') { sosa2x = dotX; }
       if (sosaNum === '3') { sosa3x = dotX; }
       if (sosaNum === '1') { sosa1y = dotY; continue; }
+      var person = self._sosaMap ? self._sosaMap[s] : null;
+      var isExpandable = person && person.hasParents && (s * 2 > self._maxSosa);
       if (isHighlighted) {
         ctx.fillStyle = '#c8900a';
         ctx.fillRect(dotX - 2, dotY - 2, 4, 4);
+      } else if (isExpandable) {
+        ctx.fillStyle = '#d4a017';
+        ctx.beginPath();
+        ctx.moveTo(dotX, dotY - 5);
+        ctx.lineTo(dotX - 3, dotY + 1);
+        ctx.lineTo(dotX + 3, dotY + 1);
+        ctx.fill();
       } else {
         ctx.fillStyle = isMale ? '#4a7ab5' : '#b54a7a';
         ctx.fillRect(dotX - 2, dotY - 2, 4, 4);
@@ -1673,8 +1727,10 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   }
   var mmDragging = false, mmMoved = false;
   canvas.addEventListener('mousedown', function(e) {
+    if (e.shiftKey) return; // shift-click handled separately for re-root
     mmDragging = true; mmMoved = false;
     e.preventDefault();
+    e.stopPropagation();
   });
   document.addEventListener('mousemove', function(e) {
     if (!mmDragging) return;
@@ -1683,7 +1739,10 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
   });
   document.addEventListener('mouseup', function() { mmDragging = false; });
   canvas.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
     if (mmMoved) { mmMoved = false; return; }
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return; // modifier clicks handled separately
     panToMinimap(e);
   });
 
@@ -1698,16 +1757,8 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     self._zoomAt(newZoom, container.clientWidth / 2, container.clientHeight / 2);
   }, { passive: false });
 
-  // Minimap hover: compute Sosa overlay directly from dot data
-  function minimapSosaOverlay(e) {
-    var debugEl = document.getElementById('sosa-debug-overlay');
-    if (!debugEl) return;
-    var rect = canvas.getBoundingClientRect();
-    var mx = e.clientX - rect.left;
-    var my = e.clientY - rect.top;
-    if (mx < 0 || mx > mapW || my < 0 || my > mapH) { debugEl.style.display = 'none'; return; }
-
-    // Find nearest gen by dotY distance
+  // Helper: find Sosa at minimap coordinates
+  function sosaAtMinimapCoords(mx, my) {
     var bestGen = -1, bestDist = Infinity;
     for (var g in minimapDotsByGen) {
       var dots = minimapDotsByGen[g];
@@ -1715,15 +1766,14 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
       var dy = Math.abs(my - dots[0].dotY);
       if (dy < bestDist) { bestDist = dy; bestGen = parseInt(g); }
     }
-    if (bestGen < 0) { debugEl.style.display = 'none'; return; }
+    if (bestGen < 0) return null;
 
-    // Get dots for this gen, sorted by X
     var dots = minimapDotsByGen[bestGen].slice().sort(function(a, b) { return a.dotX - b.dotX; });
-    var snapPx = 6;
+    var snapPx = 8;
     var guessedSosa, leftActual = null, rightActual = null, onPerson = false;
 
     if (dots.length === 0) {
-      debugEl.style.display = 'none'; return;
+      return null;
     } else if (mx <= dots[0].dotX) {
       guessedSosa = dots[0].sosa;
       if (Math.abs(mx - dots[0].dotX) < snapPx) onPerson = true;
@@ -1737,8 +1787,9 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
         if (mx >= dots[i].dotX && mx <= dots[i + 1].dotX) {
           var span = dots[i + 1].dotX - dots[i].dotX;
           var t = span > 0 ? (mx - dots[i].dotX) / span : 0;
-          if (t <= 0.10) { guessedSosa = dots[i].sosa; onPerson = true; }
-          else if (t >= 0.90) { guessedSosa = dots[i + 1].sosa; onPerson = true; }
+          var snapT = span < 16 ? 0.35 : 0.10; // wider snap for closely-spaced dots
+          if (t <= snapT) { guessedSosa = dots[i].sosa; onPerson = true; }
+          else if (t >= 1 - snapT) { guessedSosa = dots[i + 1].sosa; onPerson = true; }
           else {
             guessedSosa = Math.round(dots[i].sosa + t * (dots[i + 1].sosa - dots[i].sosa));
             leftActual = dots[i].sosa;
@@ -1750,19 +1801,49 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
       if (guessedSosa === undefined) guessedSosa = dots[0].sosa;
     }
 
-    var display;
-    if (onPerson) display = 'Sosa ' + guessedSosa;
-    else if (leftActual !== null && rightActual !== null) display = leftActual + '\u2013' + rightActual;
-    else if (leftActual !== null) display = leftActual + '\u2013';
-    else if (rightActual !== null) display = '\u2013' + rightActual;
-    else display = '\u2013';
+    var person = (self._sosaMap && onPerson) ? self._sosaMap[guessedSosa] : null;
+    return { sosa: guessedSosa, gen: bestGen, onPerson: onPerson, person: person,
+             leftActual: leftActual, rightActual: rightActual };
+  }
 
-    debugEl.textContent = '(Gen ' + bestGen + ')  ' + display;
+  // Minimap hover: Sosa overlay with person name on actual dots
+  function minimapSosaOverlay(e) {
+    var debugEl = document.getElementById('sosa-debug-overlay');
+    if (!debugEl) return;
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    if (mx < 0 || mx > mapW || my < 0 || my > mapH) {
+      debugEl.style.display = 'none';
+      return;
+    }
+
+    var hit = sosaAtMinimapCoords(mx, my);
+    if (!hit) { debugEl.style.display = 'none'; return; }
+
+    var display;
+    if (hit.onPerson) {
+      var showSosa = (hit.person && hit.person.displaySosa) || hit.sosa;
+      display = 'Sosa ' + showSosa;
+      if (hit.person) {
+        display += ' \u2014 ' + hit.person.firstName + ' ' + hit.person.surname;
+        if (hit.person.access && hit.sosa !== 1) display += ' \u21bb';
+      }
+    } else {
+      if (hit.leftActual !== null && hit.rightActual !== null) display = hit.leftActual + '\u2013' + hit.rightActual;
+      else if (hit.leftActual !== null) display = hit.leftActual + '\u2013';
+      else if (hit.rightActual !== null) display = '\u2013' + hit.rightActual;
+      else display = '\u2013';
+    }
+
+    var realGen = hit.gen + (self._genOffset || 0);
+    debugEl.textContent = '(Gen ' + realGen + ')  ' + display;
     debugEl.style.display = '';
     var mm = document.querySelector('.tree-minimap.pano-minimap');
     if (mm) {
       var mmr = mm.getBoundingClientRect();
-      debugEl.style.left = (mmr.right + 8) + 'px';
+      debugEl.style.left = (mmr.right + 6) + 'px';
+      debugEl.style.right = '';
       debugEl.style.bottom = (window.innerHeight - mmr.bottom) + 'px';
     }
   }
@@ -1771,6 +1852,37 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     var debugEl = document.getElementById('sosa-debug-overlay');
     if (debugEl) debugEl.style.display = 'none';
   });
+
+  // Shift-click on minimap: re-root at person
+  canvas.addEventListener('click', function(e) {
+    if (!e.shiftKey) return;
+    if (mmMoved) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var hit = sosaAtMinimapCoords(mx, my);
+    if (!hit || !hit.onPerson || !hit.person || !hit.person.access) return;
+    // Cmd-click on Sosa 1 dot: go back to previous page (if re-rooted) or open person page
+    if (hit.sosa === 1) {
+      if (self.options.isRerooted) {
+        history.back();
+      } else {
+        window.location.href = hit.person.access;
+      }
+      return;
+    }
+    // Show loading overlay
+    var overlay = document.createElement('div');
+    overlay.className = 'tree-reroot-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.4);z-index:99998;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = '<div style="background:#fff;padding:18px 32px;border-radius:8px;border:1px solid #ccc;box-shadow:0 2px 10px rgba(0,0,0,0.15);text-align:center;">' +
+      '<div style="font-size:1.1rem;color:#555;font-weight:600;">Re-rooting at ' +
+      hit.person.firstName + ' ' + hit.person.surname + ' (Sosa ' + ((hit.person.displaySosa) || hit.sosa) + ')\u2026</div></div>';
+    document.body.appendChild(overlay);
+    window.location.href = self._treeAccess(hit.person.access);
+  }, true);
 };
 
 // ── Generation controls (called from buildToolbar) ───────────────────────

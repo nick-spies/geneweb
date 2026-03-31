@@ -34,7 +34,7 @@
 }
 
 .fu-root {
-  padding: 20px 100px 20px 100px;
+  padding: 20px 100px 160px 100px;
 }
 
 /* Parents row: father and mother branches side by side */
@@ -100,6 +100,22 @@
   height: 50%;
   background: #aaa;
   transform: translateX(-1px);
+}
+
+/* ── Expandable ancestor indicator (top-gen persons with parents) ── */
+
+.fu-expandable {
+  color: #d4a017;
+  font-size: 0.5rem;
+  line-height: 1;
+  text-align: center;
+  margin-bottom: 0;
+  pointer-events: none;
+}
+
+.person-box.has-ancestors {
+  border-color: #d4a017;
+  box-shadow: 0 0 4px rgba(212, 160, 23, 0.4);
 }
 
 /* ── Person box styles (shared with old layout) ── */
@@ -354,7 +370,7 @@
   border: 1px solid #999;
   border-radius: 4px;
   overflow: hidden;
-  cursor: pointer;
+  cursor: default;
   flex-shrink: 0;
   align-self: flex-end;
   margin-bottom: 2px;
@@ -363,6 +379,7 @@
 
 .tree-minimap-canvas {
   display: block;
+  cursor: default;
 }
 
 /* viewport now drawn directly on canvas */
