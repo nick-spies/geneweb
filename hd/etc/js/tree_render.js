@@ -859,6 +859,40 @@ TreeRenderer.prototype.render = function() {
   }
   self._scrollToSosa1 = scrollToSosa1;
 
+  // Center the tree in the viewport (used for initial load only).
+  // Horizontal: tree center (not Sosa 1) for symmetric navbox.
+  // Vertical: Sosa 1 position (same as scrollToSosa1).
+  function centerTreeInitial() {
+    if (!sosa1El) return;
+    requestAnimationFrame(function() {
+      _suppressScroll++;
+      var savedTransform = zoomWrap.style.transform;
+      zoomWrap.style.transform = 'none';
+      container.scrollLeft = 0;
+      container.scrollTop = 0;
+      vOffX = 0; vOffY = 0;
+      void zoomWrap.offsetWidth;
+
+      var wrapR = zoomWrap.getBoundingClientRect();
+      var sosaR = sosa1El.getBoundingClientRect();
+      var contentY = sosaR.top + sosaR.height / 2 - wrapR.top;
+
+      zoomWrap.style.transform = savedTransform;
+
+      // Horizontal: tree center for symmetric navbox
+      var newSL = (treePadPx + geo.treeW / 2) * zoomLevel - container.clientWidth / 2;
+      // Vertical: Sosa 1 near bottom of visible area
+      var visibleH = geo.containerH - geo.botReserve;
+      var newST = contentY * zoomLevel - visibleH + 40;
+      setEffScroll(newSL, newST);
+      clampScroll();
+      void container.scrollLeft;
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() { _suppressScroll--; });
+      });
+    });
+  }
+
   // Auto-scroll on initial load (skipped during gen change — caller restores position)
   // Use setTimeout to let the browser fully settle layout before scrolling.
   // Container height may not be final on first paint (calc(100vh-100px) resolves late).
@@ -874,7 +908,7 @@ TreeRenderer.prototype.render = function() {
           updatePadding();
           updateWrapSize();
         }
-        scrollToSosa1();
+        centerTreeInitial();
       }, 100);
     }
   }
@@ -2055,7 +2089,7 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
             var targetY = (s1y + savedOffsetFromSosa1Y) * newZoom;
             self._setEffScroll(targetX - container.clientWidth / 2, targetY - container.clientHeight / 2);
           }
-          // Clamp so nav box stays within minimap
+          self._clampScroll();
 
           history.pushState(null, '', url);
 
