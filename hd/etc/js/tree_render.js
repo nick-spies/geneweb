@@ -6,11 +6,11 @@
  * Connector lines are positioned after layout using measured DOM positions.
  */
 
-// Remove stale loading overlays when browser restores page from bfcache
+// Force full reload when browser restores page from bfcache (back/forward navigation)
+// This ensures the latest JS/CSS runs instead of stale cached versions
 window.addEventListener('pageshow', function(e) {
   if (e.persisted) {
-    var overlays = document.querySelectorAll('.tree-reroot-overlay');
-    for (var i = 0; i < overlays.length; i++) overlays[i].remove();
+    window.location.reload();
   }
 });
 
@@ -1091,8 +1091,27 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
   if (!debugEl) {
     debugEl = document.createElement('div');
     debugEl.id = 'sosa-debug-overlay';
-    debugEl.style.cssText = 'position:fixed;background:rgba(0,0,0,0.75);color:#fff;padding:4px 12px;font-size:12px;font-family:monospace;border-radius:4px;z-index:99999;pointer-events:none;display:none;white-space:nowrap;';
+    debugEl.style.cssText = 'position:fixed;background:#fff;color:#333;padding:4px 12px;font-size:15px;border:1px solid #999;border-radius:4px;z-index:99999;pointer-events:none;white-space:nowrap;width:450px;overflow:hidden;text-overflow:ellipsis;';
     document.body.appendChild(debugEl);
+  }
+  debugEl.textContent = 'Gen 1 \u2013 ' + (self._genOffset ? self._genOffset + 1 : self.options.generations);
+  debugEl.style.display = '';
+  function positionOverlay() {
+    var mm = document.querySelector('.tree-minimap.pano-minimap');
+    if (mm) {
+      var mmr = mm.getBoundingClientRect();
+      var idealLeft = mmr.right + 6;
+      var overlayW = 450;
+      // If overlay would overflow viewport, align right edge with viewport
+      if (idealLeft + overlayW > window.innerWidth) {
+        debugEl.style.left = '';
+        debugEl.style.right = '4px';
+      } else {
+        debugEl.style.left = idealLeft + 'px';
+        debugEl.style.right = '';
+      }
+      debugEl.style.bottom = (window.innerHeight - mmr.bottom) + 'px';
+    }
   }
 
   // Remove old listeners before adding new ones
@@ -1121,7 +1140,7 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
         bestGen = parseInt(ap.getAttribute('data-gen'));
       }
     }
-    if (bestGen < 0) { debugEl.style.display = 'none'; return; }
+    if (bestGen < 0) return;
 
     var lowSosa = Math.pow(2, bestGen - 1);
 
@@ -1189,23 +1208,18 @@ TreeRenderer.prototype.addGenCursorLabel = function(tree, container) {
     }
     var realGen = bestGen + (self._genOffset || 0);
     debugEl.textContent = '(Gen ' + realGen + ')  ' + display;
-    debugEl.style.display = '';
-    // Position above the minimap, centered
-    var mm = document.querySelector('.tree-minimap.pano-minimap');
-    if (mm) {
-      var mmr = mm.getBoundingClientRect();
-      debugEl.style.left = (mmr.right + 6) + 'px';
-      debugEl.style.right = '';
-      debugEl.style.bottom = (window.innerHeight - mmr.bottom) + 'px';
-    }
+    positionOverlay();
   };
-  self._debugLeaveHandler = function() { debugEl.style.display = 'none'; self._lastMouseEvent = null; };
+  self._debugLeaveHandler = function() { self._lastMouseEvent = null; };
   self._debugScrollHandler = function() { if (self._lastMouseEvent) self._debugMoveHandler(self._lastMouseEvent); };
   var origMoveHandler = self._debugMoveHandler;
   self._debugMoveHandler = function(e) { self._lastMouseEvent = e; origMoveHandler(e); };
   container.addEventListener('mousemove', self._debugMoveHandler);
   container.addEventListener('mouseleave', self._debugLeaveHandler);
   container.addEventListener('scroll', self._debugScrollHandler);
+
+  // Position overlay next to minimap on initial render
+  requestAnimationFrame(positionOverlay);
 };
 
 // ── Ancestor line highlighting ────────────────────────────────────────────
@@ -1718,12 +1732,30 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     self._suppressScrollInc();
     self._setEffScroll(targetSL, targetST);
     self._clampScroll();
+    // Save the effective scroll position we just set
+    var intendedSL = self._getEffSL();
+    var intendedST = self._getEffST();
     // Force sync reflow so Firefox async panning commits the scroll position
     void container.scrollLeft;
-    // Delay unsuppress: two rAFs to survive Firefox async scroll delivery
-    requestAnimationFrame(function() {
-      requestAnimationFrame(function() { self._suppressScrollDec(); });
-    });
+    // Firefox APZ (Asynchronous Pan/Zoom) can deliver delayed scroll events
+    // that reset scrollLeft/Top to stale values. Re-apply our intended position
+    // after APZ settles, using multiple checkpoints.
+    if (self._mmPanTimer) clearTimeout(self._mmPanTimer);
+    var reapply = function() {
+      // If Firefox APZ moved us, force back to intended position
+      if (Math.abs(self._getEffSL() - intendedSL) > 2 || Math.abs(self._getEffST() - intendedST) > 2) {
+        self._setEffScroll(intendedSL, intendedST);
+      }
+      if (self._updateViewport) self._updateViewport();
+    };
+    requestAnimationFrame(reapply);
+    self._mmPanTimer = setTimeout(function() {
+      self._mmPanTimer = 0;
+      reapply();
+      self._suppressScrollDec();
+      // One more reapply after unsuppress in case scroll handler fires
+      requestAnimationFrame(reapply);
+    }, 200);
   }
   var mmDragging = false, mmMoved = false;
   canvas.addEventListener('mousedown', function(e) {
@@ -1813,13 +1845,10 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     var rect = canvas.getBoundingClientRect();
     var mx = e.clientX - rect.left;
     var my = e.clientY - rect.top;
-    if (mx < 0 || mx > mapW || my < 0 || my > mapH) {
-      debugEl.style.display = 'none';
-      return;
-    }
+    if (mx < 0 || mx > mapW || my < 0 || my > mapH) return;
 
     var hit = sosaAtMinimapCoords(mx, my);
-    if (!hit) { debugEl.style.display = 'none'; return; }
+    if (!hit) return;
 
     var display;
     if (hit.onPerson) {
@@ -1838,19 +1867,10 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
 
     var realGen = hit.gen + (self._genOffset || 0);
     debugEl.textContent = '(Gen ' + realGen + ')  ' + display;
-    debugEl.style.display = '';
-    var mm = document.querySelector('.tree-minimap.pano-minimap');
-    if (mm) {
-      var mmr = mm.getBoundingClientRect();
-      debugEl.style.left = (mmr.right + 6) + 'px';
-      debugEl.style.right = '';
-      debugEl.style.bottom = (window.innerHeight - mmr.bottom) + 'px';
-    }
   }
   wrapper.addEventListener('mousemove', minimapSosaOverlay);
   wrapper.addEventListener('mouseleave', function() {
-    var debugEl = document.getElementById('sosa-debug-overlay');
-    if (debugEl) debugEl.style.display = 'none';
+    // Overlay stays visible always — no hide needed
   });
 
   // Shift-click on minimap: re-root at person

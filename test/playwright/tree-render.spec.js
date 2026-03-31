@@ -112,42 +112,45 @@ test('gen 12: minimap click pans viewport', async ({ page }) => {
 
 // ── 5. Guess overlay appears on tree hover ──
 
-test('gen 7: guess overlay appears on tree hover', async ({ page }) => {
+test('gen 7: guess overlay is always visible', async ({ page }) => {
   await page.goto(TREE_URL(7));
   await waitForTree(page);
 
   const overlay = page.locator('#sosa-debug-overlay');
 
-  // Should start hidden
-  await expect(overlay).toHaveCSS('display', 'none');
+  // Overlay should be visible immediately (always-on)
+  await expect(overlay).toHaveCount(1);
+  await expect(overlay).not.toHaveCSS('display', 'none');
+  const text = await overlay.textContent();
+  expect(text).toMatch(/Gen \d/);
 
-  // Hover over center of tree
+  // Hover over tree should update text
   const container = page.locator('#tree-grid-container');
   const box = await container.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3);
   await page.waitForTimeout(100);
 
-  // Overlay should now be visible
-  await expect(overlay).not.toHaveCSS('display', 'none');
-  const text = await overlay.textContent();
-  expect(text).toMatch(/Gen \d/);
+  const textAfter = await overlay.textContent();
+  expect(textAfter).toMatch(/Gen \d/);
 });
 
 // ── 6. Guess overlay shows on minimap hover ──
 
-test('gen 7: minimap hover shows Sosa overlay', async ({ page }) => {
+test('gen 7: minimap hover updates Sosa overlay', async ({ page }) => {
   await page.goto(TREE_URL(7));
   await waitForTree(page);
 
   const overlay = page.locator('#sosa-debug-overlay');
   const canvas = page.locator('.tree-minimap-canvas');
 
-  // Hover over center of minimap
+  // Get initial text
+  const textBefore = await overlay.textContent();
+
+  // Hover over center of minimap — should update text
   const box = await canvas.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(100);
 
-  await expect(overlay).not.toHaveCSS('display', 'none');
   const text = await overlay.textContent();
   expect(text).toMatch(/Gen \d/);
 });
@@ -162,12 +165,8 @@ test('gen 12: guess overlay stays on-screen', async ({ page }) => {
   const container = page.locator('#tree-grid-container');
   const box = await container.boundingBox();
 
-  // Hover over tree to show overlay
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3);
-  await page.waitForTimeout(100);
-
-  const display = await overlay.evaluate(el => getComputedStyle(el).display);
-  if (display !== 'none') {
+  // Overlay is always visible — check it's on-screen
+  {
     const rect = await overlay.boundingBox();
     expect(rect.x).toBeGreaterThanOrEqual(0);
     expect(rect.y).toBeGreaterThanOrEqual(0);
