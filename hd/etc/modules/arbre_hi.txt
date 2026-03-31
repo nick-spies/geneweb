@@ -63,6 +63,13 @@
     });
   </script>
 %end;
+%define;coupleline(x0,y0,x1,y1)
+  <script>
+    $(window).on("load", function() {
+      $('#hi-tree1').line(x0, y0, x1, y1, {color:"#999", stroke:4, opacity:0.8, zindex:1});
+    });
+  </script>
+%end;
 %define;implex1(xx)
   onmouseover="over1('sxx')" onmouseout="out1('sxx')" %nn;
 %end;
@@ -433,6 +440,16 @@
               %apply;boxsosa("", ancestor.anc_sosa.v, ancestor.has_parents, bg, left, top)
             %end;
           %apply;linesosa(ancestor.anc_sosa.v, xx+1, "yy", left, top)
+          %( Couple line: connect even sosa (father) center to sosa+1 (mother) center %)
+          %if;(ancestor.anc_sosa.v %2=0 and ancestor.anc_sosa.v>1)
+            %let;bw;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
+            %let;bh;%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;%in;
+            %let;plx1;%expr(left+bw/2)%in;
+            %let;ply1;%expr(top+bh/2)%in;
+            %let;plx2;%expr(leftxx_yy(ancestor.anc_sosa.v+1)*wb+bw/2)%in;
+            %let;ply2;%expr(topxx_yy(ancestor.anc_sosa.v+1)*hb+bh/2)%in;
+            %apply;coupleline(plx1, ply1, plx2, ply2)
+          %end;
         %end;
       %end;
     %end;
