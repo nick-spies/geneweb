@@ -41,6 +41,14 @@
           title="%if;(e.implx!="on")[*implex links]%else;[*do not] [implex links]%end;">
           <i class="fa fa-shuffle fa-fw"></i></a>
       </div>
+      %if;(e.sosa!="on")
+        <div class="btn-group mx-2" id="hi-zoom-toolbar">
+          <button id="hi-zoom-out" class="btn btn-outline-primary" title="Zoom out">−</button>
+          <span id="hi-zoom-level" class="btn btn-outline-primary disabled border-top border-bottom">100%%</span>
+          <button id="hi-zoom-in" class="btn btn-outline-primary" title="Zoom in">+</button>
+          <button id="hi-zoom-fit" class="btn btn-outline-primary" title="Fit to screen"><i class="fa fa-expand fa-fw"></i></button>
+        </div>
+      %end;
       %if;(e.sosa="on")
         <div class="btn-group mx-2">
           %if;(evarscl>0)

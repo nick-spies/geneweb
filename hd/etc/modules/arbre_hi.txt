@@ -12,8 +12,10 @@
 %let;evarfs;%if;(e.fs!="")%e.fs;%else;17%end;%in;
 %let;fs;%evarfs;%in;
 %( dimensions des boites %)
-%let;hbc;13%in;%( mode caractère %)
-%let;wbc;9%in;
+%( compact dot spacing: odd gens use 2:1 ratio for equal lines + square tree;
+   even gens use 1:1 for square tree – lines taper smoothly by ~sqrt(2) per level %)
+%let;hbc;%if;(evarv %2=0)16%elseif;(evarhi="H")11%else;22%end;%in;
+%let;wbc;%if;(evarv %2=0)16%elseif;(evarhi="H")22%else;11%end;%in;
 %let;hbs;%if;cgi;24%else;%expr(24*evarscl/100)%end;%in; %( espacement des boites en mode sosa  dimension + marge %)
 %let;wbs;%if;cgi;40%else;%expr(40*evarscl/100)%end;%in;
 %let;hb1;%if;cgi;22%else;%expr(22*evarscl/100)%end;%in; %( dimensions de la boite sosa %)
@@ -69,6 +71,63 @@
       $('#hi-tree1').line(x0, y0, x1, y1, {color:"#999", stroke:4, opacity:0.8, zindex:1});
     });
   </script>
+%end;
+%define;linecompact(lns, mx, my, x0, y0)
+  %( Compact mode line: draws from ancestor position (x0,y0) to midpoint (mx,my) %)
+  %( Midpoint = halfway to sibling = parent junction. Computed by caller using topxx_yy/leftxx_yy %)
+  %if;(lns>1)
+    %let;d1x;%expr(x0-3)%in;
+    %let;d1y;%expr(y0-3)%in;
+    %let;d2x;%expr(mx-3)%in;
+    %let;d2y;%expr(my-3)%in;
+    <div style="position:absolute;top:%d1y;px;left:%d1x;px;width:6px;height:6px;background:#555;z-index:2;"></div>
+    <div style="position:absolute;top:%d2y;px;left:%d2x;px;width:6px;height:6px;background:#555;z-index:2;"></div>
+    <script>
+      $(window).on("load", function() {
+        $('#hi-tree1').line(%x0;, %y0;, %mx;, %my;, {stroke:1, opacity:0.6, zindex:1});
+      });
+    </script>
+  %end;
+%end;
+%define;sosapath(sn)
+  %( Build path from sosa: walk bits from LSB up, even=Father odd=Mother %)
+  %if;(sn>=2)%apply;sosapath(sn/2)%if;(sn %2=0) ♂%else; ♀%end;%end;
+%end;
+%define;boxcompact(aaa,yyy,lll,ttt)
+  %let;sqsz;6%in;
+  %let;hitsz;20%in;
+  %let;sqtop;%expr(ttt-3)%in;
+  %let;sqleft;%expr(lll-3)%in;
+  %let;httop;%expr(ttt-10)%in;
+  %let;htleft;%expr(lll-10)%in;
+  <div id="s%aaaanc_sosa.v;"
+    style="position:absolute;top:%sqtop;px;left:%sqleft;px;%nn;
+    width:%sqsz;px;height:%sqsz;px;%nn;
+    background:%if;(aaaanc_sosa.v=1)#c33%elseif;(not aaahas_parents)#aaa%else;#555%end;;%nn;
+    z-index:2;pointer-events:none;">
+  </div>
+  <div style="position:absolute;top:%httop;px;left:%htleft;px;width:%hitsz;px;height:%hitsz;px;z-index:3;cursor:pointer;">
+    <a style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;"
+      %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
+      title='Gen %level; – Sosa %nn;
+        %if;(evarcpl="")%aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
+        %else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
+        %end;%nn;
+        %if;(aaaanc_sosa.v>1)&#010;%apply;sosapath(aaaanc_sosa.v)%end;&#010;%nn;
+        %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname; %if;(aaaocc!="" or aaaocc!=0)(%aaaocc;)%end;&#010;%nn;
+        %if;(aaabirth_date.year!="")° %aaabirth_date.year;%end;%nn;
+        %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
+        %if;(aaabirth_date.year="" and aaadeath_date.year!="")†%else;%aaadeath_date.year;%end;&#010;%nn;
+        %if;(not aaahas_parents) [*missing parents].&#010;%end;%nn;
+        %if;(aaasame="" and aaahas_families and evarcpl="on")%nn;
+          %if;(aaaspouse.is_male) ♂%else; ♀%end; %aaaspouse; (%aaaspouse.occ;)&#010;%nn;
+          %if;(aaaspouse.birth_date.year!="")° %aaaspouse.birth_date.year;%end;%nn;
+          %if;(aaaspouse.birth_date.year!="" and aaaspouse.is_dead) – %end;%nn;
+          %if;(aaaspouse.birth_date.year="" and aaaspouse.death_date.year!="")†%else;%aaaspouse.death_date.year;%end;&#010;%nn;
+          %if;(not aaaspouse.has_parents) [*missing parents].%end;%nn;
+        %end;'>%nn;
+    </a>
+  </div>
 %end;
 %define;implex1(xx)
   onmouseover="over1('sxx')" onmouseout="out1('sxx')" %nn;
@@ -185,7 +244,7 @@
           %foreach;env_binding;%if;(not (env.key="t" or env.key="t1" or env.key="p"
             or env.key="n" or env.key="oc"))%env.key=%env.val;&%end;%end;"
         %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-        title='[*generation/generations]0 %level; – Sosa %nn;
+        title='Gen %level; – Sosa %nn;
           %if;(evarcpl="")%aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
           %else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
           %end;%nn;
@@ -263,7 +322,7 @@
     %(%let;anclev;%expr(evarv-aaaanc_sosa.lvl+2)%in;%)
     <a style="top:tttpx;left:lllpx;" href="%url_set.i_p_n_oc;&%aaaaccess;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-      title='[*generation/generations]0 %level; – Sosa %nn;
+      title='Gen %level; – Sosa %nn;
         %if;(evarcpl="")%aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
         %else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
         %end;%nn;
@@ -374,9 +433,15 @@
           %if;(evarso!="on")
             %if;(ancestor.same!="" and evarix="on")%apply;implexc(left1, top1, left2, top2)%end;
             %if;(ancestor.anc_sosa.v!="" or ancestor.anc_sosa.v=1)
-              %apply;boxchar("ancestor.", "yy", left, top)
+              %apply;boxcompact("ancestor.", "yy", left, top)
             %else;
-              %apply;boxchar("", "yy", left, top)
+              %apply;boxcompact("", "yy", left, top)
+            %end;
+            %if;(anc_sosahalf>1)
+              %let;sib;%if;(anc_sosahalf %2=0)%expr(anc_sosahalf+1)%else;%expr(anc_sosahalf-1)%end;%in;
+              %let;mx;%expr((left + leftxx_yy(sib)*wb) / 2)%in;
+              %let;my;%expr((top + topxx_yy(sib)*hb) / 2)%in;
+              %apply;linecompact(anc_sosahalf, mx, my, left, top)
             %end;
           %else;
             %if;(ancestor.same!="" and evarix="on")%apply;implexs(left1, top1, left2, top2)%end;
@@ -426,10 +491,16 @@
             %apply;implexc(left1, top1, left2, top2)
           %else;
             %if;(ancestor.anc_sosa.v!="" or ancestor.anc_sosa.v=1)
-              %apply;boxchar("ancestor.", "yy", left, top)
+              %apply;boxcompact("ancestor.", "yy", left, top)
             %else;
-              %apply;boxchar("", "yy", left, top)
+              %apply;boxcompact("", "yy", left, top)
             %end;
+          %end;
+          %if;(ancestor.anc_sosa.v>1)
+            %let;sib;%if;(ancestor.anc_sosa.v %2=0)%expr(ancestor.anc_sosa.v+1)%else;%expr(ancestor.anc_sosa.v-1)%end;%in;
+            %let;mx;%expr((left + leftxx_yy(sib)*wb) / 2)%in;
+            %let;my;%expr((top + topxx_yy(sib)*hb) / 2)%in;
+            %apply;linecompact(ancestor.anc_sosa.v, mx, my, left, top)
           %end;
         %else;
           %if;(ancestor.same!="" and evarix="on")
@@ -486,9 +557,10 @@
 %end;
 
 %define;graphlinks(xx,yy) %( xx level -1, yy mode : I ou H %)
+  %( linecompact now draws all connections; graphlinks ASCII filler no longer needed %)
   %let;hb;%if;(evarso="on" and boxsize=2)%expr(hbs*2)%elseif;(evarso="on")%hbs;%else;%hbc;%end;%in;
   %let;wb;%if;(evarso="on" and boxsize=2)%expr(wbs*2)%elseif;(evarso="on")%wbs;%else;%wbc;%end;%in;
-%if;(evarso!="on")
+%if;(0=1) %( disabled: compact mode uses linecompact instead %)
   %foreach;ancestor_level(xx-2)
     %foreach;ancestor;
       %let;top_;%expr(topxx_yy_(ancestor.anc_sosa.v)*hb)%in;
@@ -561,9 +633,11 @@
     %if;(evarhi="H")%expr(vvv+1)%else;%expr(vvv)%end;%end;%in;
   %let;nbl;%apply;nth%with;/0/1/1/3/3/7/7/15/15/31/31/63/63/127/127/255/255/%and;%nn;
     %if;(evarhi="H")%expr(vvv)%else;%expr(vvv+1)%end;%end;%in;
-  %let;widc;%expr(mmm*nbc*wbc)%in;
+  %( compact container: even gens are symmetric so both axes use 2*nbl;
+     odd gens: narrow axis uses nbc, wide axis uses 2*nbl %)
+  %let;widc;%if;(evarv %2=0)%expr(2*nbl*wbc+20)%elseif;(evarhi="H")%expr(nbc*wbc+20)%else;%expr(2*nbc*wbc+20)%end;%in;
   %let;wids;%expr(mmm*nbc*wbs)%in;
-  %let;higc;%expr(mmm*nbl*hbc)%in;
+  %let;higc;%if;(evarv %2=0)%expr(2*nbl*hbc+20)%elseif;(evarhi="H")%expr(2*nbl*hbc+20)%else;%expr(nbl*hbc+20)%end;%in;
   %let;higs;%expr(mmm*nbl*hbs)%in;
   %if;(evarv >= 3)
     %if;(evarhi="I")
@@ -583,12 +657,12 @@
         %end;
       %else;
         %if;(evarv < 14 and evarcpl="on")
-          <div id="hi-tree1">
+          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:0 auto;transform-origin:center top">
             %apply;graphlinks(evarv,"I")
             %apply;graph(evarv,"I",2)
           </div>
         %elseif;(evarv < 13 and evarcpl!="on")
-          <div id="hi-tree1">
+          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:0 auto;transform-origin:center top">
             %apply;graphlinks(evarv+1,"I")
             %apply;graph(evarv+1,"I",1)
           </div>
@@ -613,12 +687,12 @@
         %end;
       %else;
         %if;(evarv < 14 and evarcpl="on")
-          <div id="hi-tree1">
+          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:0 auto;transform-origin:center top">
             %apply;graphlinks(evarv,"H")
             %apply;graph(evarv,"H",2)
           </div>
         %elseif;(evarv < 13 and evarcpl!="on")
-          <div id="hi-tree1">
+          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:0 auto;transform-origin:center top">
             %apply;graphlinks(evarv+1,"H")
             %apply;graph(evarv+1,"H",1)
           </div>
@@ -629,4 +703,38 @@
     %else;no hi
     %end;
   %end;
+%end;
+%if;(evarso!="on")
+<script>
+(function() {
+  var tree = document.getElementById('hi-tree1');
+  if (!tree) return;
+  var zoom = 1, minZoom = 0.1, maxZoom = 3;
+  var label = document.getElementById('hi-zoom-level');
+  var origW = parseInt(tree.style.width), origH = parseInt(tree.style.height);
+  function setZoom(z) {
+    zoom = Math.max(minZoom, Math.min(maxZoom, z));
+    tree.style.transform = 'scale(' + zoom + ')';
+    tree.style.width = origW + 'px';
+    tree.style.height = origH + 'px';
+    tree.parentNode.style.height = (origH * zoom + 20) + 'px';
+    label.textContent = Math.round(zoom * 100) + '%%';
+  }
+
+  document.getElementById('hi-zoom-in').addEventListener('click', function() { setZoom(zoom * 1.25); });
+  document.getElementById('hi-zoom-out').addEventListener('click', function() { setZoom(zoom / 1.25); });
+  document.getElementById('hi-zoom-fit').addEventListener('click', function() {
+    var vw = window.innerWidth - 40;
+    var vh = window.innerHeight - 180;
+    setZoom(Math.min(vw / origW, vh / origH, 3));
+  });
+
+  tree.parentNode.addEventListener('wheel', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+    }
+  }, {passive: false});
+})();
+</script>
 %end;
