@@ -176,41 +176,9 @@
     %end;
     width:%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;px;%nn;
     height:%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;px;%nn;
-    background-color:%if;(bg_col="")#FFFFFF%else;#bgg;%end;;overflow:hidden;z-index:2">
+    %if;(not aaais_male)border-radius:6px;%end;background-color:%if;(aaais_male)#D0E4F5%else;#F5D0D8%end;;overflow:hidden;z-index:2">
     %let;imsz;%if;(boxsize=2)%expr(hb1*2-14)%else;%expr(hb1-4)%end;%in;
-    %if;(e.cgl!="on")
-      %if;(evarcpl!="on")
-        <a class="big_anchor_1 list-group-item-action"
-          href="%prefix;%aaaaccess;" title="%aaafirst_name; %aaasurname; (%aaaocc;)">
-          %if;(aaahas_image)
-            <img style="max-width:%imsz;px;max-height:%imsz;px;position:absolute;top:0;left:0" src="%aaaimage_url;" alt="[image/images]0">
-          %end;
-        </a>
-        <a class="big_anchor_1m list-group-item-action"
-          href="%prefix;m=MOD_IND&i=%aaaindex;" title="[*modify] %aaafirst_name; %aaasurname; (%aaaocc;)"></a>
-      %else;
-        <a class="big_anchor_him list-group-item-action"
-          href="%prefix;%aaaaccess;" title="%aaafirst_name; %aaasurname; (%aaaocc;)">%nn;
-          %if;(aaahas_image)
-            <img style="max-width:%imsz;px;max-height:%imsz;px;position:absolute;top:0;left:0" src="%aaaimage_url;" alt="[image/images]0">%nn;
-          %end;
-        </a>
-        %if;(aaasame="")
-        <a class="big_anchor_her list-group-item-action"
-          href="%prefix;%aaaspouse.access;" title="%aaaspouse;">
-          %if;(aaaspouse.has_image)
-            <img style="max-width:%imsz;px;max-height:%imsz;px;position:absolute;top:0;left:0" src="%aaaspouse.image_url;" alt="[image/images]0">
-          %end;
-        </a>
-        %end;
-        <a class="big_anchor_him_m list-group-item-action"
-          href="%prefix;m=MOD_IND&i=%aaaindex;" title="[*modify] %aaafirst_name; %aaasurname; (%aaaocc;)"></a>
-        %if;(aaasame="")
-        <a class="big_anchor_her_m list-group-item-action"
-          href="%prefix;m=MOD_IND&i=%aaaspouse.index;" title="[*modify] %aaaspouse;"></a>
-        %end;
-      %end;
-    %else;
+    %if;(e.cgl="on")
       %let;width;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
       %let;imsz;%if;(boxsize=2)%expr(hb1*2-8)%else;%expr(hb1-4)%end;%in;
       %let;fs1;%if;(sss>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
@@ -244,7 +212,7 @@
       %end;
     %end;
     %if;(e.cgl!="on")
-      <a data-sosa="%aaaanc_sosa.v;" tabindex="-1" style="width:100%%;z-index:2;"
+      <a data-sosa="%aaaanc_sosa.v;" data-purl="%prefix;%aaaaccess;" tabindex="-1" style="display:block;width:100%%;height:100%%;z-index:2;"
         href="%prefix_base_password;%aaaaccess;&t=T&t1=CT&
           %foreach;env_binding;%if;(not (env.key="t" or env.key="t1" or env.key="p"
             or env.key="n" or env.key="oc"))%env.key=%env.val;&%end;%end;"
@@ -937,15 +905,53 @@
   window.addEventListener('load', function() { activateSosa(1); buildCache(); markImplexes(); });
 
   // Hover dwell: hold pointer over a node to highlight it
+  // If Cmd held on hover, show "Cmd+click: go to person" tooltip instead
   var hoverTimer = null;
+  var hoveredA = null;
+  var origTitle = '';
   tree.addEventListener('mouseover', function(e) {
     var a = e.target.closest('a[data-sosa]');
     if (!a) return;
     clearTimeout(hoverTimer);
     hoverTimer = setTimeout(function() { activate(a); }, 400);
+    if (hoveredA !== a) {
+      if (hoveredA) hoveredA.setAttribute('title', origTitle);
+      hoveredA = a;
+      origTitle = a.getAttribute('title') || '';
+    }
+    if (cmdHeld) {
+      var name = origTitle.split('\n')[1] || '';
+      a.setAttribute('title', '\u2318+click: go to ' + name.trim());
+    }
   });
   tree.addEventListener('mouseout', function(e) {
-    if (e.target.closest('a[data-sosa]')) clearTimeout(hoverTimer);
+    var a = e.target.closest('a[data-sosa]');
+    if (!a) return;
+    clearTimeout(hoverTimer);
+    if (hoveredA === a) {
+      a.setAttribute('title', origTitle);
+      hoveredA = null; origTitle = '';
+    }
+  });
+
+  // Cmd+click = go to person page; plain click = re-root chart (default href)
+  tree.addEventListener('click', function(e) {
+    var a = e.target.closest('a[data-sosa]');
+    if (!a) return;
+    if (e.metaKey || e.ctrlKey) {
+      e.preventDefault();
+      var url = a.dataset.purl;
+      if (url) window.location.href = url;
+    }
+  });
+
+  // Track Cmd key state for tooltip and info bar hints
+  var cmdHeld = false;
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Meta' || e.key === 'Control') cmdHeld = true;
+  });
+  document.addEventListener('keyup', function(e) {
+    if (e.key === 'Meta' || e.key === 'Control') cmdHeld = false;
   });
 
   document.addEventListener('keydown', function(e) {
@@ -993,8 +999,8 @@
         e.preventDefault(); return;
       }
       if (target !== null) handled = activateSosa(target);
-      // Fallback: if genealogical target doesn't exist, find nearest in that direction
-      if (!handled && e.key.startsWith('Arrow')) {
+      // No spatial fallback for genealogical nav: if father/mother/child doesn't exist, do nothing
+      if (false && !handled && e.key.startsWith('Arrow')) {
         var nn = findNearest(cx, cy, e.key, s);
         if (nn) handled = activate(nn);
       }
