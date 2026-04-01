@@ -21,7 +21,7 @@
 %let;hb1;%if;cgi;22%else;%expr(22*evarscl/100)%end;%in; %( dimensions de la boite sosa %)
 %let;wb1;%if;cgi;38%else;%expr(38*evarscl/100)%end;%in;
 <style type="text/css">
-#hi-tree1 {position:relative;left:10px;}
+#hi-tree1 {position:relative;%if;(evarso="on")left:10px;%end;}
 #hi-tree1 tt{position:absolute;line-height:10pt;font-family:monospace;}
 #hi-tree1 span{position:absolute;line-height:10pt;margin:%if;((evarv<9 and evarcpl!="on") or (evarv<10 and evarcpl="on"))8px 12px%else;0px 4px%end;}
 #hi-tree1 a{position:absolute;line-height:10pt;}
@@ -103,28 +103,28 @@
   <div id="s%aaaanc_sosa.v;"
     style="position:absolute;top:%sqtop;px;left:%sqleft;px;%nn;
     width:%sqsz;px;height:%sqsz;px;%nn;
-    background:%if;(aaaanc_sosa.v=1)#c33%elseif;(not aaahas_parents)#aaa%else;#555%end;;%nn;
+    background:%if;(aaaanc_sosa.v=1)#c33%elseif;(not aaahas_parents)#a9a9a9%else;#555%end;;%nn;
     z-index:2;pointer-events:none;">
   </div>
   <div style="position:absolute;top:%httop;px;left:%htleft;px;width:%hitsz;px;height:%hitsz;px;z-index:3;cursor:pointer;">
     <a style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-      title='Gen %level; – Sosa %nn;
-        %if;(evarcpl="")%aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
-        %else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
-        %end;%nn;
-        %if;(aaaanc_sosa.v>1)&#010;%apply;sosapath(aaaanc_sosa.v)%end;&#010;%nn;
-        %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname; %if;(aaaocc!="" or aaaocc!=0)(%aaaocc;)%end;&#010;%nn;
-        %if;(aaabirth_date.year!="")° %aaabirth_date.year;%end;%nn;
+      title='Gen %level;%nn;
+        %if;(aaaanc_sosa.v>1) %apply;sosapath(aaaanc_sosa.v)%end;%nn;
+        %if;(evarcpl="") of Sosa %aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
+        %else; of Sosa %aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
+        %end;&#010;%nn;
+        %aaafirst_name; %aaasurname; %if;(aaaocc!="" or aaaocc!=0)(%aaaocc;)%end;%nn;
+        %if;(aaabirth_date.year!="") ° %aaabirth_date.year;%end;%nn;
         %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
-        %if;(aaabirth_date.year="" and aaadeath_date.year!="")†%else;%aaadeath_date.year;%end;&#010;%nn;
-        %if;(not aaahas_parents) [*missing parents].&#010;%end;%nn;
-        %if;(aaasame="" and aaahas_families and evarcpl="on")%nn;
-          %if;(aaaspouse.is_male) ♂%else; ♀%end; %aaaspouse; (%aaaspouse.occ;)&#010;%nn;
-          %if;(aaaspouse.birth_date.year!="")° %aaaspouse.birth_date.year;%end;%nn;
+        %if;(aaabirth_date.year="" and aaadeath_date.year!="") †%else;%aaadeath_date.year;%end;%nn;
+        %if;(not aaahas_parents)&#010;[*missing parents].%end;%nn;
+        %if;(aaasame="" and aaahas_families and evarcpl="on")&#010;%nn;
+          %aaaspouse; (%aaaspouse.occ;)%nn;
+          %if;(aaaspouse.birth_date.year!="") ° %aaaspouse.birth_date.year;%end;%nn;
           %if;(aaaspouse.birth_date.year!="" and aaaspouse.is_dead) – %end;%nn;
-          %if;(aaaspouse.birth_date.year="" and aaaspouse.death_date.year!="")†%else;%aaaspouse.death_date.year;%end;&#010;%nn;
-          %if;(not aaaspouse.has_parents) [*missing parents].%end;%nn;
+          %if;(aaaspouse.birth_date.year="" and aaaspouse.death_date.year!="") †%else;%aaaspouse.death_date.year;%end;%nn;
+          %if;(not aaaspouse.has_parents)&#010;[*missing parents].%end;%nn;
         %end;'>%nn;
     </a>
   </div>
@@ -439,9 +439,21 @@
             %end;
             %if;(anc_sosahalf>1)
               %let;sib;%if;(anc_sosahalf %2=0)%expr(anc_sosahalf+1)%else;%expr(anc_sosahalf-1)%end;%in;
-              %let;mx;%expr((left + leftxx_yy(sib)*wb) / 2)%in;
-              %let;my;%expr((top + topxx_yy(sib)*hb) / 2)%in;
+              %let;sibx;%expr(leftxx_yy(sib)*wb)%in;
+              %let;siby;%expr(topxx_yy(sib)*hb)%in;
+              %let;mx;%expr((left + sibx) / 2)%in;
+              %let;my;%expr((top + siby) / 2)%in;
               %apply;linecompact(anc_sosahalf, mx, my, left, top)
+              %if;(ancestor.has_parents and level=evarv)
+                %let;dx;%expr((sibx - left) / 4)%in;
+                %let;dy;%expr((siby - top) / 4)%in;
+                %let;gx1;%expr(left + dy - 5)%in;
+                %let;gy1;%expr(top + dx - 5)%in;
+                %let;gx2;%expr(left - dy - 5)%in;
+                %let;gy2;%expr(top - dx - 5)%in;
+                <div style="position:absolute;top:%gy1;px;left:%gx1;px;width:10px;height:10px;background:radial-gradient(circle,rgba(218,165,32,0.7),transparent);z-index:1;pointer-events:none;"></div>
+                <div style="position:absolute;top:%gy2;px;left:%gx2;px;width:10px;height:10px;background:radial-gradient(circle,rgba(218,165,32,0.7),transparent);z-index:1;pointer-events:none;"></div>
+              %end;
             %end;
           %else;
             %if;(ancestor.same!="" and evarix="on")%apply;implexs(left1, top1, left2, top2)%end;
@@ -461,15 +473,15 @@
         %let;left4;%expr(leftxx_yy(ancestor.anc_sosa.v)*wb)%in;
         %let;hb4;%expr(hb-4)%in;
         %let;bb;%if;(evarso="on")1%else;0%end;%in;
-        %if;(not ancestor.has_parents and evarsms="on" and level<evarv)
+        %if;(not ancestor.has_parents and evarsms="on" and level<evarv and evarso="on")
           <div id="s%ancestor.anc_sosa.v;"
-            style="position:absolute;text-align:center;border:solid %bb;px;top:%top4;px;left:%left4;px;
+            style="position:absolute;text-align:center;border:solid 1px;top:%top4;px;left:%left4;px;
               width:%wb2;px;height:%hb4;px;background-color:#FFFFFF">
             <a href="%prefix;m=ADD_PAR&ip=%ancestor.index;"
               target="_blank"
               title="[missing sosa] %expr(ancestor.anc_sosa.v*2) & %expr(ancestor.anc_sosa.v*2+1) – [*generation/generations]0 %expr(level+1)&#010; %nn;
               [*add] %apply;a_of_b%with;[the parents]%and;Sosa %ancestor.anc_sosa.v;%end; %ancestor;"
-            >%if;(evarso="on")•%else;·%end;</a>
+            >•</a>
           </div>
         %(%apply;linesosa(ancestor.anc_sosa.v*2, xx+1, "yy", left4, top4%)
         %end;
@@ -498,9 +510,22 @@
           %end;
           %if;(ancestor.anc_sosa.v>1)
             %let;sib;%if;(ancestor.anc_sosa.v %2=0)%expr(ancestor.anc_sosa.v+1)%else;%expr(ancestor.anc_sosa.v-1)%end;%in;
-            %let;mx;%expr((left + leftxx_yy(sib)*wb) / 2)%in;
-            %let;my;%expr((top + topxx_yy(sib)*hb) / 2)%in;
+            %let;sibx;%expr(leftxx_yy(sib)*wb)%in;
+            %let;siby;%expr(topxx_yy(sib)*hb)%in;
+            %let;mx;%expr((left + sibx) / 2)%in;
+            %let;my;%expr((top + siby) / 2)%in;
             %apply;linecompact(ancestor.anc_sosa.v, mx, my, left, top)
+            %if;(ancestor.has_parents and level=evarv)
+              %( Gold smudges: ancestors with data beyond the chart boundary %)
+              %let;dx;%expr((sibx - left) / 4)%in;
+              %let;dy;%expr((siby - top) / 4)%in;
+              %let;gx1;%expr(left + dy - 5)%in;
+              %let;gy1;%expr(top + dx - 5)%in;
+              %let;gx2;%expr(left - dy - 5)%in;
+              %let;gy2;%expr(top - dx - 5)%in;
+              <div style="position:absolute;top:%gy1;px;left:%gx1;px;width:10px;height:10px;background:radial-gradient(circle,rgba(218,165,32,0.7),transparent);z-index:1;pointer-events:none;"></div>
+              <div style="position:absolute;top:%gy2;px;left:%gx2;px;width:10px;height:10px;background:radial-gradient(circle,rgba(218,165,32,0.7),transparent);z-index:1;pointer-events:none;"></div>
+            %end;
           %end;
         %else;
           %if;(ancestor.same!="" and evarix="on")
@@ -526,29 +551,28 @@
     %end;
     %foreach;ancestor_level(x_1)
       %foreach;ancestor;
-        %if;(not ancestor.has_parents and evarsms="on" and level<evarv)
+        %if;(not ancestor.has_parents and evarsms="on" and level<evarv and evarso="on")
           %let;top2;%expr(topxx_yy(ancestor.anc_sosa.v*2)*hb)%in;
           %let;left2;%expr(leftxx_yy(ancestor.anc_sosa.v*2)*wb)%in;
           %let;hb4;%expr(hb-4)%in;
-          %let;bb;%if;(evarso="on")1%else;0%end;%in;
           <div id="s%ancestor.anc_sosa.v;"
-            style="position:absolute;text-align:center;border:solid %bb;px;top:%top2;px;left:%left2;px;
+            style="position:absolute;text-align:center;border:solid 1px;top:%top2;px;left:%left2;px;
               width:%wb2;px;height:%hb4;px;background-color:#FFFFFF">
             <a href="%prefix;m=ADD_PAR&ip=%ancestor.index;"
               title="[missing sosa] %expr(ancestor.anc_sosa.v*2) & %expr(ancestor.anc_sosa.v*2+1) – [*generation/generations]0 %expr(level+1)&#010;%nn;
               [*add] %apply;a_of_b%with;[the parents]%and;Sosa %ancestor.anc_sosa.v; %ancestor;%end;"
-            >%if;(evarso="on")•%else;·%end;</a>
+            >•</a>
           </div>
           %let;top3;%expr(topxx_yy(ancestor.anc_sosa.v*2+1)*hb)%in;
           %let;left3;%expr(leftxx_yy(ancestor.anc_sosa.v*2+1)*wb)%in;
           <div id="s%ancestor.anc_sosa.v;"
-            style="position:absolute;text-align:center;border:solid %bb;px;top:%top3;px;left:%left3;px;
+            style="position:absolute;text-align:center;border:solid 1px;top:%top3;px;left:%left3;px;
               width:%wb2;px;height:%hb4;px;background-color:#FFFFFF">
             <a href="%prefix;m=ADD_PAR&ip=%ancestor.index;"
               target="_blank"
               title="[missing sosa] %expr(ancestor.anc_sosa.v*2) & %expr(ancestor.anc_sosa.v*2+1) – [*generation/generations]0 %expr(level+1)&#010;%nn;
               [*add] %apply;a_of_b%with;[the parents]%and;%ancestor; Sosa %ancestor.anc_sosa.v;%end;"
-            >%if;(evarso="on")•%else;·%end;</a>
+            >•</a>
           </div>
         %end;
       %end;
@@ -723,11 +747,7 @@
 
   document.getElementById('hi-zoom-in').addEventListener('click', function() { setZoom(zoom * 1.25); });
   document.getElementById('hi-zoom-out').addEventListener('click', function() { setZoom(zoom / 1.25); });
-  document.getElementById('hi-zoom-fit').addEventListener('click', function() {
-    var vw = window.innerWidth - 40;
-    var vh = window.innerHeight - 180;
-    setZoom(Math.min(vw / origW, vh / origH, 3));
-  });
+  document.getElementById('hi-zoom-reset').addEventListener('click', function() { setZoom(1); });
 
   tree.parentNode.addEventListener('wheel', function(e) {
     if (e.ctrlKey || e.metaKey) {
