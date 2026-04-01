@@ -23,7 +23,15 @@
 %let;e_v;%if;(e.v!="")%e.v;%else;3%end;%in;
 <div class="container%if;(e_v>3 and e.t!="A" and e.t!="C"))-fluid%end; pb-6">
 %include;perso_utils
-%if;not cancel_links;
+%if;(e.t="T" and e.t1="CT")
+  %(js loaded before because jquery.line.js needs jquery loaded before %)
+  %include;js
+  <div style="position:sticky;top:0;z-index:100;background:#fff;">
+  %if;not cancel_links;%include;menubar%end;
+  %include;modules/arbre_hi_tools
+  %include;templm/tools
+  </div>
+%elseif;not cancel_links;
   %include;menubar
 %end;
 %if;(e.t="T" and e.t1="7")
@@ -32,11 +40,7 @@
   %include;modules/arbre_h6
 %elseif;(e.t="T" and e.t1="m") %(m for compatibility with existing arbre_8gen %)
   %include;modules/arbre_8gen
-%elseif;(e.t="T" and e.t1="CT") %(CT for compatibility with templm %)
-  %(js loaded before because jquery.line.js needs jquery loaded before %)
-  %include;js
-  %include;modules/arbre_hi_tools
-  %include;templm/tools
+%elseif;(e.t="T" and e.t1="CT")
   %include;modules/arbre_hi_indexes
   %include;modules/arbre_hi
 %elseif;(e.t="T" and e.t1="GR")

@@ -25,6 +25,8 @@
 #hi-tree1 tt{position:absolute;line-height:10pt;font-family:monospace;}
 #hi-tree1 span{position:absolute;line-height:10pt;margin:%if;((evarv<9 and evarcpl!="on") or (evarv<10 and evarcpl="on"))8px 12px%else;0px 4px%end;}
 #hi-tree1 a{position:absolute;line-height:10pt;}
+#hi-tree1 a[data-sosa]:focus{outline:none;}
+#hi-tree1 a.hi-active{outline:2px solid #c33;outline-offset:-2px;border-radius:1px;}
 </style>
 <script>
   <!--
@@ -103,18 +105,18 @@
   <div id="s%aaaanc_sosa.v;"
     style="position:absolute;top:%sqtop;px;left:%sqleft;px;%nn;
     width:%sqsz;px;height:%sqsz;px;%nn;
-    background:%if;(aaaanc_sosa.v=1)#c33%elseif;(not aaahas_parents)#a9a9a9%else;#555%end;;%nn;
+    background:%if;(aaaanc_sosa.v=1)#c33%elseif;(aaasame!="")#1e90ff%elseif;(not aaahas_parents)#a9a9a9%else;#555%end;;%nn;
     z-index:2;pointer-events:none;">
   </div>
   <div style="position:absolute;top:%httop;px;left:%htleft;px;width:%hitsz;px;height:%hitsz;px;z-index:3;cursor:pointer;">
-    <a style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;"
+    <a data-sosa="%aaaanc_sosa.v;" %if;(aaasame!="")data-same="%aaasame.v;" %end;tabindex="-1" style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-      title='Gen %level;%nn;
-        %if;(aaaanc_sosa.v>1) %apply;sosapath(aaaanc_sosa.v)%end;%nn;
-        %if;(evarcpl="") of Sosa %aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
-        %else; of Sosa %aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
-        %end;&#010;%nn;
-        %aaafirst_name; %aaasurname; %if;(aaaocc!="" or aaaocc!=0)(%aaaocc;)%end;%nn;
+      title='Gen %level; · Sosa %aaaanc_sosa;%nn;
+        %if;(aaasame!="") (=%aaasame;)%end;%nn;
+        %if;(evarcpl="on") & %expr(aaaanc_sosa.v+1)%end;%nn;
+        %if;(aaaanc_sosa.v>1) · %apply;sosapath(aaaanc_sosa.v)%end;%nn;
+        &#010;%nn;
+        %aaafirst_name; %aaasurname;%nn;
         %if;(aaabirth_date.year!="") ° %aaabirth_date.year;%end;%nn;
         %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
         %if;(aaabirth_date.year="" and aaadeath_date.year!="") †%else;%aaadeath_date.year;%end;%nn;
@@ -755,6 +757,177 @@
       setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
     }
   }, {passive: false});
+
+  // Keyboard navigation
+  // Keyboard navigation with class-based highlight (persists through button clicks)
+  var navMode = 'sosa';
+  var activeEl = null;
+  var modeBtn = document.getElementById('hi-nav-mode');
+  var infoEl = document.getElementById('hi-nav-info');
+
+  function activate(el) {
+    if (!el) return false;
+    if (activeEl) activeEl.classList.remove('hi-active');
+    el.classList.add('hi-active');
+    activeEl = el;
+    // update info bar
+    if (infoEl) {
+      var t = el.getAttribute('title') || '';
+      infoEl.textContent = t.replace(/\n/g, ' \u00b7 ');
+    }
+    return true;
+  }
+  function activateSosa(n) {
+    var el = tree.querySelector('a[data-sosa="' + n + '"]');
+    return el ? activate(el) : false;
+  }
+
+  if (modeBtn) {
+    modeBtn.addEventListener('click', function() {
+      navMode = (navMode === 'sosa') ? 'spatial' : 'sosa';
+      modeBtn.textContent = navMode === 'sosa' ? 'Nav: \u2190\u2642 \u2192\u2640' : 'Nav: Spatial';
+    });
+  }
+
+  // Build node position cache for spatial navigation
+  var nodeCache = [];
+  function buildCache() {
+    nodeCache = [];
+    var els = tree.querySelectorAll('a[data-sosa]');
+    for (var i = 0; i < els.length; i++) {
+      var dot = document.getElementById('s' + els[i].dataset.sosa);
+      if (!dot) continue;
+      nodeCache.push({
+        el: els[i],
+        x: dot.offsetLeft + dot.offsetWidth / 2,
+        y: dot.offsetTop + dot.offsetHeight / 2
+      });
+    }
+  }
+
+  // Get dot center position for a sosa number
+  function dotPos(sosa) {
+    var d = document.getElementById('s' + sosa);
+    if (!d) return null;
+    return { x: d.offsetLeft + d.offsetWidth / 2, y: d.offsetTop + d.offsetHeight / 2 };
+  }
+
+  // Spatial nav follows connected nodes: father(s*2), mother(s*2+1), child(s/2)
+  // Maps arrow key to whichever connected node lies in that direction
+  function findConnected(s, cx, cy, dir) {
+    var neighbors = [];
+    var f = dotPos(s * 2);
+    if (f) neighbors.push({ sosa: s * 2, dx: f.x - cx, dy: f.y - cy });
+    var m = dotPos(s * 2 + 1);
+    if (m) neighbors.push({ sosa: s * 2 + 1, dx: m.x - cx, dy: m.y - cy });
+    if (s > 1) {
+      var c = dotPos(Math.floor(s / 2));
+      if (c) neighbors.push({ sosa: Math.floor(s / 2), dx: c.x - cx, dy: c.y - cy });
+    }
+    // Score each neighbor: how well does it match the arrow direction?
+    var best = null, bestScore = -Infinity;
+    for (var i = 0; i < neighbors.length; i++) {
+      var n = neighbors[i];
+      var score = 0;
+      if (dir === 'ArrowUp') score = -n.dy;
+      else if (dir === 'ArrowDown') score = n.dy;
+      else if (dir === 'ArrowLeft') score = -n.dx;
+      else if (dir === 'ArrowRight') score = n.dx;
+      if (score > 2 && score > bestScore) { bestScore = score; best = n.sosa; }
+    }
+    return best;
+  }
+
+  // On load: mark all implex nodes blue and add cross-references to tooltips
+  function markImplexes() {
+    var byHref = {};
+    var els = tree.querySelectorAll('a[data-sosa]');
+    for (var i = 0; i < els.length; i++) {
+      var h = els[i].getAttribute('href');
+      if (!byHref[h]) byHref[h] = [];
+      byHref[h].push({ sosa: els[i].dataset.sosa, el: els[i] });
+    }
+    for (var h in byHref) {
+      var group = byHref[h];
+      if (group.length > 1) {
+        var sosas = group.map(function(g) { return g.sosa; });
+        for (var j = 0; j < group.length; j++) {
+          // color dot blue
+          var dot = document.getElementById('s' + group[j].sosa);
+          if (dot) {
+            dot.style.background = '#1e90ff';
+            dot.style.boxShadow = '0 0 3px 2px rgba(30,144,255,0.7)';
+          }
+          // add cross-ref to title if missing
+          var el = group[j].el;
+          var others = sosas.filter(function(s) { return s !== group[j].sosa; });
+          var t = el.getAttribute('title') || '';
+          var ref = ' (=' + others.join('|') + ')';
+          // replace existing partial cross-ref or add new one
+          t = t.replace(/ \(=[0-9,|]+\)/, '');
+          // match sosa number with or without comma formatting
+          var sn = group[j].sosa;
+          var snc = Number(sn).toLocaleString();
+          t = t.replace('Sosa ' + snc, 'Sosa ' + snc + ref);
+          if (t.indexOf(ref) < 0) t = t.replace('Sosa ' + sn, 'Sosa ' + sn + ref);
+          el.setAttribute('title', t);
+        }
+      }
+    }
+  }
+
+  // Focus sosa 1 on load
+  window.addEventListener('load', function() { activateSosa(1); buildCache(); markImplexes(); });
+
+  // Hover dwell: hold pointer over a node to highlight it
+  var hoverTimer = null;
+  tree.addEventListener('mouseover', function(e) {
+    var a = e.target.closest('a[data-sosa]');
+    if (!a) return;
+    clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(function() { activate(a); }, 400);
+  });
+  tree.addEventListener('mouseout', function(e) {
+    if (e.target.closest('a[data-sosa]')) clearTimeout(hoverTimer);
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (!activeEl) return;
+    if (e.key.startsWith('Arrow')) e.preventDefault();
+    var s = parseInt(activeEl.dataset.sosa);
+    var handled = false;
+
+    if (navMode === 'sosa') {
+      var target = null;
+      if (e.key === 'ArrowLeft') target = s * 2;
+      else if (e.key === 'ArrowRight') target = s * 2 + 1;
+      else if (e.key === 'ArrowDown' && s > 1) target = Math.floor(s / 2);
+      else if (e.key === 'ArrowUp') {
+        // Cycle through all implex instances of the same person (matched by href)
+        var href = activeEl.getAttribute('href');
+        var matches = Array.prototype.slice.call(tree.querySelectorAll('a[data-sosa]')).filter(function(a) {
+          return a.getAttribute('href') === href;
+        });
+        if (matches.length > 1) {
+          var idx = matches.indexOf(activeEl);
+          var ni = (idx + 1 < matches.length) ? idx + 1 : 0;
+          handled = activate(matches[ni]);
+        }
+        e.preventDefault(); return;
+      }
+      if (target !== null) handled = activateSosa(target);
+    } else {
+      var dot = document.getElementById('s' + s);
+      if (!dot) return;
+      var cx = dot.offsetLeft + dot.offsetWidth / 2;
+      var cy = dot.offsetTop + dot.offsetHeight / 2;
+      if (e.key.startsWith('Arrow')) {
+        var target = findConnected(s, cx, cy, e.key);
+        if (target !== null) handled = activateSosa(target);
+      }
+    }
+    if (handled) e.preventDefault();
+  });
 })();
 </script>
 %end;
