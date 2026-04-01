@@ -50,8 +50,7 @@
           <button id="hi-zoom-in" class="btn btn-outline-primary" title="Zoom in">+</button>
           <button id="hi-zoom-reset" class="btn btn-outline-primary" title="Reset to 100%%">Reset</button>
         </div>
-        <button id="hi-nav-mode" class="btn btn-outline-primary ml-2" title="Arrow key mode: Genealogical (← father, → mother) or Spatial (move visually along lines)">Nav: ←♂ →♀</button>
-        <span id="hi-nav-info" class="btn btn-outline-primary ml-2 disabled" style="white-space:nowrap;"></span>
+<span id="hi-nav-info" class="btn btn-outline-primary ml-2 disabled" style="white-space:nowrap;"></span>
       %end;
       %if;(e.sosa="on")
         <div class="btn-group mx-2">
