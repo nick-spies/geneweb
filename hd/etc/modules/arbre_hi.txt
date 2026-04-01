@@ -28,6 +28,8 @@
 #hi-tree1 a[data-sosa]:focus{outline:none;}
 #hi-tree1 a.hi-active{outline:3px solid #000;outline-offset:-1px;border-radius:1px;}
 #hi-tree1 a.hi-implex-peer{outline:3px dotted #c33;outline-offset:-1px;border-radius:1px;}
+#hi-tree1 div.hi-active{outline:3px solid #000;outline-offset:-1px;border-radius:1px;}
+#hi-tree1 div.hi-implex-peer{outline:3px dotted #c33;outline-offset:-1px;border-radius:1px;}
 </style>
 <script>
   <!--
@@ -242,17 +244,16 @@
       %end;
     %end;
     %if;(e.cgl!="on")
-      <a style="width:100%%;z-index:2;"
+      <a data-sosa="%aaaanc_sosa.v;" tabindex="-1" style="width:100%%;z-index:2;"
         href="%prefix_base_password;%aaaaccess;&t=T&t1=CT&
           %foreach;env_binding;%if;(not (env.key="t" or env.key="t1" or env.key="p"
             or env.key="n" or env.key="oc"))%env.key=%env.val;&%end;%end;"
         %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-        title='Gen %level; – Sosa %nn;
-          %if;(evarcpl="")%aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
-          %else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
-          %end;%nn;
-          %if;(aaasosa!="") ([n° Sosa] %aaasosa;)%end;&#010;%nn;
-          %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname; %if;(aaaocc!="" or aaaocc!=0)(%aaaocc;)%end;&#010;%nn;
+        title='Gen %level; · Sosa %aaaanc_sosa;%nn;
+          %if;(aaasame!="") (=%aaasame;)%end;%nn;
+          %if;(evarcpl="on") & %expr(aaaanc_sosa.v+1)%end;%nn;
+          &#010;%nn;
+          %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname;&#010;%nn;
           %if;(aaabirth_date.year!="")° %aaabirth_date.year;%end;%nn;
           %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
           %if;(aaabirth_date.year="" and aaadeath_date.year!="")†%else;%aaadeath_date.year;%end;&#010;%nn;
@@ -758,6 +759,13 @@
       setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
     }
   }, {passive: false});
+})();
+</script>
+%end;
+<script>
+(function() {
+  var tree = document.getElementById('hi-tree1');
+  if (!tree) return;
 
   // Keyboard navigation
   // Keyboard navigation with class-based highlight (persists through button clicks)
@@ -765,8 +773,14 @@
   var infoEl = document.getElementById('hi-nav-info');
 
   var peerEls = [];
+  var activeBox = null;
   var backStack = [];
   var fwdStack = [];
+  // Get the highlight target: the parent box div in Sosa mode, the <a> itself in compact
+  function hlTarget(a) {
+    var box = document.getElementById('s' + a.dataset.sosa);
+    return (box && box.querySelector('span')) ? box : a;
+  }
   function activate(el, navDir) {
     if (!el) return false;
     if (activeEl && activeEl !== el) {
@@ -774,19 +788,22 @@
       else if (navDir === 'fwd') { backStack.push(activeEl); }
       else { backStack.push(activeEl); fwdStack = []; }
     }
-    if (activeEl) activeEl.classList.remove('hi-active');
+    if (activeBox) activeBox.classList.remove('hi-active');
     // clear previous peer highlights
     for (var i = 0; i < peerEls.length; i++) peerEls[i].classList.remove('hi-implex-peer');
     peerEls = [];
-    el.classList.add('hi-active');
+    var target = hlTarget(el);
+    target.classList.add('hi-active');
+    activeBox = target;
     activeEl = el;
     // highlight implex peers
     var href = el.getAttribute('href');
     var peers = tree.querySelectorAll('a[data-sosa]');
     for (var i = 0; i < peers.length; i++) {
       if (peers[i] !== el && peers[i].getAttribute('href') === href) {
-        peers[i].classList.add('hi-implex-peer');
-        peerEls.push(peers[i]);
+        var pt = hlTarget(peers[i]);
+        pt.classList.add('hi-implex-peer');
+        peerEls.push(pt);
       }
     }
     // update info bar
@@ -850,6 +867,31 @@
     return best;
   }
 
+  // Find nearest node in a screen direction from any position (fallback when no connected node)
+  function findNearest(cx, cy, dir, currentSosa) {
+    var best = null, bestDist = Infinity;
+    for (var i = 0; i < nodeCache.length; i++) {
+      var n = nodeCache[i];
+      if (n.el.dataset.sosa === String(currentSosa)) continue;
+      var dx = n.x - cx, dy = n.y - cy;
+      var ok = false;
+      if (dir === 'ArrowUp' && dy < -2) ok = true;
+      else if (dir === 'ArrowDown' && dy > 2) ok = true;
+      else if (dir === 'ArrowLeft' && dx < -2) ok = true;
+      else if (dir === 'ArrowRight' && dx > 2) ok = true;
+      if (!ok) continue;
+      var along, cross;
+      if (dir === 'ArrowUp' || dir === 'ArrowDown') {
+        along = Math.abs(dy); cross = Math.abs(dx);
+      } else {
+        along = Math.abs(dx); cross = Math.abs(dy);
+      }
+      var dist = along + cross * 5;
+      if (dist < bestDist) { bestDist = dist; best = n.el; }
+    }
+    return best;
+  }
+
   // On load: mark all implex nodes blue and add cross-references to tooltips
   function markImplexes() {
     var byHref = {};
@@ -868,6 +910,9 @@
           var dot = document.getElementById('s' + group[j].sosa);
           if (dot) {
             dot.style.background = '#1e90ff';
+            dot.style.color = '#ff0';
+            var spans = dot.querySelectorAll('a, span');
+            for (var k = 0; k < spans.length; k++) spans[k].style.color = '#ff0';
             dot.style.boxShadow = '0 0 3px 2px rgba(30,144,255,0.7)';
           }
           // add cross-ref to title if missing
@@ -918,14 +963,17 @@
     var s = parseInt(activeEl.dataset.sosa);
     var handled = false;
 
+    // Helper: get current dot position
+    var dot = document.getElementById('s' + s);
+    if (!dot) return;
+    var cx = dot.offsetLeft + dot.offsetWidth / 2;
+    var cy = dot.offsetTop + dot.offsetHeight / 2;
+
     if (e.shiftKey && e.key.startsWith('Arrow')) {
-      // Shift+arrow: spatial navigation along connected lines
-      var dot = document.getElementById('s' + s);
-      if (!dot) return;
-      var cx = dot.offsetLeft + dot.offsetWidth / 2;
-      var cy = dot.offsetTop + dot.offsetHeight / 2;
+      // Shift+arrow: spatial navigation along connected lines, fallback to nearest
       var target = findConnected(s, cx, cy, e.key);
       if (target !== null) handled = activateSosa(target);
+      if (!handled) { var nn = findNearest(cx, cy, e.key, s); if (nn) handled = activate(nn); }
     } else {
       var target = null;
       if (e.key === 'ArrowLeft') target = s * 2;
@@ -945,9 +993,13 @@
         e.preventDefault(); return;
       }
       if (target !== null) handled = activateSosa(target);
+      // Fallback: if genealogical target doesn't exist, find nearest in that direction
+      if (!handled && e.key.startsWith('Arrow')) {
+        var nn = findNearest(cx, cy, e.key, s);
+        if (nn) handled = activate(nn);
+      }
     }
     if (handled) e.preventDefault();
   });
 })();
 </script>
-%end;

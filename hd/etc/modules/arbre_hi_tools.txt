@@ -50,7 +50,6 @@
           <button id="hi-zoom-in" class="btn btn-outline-primary" title="Zoom in">+</button>
           <button id="hi-zoom-reset" class="btn btn-outline-primary" title="Reset to 100%%">Reset</button>
         </div>
-<span id="hi-nav-info" class="btn btn-outline-primary ml-2 disabled" style="white-space:nowrap;"></span>
       %end;
       %if;(e.sosa="on")
         <div class="btn-group mx-2">
@@ -76,6 +75,7 @@
           %end;
         </div>
       %end;
+      <span id="hi-nav-info" class="btn btn-outline-primary ml-2 disabled" style="white-space:nowrap;"></span>
     </div>
   %end;
 </div>

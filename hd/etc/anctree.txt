@@ -27,7 +27,9 @@
   %(js loaded before because jquery.line.js needs jquery loaded before %)
   %include;js
   <div style="position:sticky;top:0;z-index:100;background:#fff;">
-  %if;not cancel_links;%include;menubar%end;
+  %if;not cancel_links;
+    %include;menubar
+  %end;
   %include;modules/arbre_hi_tools
   %include;templm/tools
   </div>
