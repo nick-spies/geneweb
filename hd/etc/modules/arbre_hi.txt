@@ -997,8 +997,26 @@
     tree.style.height = treH + 'px';
   }
 
+  // Update "to Gen" in title to reflect actual deepest ancestor, not theoretical max
+  function fixToGen() {
+    var h2 = document.querySelector('h2.text-center');
+    if (!h2) return;
+    var m = h2.textContent.match(/to Gen (\d+)/);
+    if (!m) return;
+    var maxGen = 0;
+    var els = tree.querySelectorAll('a[data-sosa]');
+    for (var i = 0; i < els.length; i++) {
+      var t = els[i].getAttribute('title') || '';
+      var gm = t.match(/^Gen (\d+)/);
+      if (gm) { var g = parseInt(gm[1]); if (g > maxGen) maxGen = g; }
+    }
+    if (maxGen > 0 && maxGen < parseInt(m[1])) {
+      h2.textContent = h2.textContent.replace(/to Gen \d+/, 'to Gen ' + maxGen);
+    }
+  }
+
   // Focus sosa 1 on load
-  window.addEventListener('load', function() { activateSosa(1); buildCache(); markImplexes(); addGhostBoxes(); });
+  window.addEventListener('load', function() { activateSosa(1); buildCache(); markImplexes(); addGhostBoxes(); fixToGen(); });
 
   // Sosa search: inject into top navbar + make navbar sticky
   (function() {
