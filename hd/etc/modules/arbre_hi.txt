@@ -781,10 +781,12 @@
     // persistent glow on active + peers
     target.classList.add('hi-glow');
     for (var i = 0; i < peerEls.length; i++) peerEls[i].classList.add('hi-glow');
-    // scroll into view (skip for hover)
+    // scroll into view (skip for hover); suppress hover briefly after scroll
     if (!noScroll) {
+      scrollGuard = true;
       var scrollTarget = document.getElementById('s' + el.dataset.sosa) || target;
       scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      setTimeout(function() { scrollGuard = false; }, 800);
     }
     // update info bar
     if (infoEl) {
@@ -896,13 +898,9 @@
       if (group.length > 1) {
         var sosas = group.map(function(g) { return g.sosa; });
         for (var j = 0; j < group.length; j++) {
-          // color dot blue
+          // fuzzy blue outline on implex nodes (preserves gender background)
           var dot = document.getElementById('s' + group[j].sosa);
           if (dot) {
-            dot.style.background = '#1e90ff';
-            dot.style.color = '#ff0';
-            var spans = dot.querySelectorAll('a, span');
-            for (var k = 0; k < spans.length; k++) spans[k].style.color = '#ff0';
             dot.style.boxShadow = '0 0 3px 2px rgba(30,144,255,0.7)';
           }
           // add cross-ref to title if missing
@@ -982,9 +980,10 @@
     for (var i = 0; i < glowEls.length; i++) glowEls[i].classList.remove('hi-glow');
     glowEls = [];
   }
+  var scrollGuard = false;
   tree.addEventListener('mouseover', function(e) {
     var a = e.target.closest('a[data-sosa]');
-    if (!a) return;
+    if (!a || scrollGuard) return;
     clearTimeout(hoverTimer);
     hoverTimer = setTimeout(function() {
       if (activeEl === a) return;
