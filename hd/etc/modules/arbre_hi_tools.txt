@@ -23,9 +23,9 @@
         %end;
       </div>
       <div class="btn-group btn-group-sm mr-1">
-        <a href="%prefix;%sosa_ref.access;&m=A&t=T&t1=CT&hi=%if;(e.hi="H" or e.hi="")H%else;I%end;&v=%evarv;&sosa=%if;(e.sosa="on")on%end;&scale=%evarscl;&fs=%evarfs;"
+        <a id="hi-home-btn" href="#"
             class="btn btn-outline-primary"
-            title="[*htree] [with] %sosa_ref; ([Sosa 1])">
+            title="Return to %if;(e.ofn!="")%e.ofn; %e.osn;%else;%first_name; %surname;%end;">
             <i class="fa fa-house fa-fw"></i></a>
         <input id="hi-sosa-search" type="text" inputmode="numeric" class="btn btn-sm btn-outline-primary"
           style="width:4em;background:#fff;color:#495057;text-align:left;"

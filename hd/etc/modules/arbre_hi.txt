@@ -13,7 +13,7 @@
 %let;fs;%evarfs;%in;
 %( global sosa of the display root; prefer URL param over GeneWeb's min-sosa %)
 %let;dsosa;%if;(e.dsosa!="")%e.dsosa;%elseif;(sosa!="")%sosa;%else;1%end;%in;
-%( original person name — carried through re-roots via URL params %)
+%( original person — name carried through re-roots via URL params %)
 %let;ofn;%if;(e.ofn!="")%e.ofn;%else;%first_name;%end;%in;
 %let;osn;%if;(e.osn!="")%e.osn;%else;%surname;%end;%in;
 %( 2^(level-1) lookup for global sosa computation %)
@@ -44,16 +44,8 @@
 </style>
 <script>
   <!--
-  function over1(xx)
-  {
-   document.getElementById(xx).style.%if;(evarso="on")outline="#C0FEFF solid 6px"%else;backgroundColor="#CBFECE"%end;;
-   return false;
-  }
-  function out1(xx)
-  {
-   document.getElementById(xx).style.%if;(evarso="on")outline="none"%else;backgroundColor=""%end;;
-   return false;
-  }
+  function over1(xx) { return false; }
+  function out1(xx) { return false; }
   -->
 </script>
 %define;implexc(x0,y0,x1,y1)
@@ -775,6 +767,7 @@
     var box = document.getElementById('s' + a.dataset.sosa);
     return (box && box.querySelector('span')) ? box : a;
   }
+  var initialLoad = true;
   function activate(el, navDir, noScroll) {
     if (!el) return false;
     if (activeEl && activeEl !== el) {
@@ -803,11 +796,27 @@
     // persistent glow on active + peers
     target.classList.add('hi-glow');
     for (var i = 0; i < peerEls.length; i++) peerEls[i].classList.add('hi-glow');
-    // scroll into view (skip for hover); suppress hover briefly after scroll
+    // scroll into view (skip for hover); only scroll if element is near edge or off-screen
     if (!noScroll) {
       scrollGuard = true;
       var scrollTarget = document.getElementById('s' + el.dataset.sosa) || target;
-      scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      var margin = 60;
+      var nav = document.querySelector('nav.navbar');
+      var tb = document.getElementById('hi-toolbar');
+      var topOffset = (nav ? nav.offsetHeight : 0) + (tb ? tb.offsetHeight : 0) + margin;
+      var r = scrollTarget.getBoundingClientRect();
+      var inView = r.top >= topOffset && r.left >= margin &&
+                   r.bottom <= window.innerHeight - margin &&
+                   r.right <= window.innerWidth - margin;
+      if (!inView) {
+        var scrollBehavior = initialLoad ? 'instant' : 'smooth';
+        var dy = 0, dx = 0;
+        if (r.top < topOffset) dy = r.top - topOffset - margin;
+        else if (r.bottom > window.innerHeight - margin) dy = r.bottom - window.innerHeight + margin;
+        if (r.left < margin) dx = r.left - margin;
+        else if (r.right > window.innerWidth - margin) dx = r.right - window.innerWidth + margin;
+        window.scrollBy({ left: dx, top: dy, behavior: scrollBehavior });
+      }
       setTimeout(function() { scrollGuard = false; }, 800);
     }
     // update info bar
@@ -1069,7 +1078,18 @@
   }
 
   // Focus sosa 1 on load
-  window.addEventListener('load', function() { activateSosa(1); buildCache(); markImplexes(); addGhostBoxes(); fixToGen(); });
+  window.addEventListener('load', function() { activateSosa(1); initialLoad = false; buildCache(); markImplexes(); addGhostBoxes(); fixToGen(); });
+
+  // Home button: save original chart URL on first visit, reuse on re-roots
+  (function() {
+    var key = 'hi-home-url';
+    var params = new URLSearchParams(location.search);
+    if (!params.get('dsosa') || params.get('dsosa') === '1') {
+      sessionStorage.setItem(key, location.href);
+    }
+    var btn = document.getElementById('hi-home-btn');
+    if (btn) btn.href = sessionStorage.getItem(key) || location.href;
+  })();
 
   // Sosa search: inject into top navbar + make navbar sticky
   (function() {
