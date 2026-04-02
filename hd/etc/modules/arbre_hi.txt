@@ -30,6 +30,10 @@
 #hi-tree1 a.hi-implex-peer{outline:3px dotted #c33;outline-offset:-1px;border-radius:1px;}
 #hi-tree1 div.hi-active{outline:3px solid #000;outline-offset:-1px;border-radius:1px;}
 #hi-tree1 div.hi-implex-peer{outline:3px dotted #c33;outline-offset:-1px;border-radius:1px;}
+@keyframes hi-flash{0%{box-shadow:0 0 18px 12px rgba(255,200,0,0.95);}50%{box-shadow:0 0 12px 8px rgba(255,200,0,0.6);}100%{box-shadow:none;}}
+.hi-flash{animation:hi-flash 1.2s ease-out forwards;overflow:visible !important;}
+.hi-glow{box-shadow:0 0 14px 8px rgba(255,200,0,0.8) !important;overflow:visible !important;}
+.hi-implex-peer.hi-glow{box-shadow:0 0 14px 8px rgba(255,100,0,0.8) !important;}
 </style>
 <script>
   <!--
@@ -785,6 +789,16 @@
     var el = tree.querySelector('a[data-sosa="' + n + '"]');
     return el ? activate(el) : false;
   }
+  function flashNode(node) {
+    node.classList.remove('hi-flash');
+    void node.offsetWidth;
+    node.classList.add('hi-flash');
+    node.addEventListener('animationend', function() { node.classList.remove('hi-flash'); }, {once:true});
+  }
+  function flashActive() {
+    if (activeBox) flashNode(activeBox);
+    for (var i = 0; i < peerEls.length; i++) flashNode(peerEls[i]);
+  }
 
   // Build node position cache for spatial navigation
   var nodeCache = [];
@@ -904,16 +918,75 @@
   // Focus sosa 1 on load
   window.addEventListener('load', function() { activateSosa(1); buildCache(); markImplexes(); });
 
+  // Sosa search: inject into top navbar + make navbar sticky
+  (function() {
+    var navBar = document.querySelector('nav.navbar');
+    if (navBar) {
+      navBar.style.position = 'fixed';
+      navBar.style.top = '0';
+      navBar.style.left = '0';
+      navBar.style.right = '0';
+      navBar.style.zIndex = '101';
+      navBar.style.background = '#fff';
+      // push content below fixed navbar
+      document.body.style.paddingTop = navBar.offsetHeight + 'px';
+      var tb = document.getElementById('hi-toolbar');
+      if (tb) {
+        tb.style.position = 'fixed';
+        tb.style.top = navBar.offsetHeight + 'px';
+        tb.style.left = '0';
+        tb.style.right = '0';
+        tb.style.zIndex = '100';
+        document.body.style.paddingTop = (navBar.offsetHeight + tb.offsetHeight) + 'px';
+      }
+    }
+    var nav = document.querySelector('nav.navbar ul.nav');
+    if (!nav) return;
+    var li = document.createElement('li');
+    li.className = 'nav-item ml-2 d-flex align-items-center';
+    li.style.cssText = 'white-space:nowrap;';
+    li.innerHTML = '<i class="fa fa-search text-secondary mr-1"></i>' +
+      '<input id="hi-sosa-search" type="text" inputmode="numeric" class="form-control form-control-sm d-inline-block" ' +
+      'style="width:5em;height:1.8em;padding:1px 4px;font-size:13px;" title="Go to Sosa number">';
+    nav.appendChild(li);
+    document.getElementById('hi-sosa-search').addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      var n = parseInt(this.value);
+      if (!n || n < 1) return;
+      if (activateSosa(n)) {
+        flashActive();
+        var dot = document.getElementById('s' + n);
+        if (dot) dot.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      } else {
+        this.style.background = '#fdd';
+        var inp = this;
+        setTimeout(function() { inp.style.background = ''; }, 800);
+      }
+    });
+  })();
+
   // Hover dwell: hold pointer over a node to highlight it
   // If Cmd held on hover, show "Cmd+click: go to person" tooltip instead
   var hoverTimer = null;
   var hoveredA = null;
   var origTitle = '';
+  var glowEls = [];
+  function clearGlow() {
+    for (var i = 0; i < glowEls.length; i++) glowEls[i].classList.remove('hi-glow');
+    glowEls = [];
+  }
   tree.addEventListener('mouseover', function(e) {
     var a = e.target.closest('a[data-sosa]');
     if (!a) return;
     clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(function() { activate(a); }, 400);
+    hoverTimer = setTimeout(function() {
+      if (activeEl === a) return;
+      activate(a);
+      clearGlow();
+      if (activeBox) { activeBox.classList.add('hi-glow'); glowEls.push(activeBox); }
+      for (var i = 0; i < peerEls.length; i++) { peerEls[i].classList.add('hi-glow'); glowEls.push(peerEls[i]); }
+    }, 500);
     if (hoveredA !== a) {
       if (hoveredA) hoveredA.setAttribute('title', origTitle);
       hoveredA = a;
@@ -927,7 +1000,10 @@
   tree.addEventListener('mouseout', function(e) {
     var a = e.target.closest('a[data-sosa]');
     if (!a) return;
+    var related = e.relatedTarget;
+    if (related && a.contains(related)) return;
     clearTimeout(hoverTimer);
+    clearGlow();
     if (hoveredA === a) {
       a.setAttribute('title', origTitle);
       hoveredA = null; origTitle = '';
@@ -959,11 +1035,11 @@
     if (e.key.startsWith('Arrow')) e.preventDefault();
     // Cmd+Down = back in history, Cmd+Up = forward in history
     if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowDown' && backStack.length > 0) {
-      activate(backStack.pop(), 'back');
+      activate(backStack.pop(), 'back'); flashActive();
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowUp' && fwdStack.length > 0) {
-      activate(fwdStack.pop(), 'fwd');
+      activate(fwdStack.pop(), 'fwd'); flashActive();
       return;
     }
     var s = parseInt(activeEl.dataset.sosa);
@@ -995,6 +1071,7 @@
           var idx = matches.indexOf(activeEl);
           var ni = (idx + 1 < matches.length) ? idx + 1 : 0;
           handled = activate(matches[ni]);
+          if (handled) flashActive();
         }
         e.preventDefault(); return;
       }
@@ -1005,7 +1082,7 @@
         if (nn) handled = activate(nn);
       }
     }
-    if (handled) e.preventDefault();
+    if (handled) { flashActive(); e.preventDefault(); }
   });
 })();
 </script>
