@@ -11,6 +11,10 @@
 %let;evarscl;%if;(e.scale!="")%e.scale;%else;100%end;%in;
 %let;evarfs;%if;(e.fs!="")%e.fs;%else;17%end;%in;
 %let;fs;%evarfs;%in;
+%( global sosa of the display root; prefer URL param over GeneWeb's min-sosa %)
+%let;dsosa;%if;(e.dsosa!="")%e.dsosa;%elseif;(sosa!="")%sosa;%else;1%end;%in;
+%( 2^(level-1) lookup for global sosa computation %)
+%define;pow2(ll)%if;(ll=0)1%elseif;(ll=1)2%elseif;(ll=2)4%elseif;(ll=3)8%elseif;(ll=4)16%elseif;(ll=5)32%elseif;(ll=6)64%elseif;(ll=7)128%elseif;(ll=8)256%elseif;(ll=9)512%elseif;(ll=10)1024%elseif;(ll=11)2048%elseif;(ll=12)4096%else;8192%end;%end;
 %( dimensions des boites %)
 %( compact dot spacing: odd gens use 2:1 ratio for equal lines + square tree;
    even gens use 1:1 for square tree – lines taper smoothly by ~sqrt(2) per level %)
@@ -21,7 +25,7 @@
 %let;hb1;%if;cgi;22%else;%expr(22*evarscl/100)%end;%in; %( dimensions de la boite sosa %)
 %let;wb1;%if;cgi;38%else;%expr(38*evarscl/100)%end;%in;
 <style type="text/css">
-#hi-tree1 {position:relative;%if;(evarso="on")left:10px;%end;}
+#hi-tree1 {position:relative;}
 #hi-tree1 tt{position:absolute;line-height:10pt;font-family:monospace;}
 #hi-tree1 span{position:absolute;line-height:10pt;margin:%if;((evarv<9 and evarcpl!="on") or (evarv<10 and evarcpl="on"))8px 12px%else;0px 4px%end;}
 #hi-tree1 a{position:absolute;line-height:10pt;}
@@ -103,6 +107,9 @@
   %if;(sn>=2)%apply;sosapath(sn/2)%if;(sn %2=0) ♂%else; ♀%end;%end;
 %end;
 %define;boxcompact(aaa,yyy,lll,ttt)
+  %let;p2;%apply;pow2(level)%in;
+  %let;gsn;%expr((dsosa - 1) * p2 + aaaanc_sosa.v)%in;
+  %let;ggen;%expr(sgen + level - 1)%in;
   %let;sqsz;6%in;
   %let;hitsz;20%in;
   %let;sqtop;%expr(ttt-3)%in;
@@ -116,12 +123,12 @@
     z-index:2;pointer-events:none;">
   </div>
   <div style="position:absolute;top:%httop;px;left:%htleft;px;width:%hitsz;px;height:%hitsz;px;z-index:3;cursor:pointer;">
-    <a data-sosa="%aaaanc_sosa.v;" %if;(aaasame!="")data-same="%aaasame.v;" %end;tabindex="-1" style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;"
+    <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" %if;(aaasame!="")data-same="%aaasame.v;" %end;tabindex="-1" style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-      title='Gen %level; · Sosa %aaaanc_sosa;%nn;
-        %if;(aaasame!="") (=%aaasame;)%end;%nn;
-        %if;(evarcpl="on") & %expr(aaaanc_sosa.v+1)%end;%nn;
-        %if;(aaaanc_sosa.v>1) · %apply;sosapath(aaaanc_sosa.v)%end;%nn;
+      title='Gen %ggen; · Sosa %gsn;%nn;
+        %if;(aaasame!="") (=%expr((dsosa - 1) * p2 + aaasame.v))%end;%nn;
+        %if;(evarcpl="on") & %expr(gsn + 1)%end;%nn;
+        %if;(gsn>1) · %apply;sosapath(gsn)%end;%nn;
         &#010;%nn;
         %aaafirst_name; %aaasurname;%nn;
         %if;(aaabirth_date.year!="" and aaadeath_date.year!="") %aaabirth_date.year; – %aaadeath_date.year;%nn;
@@ -170,6 +177,9 @@
 
 %(a=ancestor, s=sosa, p=has_parents, bg=background, t=top, l=left  %)
 %define;boxsosa(aaa, sss, ppp, bgg, lll, ttt)
+  %let;p2;%apply;pow2(level)%in;
+  %let;gsn;%expr((dsosa - 1) * p2 + aaaanc_sosa.v)%in;
+  %let;ggen;%expr(sgen + level - 1)%in;
   %let;bg_col;bgg%in;
   <div id="s%aaaanc_sosa.v;"%nn;
     style="position:absolute;border:solid 1px;top:tttpx;left:lllpx;%nn;
@@ -180,7 +190,7 @@
     %if;(e.cgl="on")
       %let;width;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
       %let;imsz;%if;(boxsize=2)%expr(hb1*2-8)%else;%expr(hb1-4)%end;%in;
-      %let;fs1;%if;(sss>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
+      %let;fs1;%if;(gsn>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
       %let;tm;%if;(boxsize=2)8%else;2%end;%in;
       %let;dw1;%expr(width-imsz)%in;
       %let;dw2;%expr(width-2*imsz)%in;
@@ -191,7 +201,7 @@
           <img style="max-width:%imsz;px;max-height:%imsz;px;display:block" src="%aaaimage_url;" alt="[image/images]0">
         %end;
         <span style="margin:0 0 2px 0;text-align:center;width:%dw1;px;font-size:%fs1;px;">
-          %if;(aaaanc_sosa!="")%aaaanc_sosa;%else;1%end;
+          %gsn;
         </span>
         </div>
       %else;
@@ -202,7 +212,7 @@
           <div style="margin:0 0 2px 0;width:%imsz;px"></div>
         %end;%nn;
         <div style="margin:0 0 2px 0;text-align:center;width:%dw2;px;font-size:%fs1;px;">%nn;
-          %if;(aaaanc_sosa!="")%aaaanc_sosa;%else;1%end;%nn;
+          %gsn;%nn;
         </div>%nn;
         %if;(aaaspouse.has_image)%nn;
           <div style="margin:0 0 2px 0"><img style="max-width:%imsz;px;max-height:%imsz;px;display:block" src="%aaaspouse.image_url;" alt="[image/images]0"></div>%nn;
@@ -211,14 +221,14 @@
       %end;
     %end;
     %if;(e.cgl!="on")
-      <a data-sosa="%aaaanc_sosa.v;" data-purl="%prefix;%aaaaccess;" tabindex="-1" style="display:flex;align-items:center;justify-content:center;width:100%%;height:100%%;z-index:2;"
-        href="%prefix_base_password;%aaaaccess;&t=T&t1=CT&
+      <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" data-purl="%prefix;%aaaaccess;" tabindex="-1" style="display:flex;align-items:center;justify-content:center;width:100%%;height:100%%;z-index:2;"
+        href="%prefix_base_password;%aaaaccess;&t=T&t1=CT&dsosa=%gsn;&
           %foreach;env_binding;%if;(not (env.key="t" or env.key="t1" or env.key="p"
-            or env.key="n" or env.key="oc"))%env.key=%env.val;&%end;%end;"
+            or env.key="n" or env.key="oc" or env.key="dsosa"))%env.key=%env.val;&%end;%end;"
         %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-        title='Gen %level; · Sosa %aaaanc_sosa;%nn;
-          %if;(aaasame!="") (=%aaasame;)%end;%nn;
-          %if;(evarcpl="on") & %expr(aaaanc_sosa.v+1)%end;%nn;
+        title='Gen %ggen; · Sosa %gsn;%nn;
+          %if;(aaasame!="") (=%expr((dsosa - 1) * p2 + aaasame.v))%end;%nn;
+          %if;(evarcpl="on") & %expr(gsn + 1)%end;%nn;
           &#010;%nn;
           %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname;&#010;%nn;
           %if;(aaabirth_date.year!="" and aaadeath_date.year!="")%aaabirth_date.year; – %aaadeath_date.year;&#010;%nn;
@@ -235,10 +245,9 @@
             %if;(not aaaspouse.has_parents) [*missing parents]%end;%nn;
           %end;%nn;
           %if;(aaahas_parents and level=evarv)Click for ancestors%end;'>%nn;
-        %let;fs1;%if;(sss>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
+        %let;fs1;%if;(gsn>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
         %let;tm;%if;(boxsize=2)8%else;2%end;%in;
-        <span style="text-align:center;width:100%%;font-size:%fs1;px;">%nn;
-          %if;(aaaanc_sosa!="")%aaaanc_sosa;%else;1%end;</span>
+        <span style="text-align:center;width:100%%;font-size:%fs1;px;">%gsn;</span>
       </a>
     %end;
   </div>
@@ -291,14 +300,17 @@
 %end;
 
 %define;boxchar(aaa,yyy,lll,ttt) %( ttt and lll seem to be inversed in boxsosa%)
+  %let;p2;%apply;pow2(level)%in;
+  %let;gsn;%expr((dsosa - 1) * p2 + aaaanc_sosa.v)%in;
+  %let;ggen;%expr(sgen + level - 1)%in;
   %let;xxx;%if;(evarcpl="on")%expr(aaaanc_sosa.v/2)%else;%aaaanc_sosa.v;%end;%in;
   <div id="s%aaaanc_sosa.v;" style="font-family:monospace;margin:0">
     %(%let;anclev;%expr(evarv-aaaanc_sosa.lvl+2)%in;%)
     <a style="top:tttpx;left:lllpx;" href="%url_set.i_p_n_oc;&%aaaaccess;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-      title='Gen %level; – Sosa %nn;
-        %if;(evarcpl="")%aaaanc_sosa; %if;(aaasame!="")=Sosa %aaasame;%end;
-        %else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%nn;
+      title='Gen %ggen; – Sosa %nn;
+        %if;(evarcpl="")%gsn; %if;(aaasame!="")=Sosa %expr((dsosa - 1) * p2 + aaasame.v)%end;
+        %else;%gsn; & %expr(gsn + 1)%nn;
         %end;%nn;
         %if;(aaasosa!="") ([n° Sosa] %aaasosa;)%end;&#010;%nn;
         %(%if;("aaainterval"!="")=Sosa %aaainterval;;%else;%aaaanc_sosa; & %expr(aaaanc_sosa.v+1)%end;&#010;%)%nn;
@@ -619,8 +631,15 @@
 %define;my_title(aa, bb, tt)
  [*aa:::bb:tt]
 %end;
-
-<h2 class="display-5 ml-5 mt-2">%apply;my_title("ancestors tree of", evarhi, first_name) %surname; %dates (%evarv; [generation/generations]1)</h2>
+%let;sgen;%if;(dsosa<2)1%elseif;(dsosa<4)2%elseif;(dsosa<8)3%elseif;(dsosa<16)4%elseif;(dsosa<32)5%elseif;(dsosa<64)6%elseif;(dsosa<128)7%elseif;(dsosa<256)8%elseif;(dsosa<512)9%elseif;(dsosa<1024)10%elseif;(dsosa<2048)11%elseif;(dsosa<4096)12%elseif;(dsosa<8192)13%elseif;(dsosa<16384)14%elseif;(dsosa<32768)15%elseif;(dsosa<65536)16%elseif;(dsosa<131072)17%elseif;(dsosa<262144)18%elseif;(dsosa<524288)19%elseif;(dsosa<1048576)20%elseif;(dsosa<2097152)21%elseif;(dsosa<4194304)22%elseif;(dsosa<8388608)23%elseif;(dsosa<16777216)24%elseif;(dsosa<33554432)25%elseif;(dsosa<67108864)26%elseif;(dsosa<134217728)27%elseif;(dsosa<268435456)28%elseif;(dsosa<536870912)29%elseif;(dsosa<1073741824)30%else;31%end;%in;
+<h2 class="mt-2 mb-5 text-center">%nn;
+  %if;(sosa_ref.first_name=first_name and sosa_ref.surname=surname)%nn;
+    %apply;my_title("ancestors tree of", evarhi, first_name) %surname; %dates%nn;
+  %else;%nn;
+    [*ancestor/ancestors]1 [of] %sosa_ref.first_name; %sosa_ref.surname;%nn;
+    %if;(dsosa>1)%sp;— from Sosa %dsosa; %first_name; %surname; %dates (to Gen %expr(sgen + evarv - 1))%end;%nn;
+  %end;%nn;
+</h2>
 %let;boxsize;%if;((evarv<9 and evarcpl!="on") or (evarv<10 and evarcpl="on"))2%else;1%end;%in;
 %if;((evarcpl="on" and evarv < 4) or (evarcpl!="on" and evarv < 3))
   [*compact tree][:] [specify::generation/generations]0 > 3.
@@ -641,12 +660,12 @@
     %if;(evarhi="I")
       %if;(evarso="on")
         %if;(evarv < 13 and evarcpl="on")
-          <div id="hi-tree1" style="width:%wids;px;height:%higs;px">
+          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto">
           %apply;graphlinks(evarv,"I")
           %apply;graph(evarv,"I",2)
           </div>
         %elseif;(evarv < 12 and evarcpl!="on")
-          <div id="hi-tree1" style="width:%wids;px;height:%higs;px">
+          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto">
           %apply;graphlinks(evarv+1,"I")
           %apply;graph(evarv+1,"I",1)
           </div>
@@ -655,12 +674,12 @@
         %end;
       %else;
         %if;(evarv < 14 and evarcpl="on")
-          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:0 auto;transform-origin:center top">
+          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:10px auto;transform-origin:center top">
             %apply;graphlinks(evarv,"I")
             %apply;graph(evarv,"I",2)
           </div>
         %elseif;(evarv < 13 and evarcpl!="on")
-          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:0 auto;transform-origin:center top">
+          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:10px auto;transform-origin:center top">
             %apply;graphlinks(evarv+1,"I")
             %apply;graph(evarv+1,"I",1)
           </div>
@@ -671,12 +690,12 @@
     %elseif;(evarhi="H")
       %if;(evarso="on")
         %if;(evarv < 13 and evarcpl="on")
-          <div id="hi-tree1" style="width:%wids;px;height:%higs;px">
+          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto">
             %apply;graphlinks(evarv,"H")
             %apply;graph(evarv,"H",2)
           </div>
         %elseif;(evarv < 12 and evarcpl!="on")
-          <div id="hi-tree1" style="width:%wids;px;height:%higs;px">
+          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto">
             %apply;graphlinks(evarv+1,"H")
             %apply;graph(evarv+1,"H",1)
           </div>
@@ -685,12 +704,12 @@
         %end;
       %else;
         %if;(evarv < 14 and evarcpl="on")
-          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:0 auto;transform-origin:center top">
+          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:10px auto;transform-origin:center top">
             %apply;graphlinks(evarv,"H")
             %apply;graph(evarv,"H",2)
           </div>
         %elseif;(evarv < 13 and evarcpl!="on")
-          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:0 auto;transform-origin:center top">
+          <div id="hi-tree1" style="position:relative;width:%widc;px;height:%higc;px;margin:10px auto;transform-origin:center top">
             %apply;graphlinks(evarv+1,"H")
             %apply;graph(evarv+1,"H",1)
           </div>
@@ -1092,6 +1111,11 @@
 
   document.addEventListener('keydown', function(e) {
     if (!activeEl) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      window.location.href = activeEl.getAttribute('href');
+      return;
+    }
     if (e.key.startsWith('Arrow')) e.preventDefault();
     // Cmd+Down = back in history, Cmd+Up = forward in history
     if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowDown' && backStack.length > 0) {
