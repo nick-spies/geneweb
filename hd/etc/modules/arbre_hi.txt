@@ -41,6 +41,11 @@
 .hi-flash{animation:hi-flash 1.2s ease-out forwards;overflow:visible !important;}
 .hi-glow{box-shadow:0 0 14px 8px rgba(255,200,0,0.8) !important;overflow:visible !important;}
 .hi-implex-peer.hi-glow{box-shadow:0 0 14px 8px rgba(255,100,0,0.8) !important;}
+.hi-balloon{position:absolute;top:-24px;left:50%%;transform:translateX(-50%%);background:#fff;border:1px solid #888;border-radius:8px;padding:1px 5px;font-size:11px;line-height:14px;white-space:nowrap;z-index:10;box-shadow:1px 1px 3px rgba(0,0,0,0.2);pointer-events:none;display:none;}
+div.hi-active .hi-balloon,div.hi-implex-peer .hi-balloon{display:block;}
+div.hi-active,div.hi-implex-peer{z-index:20 !important;}
+.hi-balloon::after{content:'';position:absolute;bottom:-5px;right:calc(50%% - 5px);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid #888;}
+.hi-balloon::before{content:'';position:absolute;bottom:-4px;right:calc(50%% - 4px);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid #fff;z-index:1;}
 </style>
 <script>
   <!--
@@ -180,7 +185,7 @@
     style="position:absolute;border:solid 1px;top:tttpx;left:lllpx;%nn;
     width:%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;px;%nn;
     height:%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;px;%nn;
-    %if;(not aaais_male)border-radius:6px;%end;background-color:%if;(aaais_male)#D0E4F5%else;#F5D0D8%end;;overflow:hidden;z-index:2">
+    %if;(not aaais_male)border-radius:6px;%end;background-color:%if;(aaais_male)#D0E4F5%else;#F5D0D8%end;;overflow:visible;z-index:2">
     %let;imsz;%if;(boxsize=2)%expr(hb1*2-14)%else;%expr(hb1-4)%end;%in;
     %if;(e.cgl="on")
       %let;width;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
@@ -195,7 +200,7 @@
         %if;(aaahas_image)
           <img style="max-width:%imsz;px;max-height:%imsz;px;display:block" src="%aaaimage_url;" alt="[image/images]0">
         %end;
-        <span style="margin:0 0 2px 0;text-align:center;width:%dw1;px;font-size:%fs1;px;">
+        <span style="margin:0 0 2px 0;text-align:center;width:%dw1;px;font-size:%fs1;px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
           %gsn;
         </span>
         </div>
@@ -206,7 +211,7 @@
         %else;
           <div style="margin:0 0 2px 0;width:%imsz;px"></div>
         %end;%nn;
-        <div style="margin:0 0 2px 0;text-align:center;width:%dw2;px;font-size:%fs1;px;">%nn;
+        <div style="margin:0 0 2px 0;text-align:center;width:%dw2;px;font-size:%fs1;px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">%nn;
           %gsn;%nn;
         </div>%nn;
         %if;(aaaspouse.has_image)%nn;
@@ -242,7 +247,8 @@
           %if;(aaahas_parents and level=evarv)Click for ancestors%end;'>%nn;
         %let;fs1;%if;(gsn>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
         %let;tm;%if;(boxsize=2)8%else;2%end;%in;
-        <span style="text-align:center;width:100%%;font-size:%fs1;px;">%gsn;</span>
+        %if;(gsn>999)<span class="hi-balloon">%gsn;</span>%nn;
+        %else;<span style="display:block;text-align:center;width:100%%;font-size:%fs1;px;">%gsn;</span>%end;
       </a>
     %end;
   </div>
@@ -810,11 +816,13 @@
                    r.right <= window.innerWidth - margin;
       if (!inView) {
         var scrollBehavior = initialLoad ? 'instant' : 'smooth';
-        var dy = 0, dx = 0;
-        if (r.top < topOffset) dy = r.top - topOffset - margin;
-        else if (r.bottom > window.innerHeight - margin) dy = r.bottom - window.innerHeight + margin;
-        if (r.left < margin) dx = r.left - margin;
-        else if (r.right > window.innerWidth - margin) dx = r.right - window.innerWidth + margin;
+        var midY = (r.top + r.bottom) / 2;
+        var midX = (r.left + r.right) / 2;
+        var visibleTop = topOffset - margin;
+        var visibleMidY = (visibleTop + window.innerHeight) / 2;
+        var visibleMidX = window.innerWidth / 2;
+        var dy = midY - visibleMidY;
+        var dx = midX - visibleMidX;
         window.scrollBy({ left: dx, top: dy, behavior: scrollBehavior });
       }
       setTimeout(function() { scrollGuard = false; }, 800);
