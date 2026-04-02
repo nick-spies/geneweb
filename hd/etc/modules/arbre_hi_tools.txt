@@ -32,10 +32,7 @@
         <a href="%if;(e.sosa!="on")%url_set.sosa.on;%else;%url_set.sosa;%end;" class="btn btn-outline-primary ml-1"
           title="%if;(e.sosa="on")Compact dot view%else;Sosa box view%end;">%nn;
           %if;(e.sosa!="on")Sosa%else;Compact%end;</a>
-        %if;(e.sosa="on")
-          <a href="%if;(e.sms!="on")%url_set.sms.on;%else;%url_set.sms;%end;" class="btn btn-outline-primary ml-1"
-            title="%if;(e.sms!="on")[*visualize/show/hide/summary]1%else;[*visualize/show/hide/summary]2%end; [missing %s:::Sosa]0">%if;(e.sms!="on")·%else;x%end;</a>
-        %end;
+        %(missing Sosa button removed — ghost boxes replace this%)
         <a href="%if;(e.cpl!="on")%url_set.cpl.on;%else;%url_set.cpl;%end;" class="btn btn-outline-primary ml-1"
           title="[*visualize/show/hide/summary]1%if;(e.cpl!="on") [couples]%else;[individuals]%end;">
           %if;(e.cpl!="on")<i class="fa fa-user-plus" aria-hidden="true"></i>%end;<i class="fa fa-user" aria-hidden="true"></i></a>

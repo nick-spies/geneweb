@@ -137,7 +137,7 @@
           %end;%nn;
           %if;(not aaaspouse.has_parents)&#010;[*missing parents]%end;%nn;
         %end;%nn;
-        %if;(aaahas_parents)Click for ancestors%end;'>%nn;
+        %if;(aaahas_parents and level=evarv)Click for ancestors%end;'>%nn;
     </a>
   </div>
 %end;
@@ -234,7 +234,7 @@
             %end;&#010;%nn;
             %if;(not aaaspouse.has_parents) [*missing parents]%end;%nn;
           %end;%nn;
-          %if;(aaahas_parents)Click for ancestors%end;'>%nn;
+          %if;(aaahas_parents and level=evarv)Click for ancestors%end;'>%nn;
         %let;fs1;%if;(sss>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
         %let;tm;%if;(boxsize=2)8%else;2%end;%in;
         <span style="text-align:center;width:100%%;font-size:%fs1;px;">%nn;
@@ -921,8 +921,65 @@
     }
   }
 
+  // Ghost boxes: faint placeholders beyond chart edge for ancestors with parents
+  function addGhostBoxes() {
+    // For each last-gen ancestor with parents beyond the chart, place ghost boxes
+    // where father (sosa*2) and mother (sosa*2+1) would appear.
+    // H-tree geometry: next-gen offset = parent-to-child offset rotated 90° and halved.
+    var all = tree.querySelectorAll('a[data-sosa]');
+    var maxGen = 0;
+    for (var i = 0; i < all.length; i++) {
+      var g = Math.floor(Math.log2(parseInt(all[i].dataset.sosa)));
+      if (g > maxGen) maxGen = g;
+    }
+    for (var i = 0; i < all.length; i++) {
+      var s = parseInt(all[i].dataset.sosa);
+      if (Math.floor(Math.log2(s)) !== maxGen) continue;
+      var title = all[i].getAttribute('title') || '';
+      if (title.indexOf('Click for ancestors') < 0) continue;
+      var box = document.getElementById('s' + s);
+      if (!box) continue;
+      var bx = box.offsetLeft, by = box.offsetTop;
+      var bw = box.offsetWidth, bh = box.offsetHeight;
+      // Measure parent-to-child offset from this node's parent (sosa/2)
+      var parentSosa = Math.floor(s / 2);
+      var parentBox = document.getElementById('s' + parentSosa);
+      if (parentBox) {
+        var px = parentBox.offsetLeft, py = parentBox.offsetTop;
+        var dx = bx - px, dy = by - py;
+        // Next gen: rotate 90° and halve
+        var nx = -dy / 2, ny = dx / 2;
+        var gx1 = bx + nx, gy1 = by + ny;
+        var gx2 = bx - nx, gy2 = by - ny;
+        for (var gi = 0; gi < 2; gi++) {
+          var ghost = document.createElement('div');
+          ghost.style.cssText = 'position:absolute;' +
+            'top:' + (gi === 0 ? gy1 : gy2) + 'px;' +
+            'left:' + (gi === 0 ? gx1 : gx2) + 'px;' +
+            'width:' + bw + 'px;height:' + bh + 'px;' +
+            'background:rgba(160,160,160,0.35);' +
+            'border:2px dashed rgba(100,100,100,0.6);' +
+            'z-index:1;pointer-events:none;';
+          tree.appendChild(ghost);
+        }
+      }
+    }
+    // Expand tree container if ghosts overflow
+    var treW = parseInt(tree.style.width) || tree.offsetWidth;
+    var treH = parseInt(tree.style.height) || tree.offsetHeight;
+    var ghosts = tree.querySelectorAll('div[style*="dashed"]');
+    for (var i = 0; i < ghosts.length; i++) {
+      var r = ghosts[i].offsetLeft + ghosts[i].offsetWidth + 10;
+      var b = ghosts[i].offsetTop + ghosts[i].offsetHeight + 10;
+      if (r > treW) treW = r;
+      if (b > treH) treH = b;
+    }
+    tree.style.width = treW + 'px';
+    tree.style.height = treH + 'px';
+  }
+
   // Focus sosa 1 on load
-  window.addEventListener('load', function() { activateSosa(1); buildCache(); markImplexes(); });
+  window.addEventListener('load', function() { activateSosa(1); buildCache(); markImplexes(); addGhostBoxes(); });
 
   // Sosa search: inject into top navbar + make navbar sticky
   (function() {
