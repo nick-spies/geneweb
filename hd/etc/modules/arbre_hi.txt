@@ -124,17 +124,20 @@
         %if;(aaaanc_sosa.v>1) · %apply;sosapath(aaaanc_sosa.v)%end;%nn;
         &#010;%nn;
         %aaafirst_name; %aaasurname;%nn;
-        %if;(aaabirth_date.year!="") ° %aaabirth_date.year;%end;%nn;
-        %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
-        %if;(aaabirth_date.year="" and aaadeath_date.year!="") †%else;%aaadeath_date.year;%end;%nn;
-        %if;(not aaahas_parents)&#010;[*missing parents].%end;%nn;
+        %if;(aaabirth_date.year!="" and aaadeath_date.year!="") %aaabirth_date.year; – %aaadeath_date.year;%nn;
+        %elseif;(aaabirth_date.year!="") °%aaabirth_date.year;%nn;
+        %elseif;(aaadeath_date.year!="") †%aaadeath_date.year;%nn;
+        %end;%nn;
+        %if;(not aaahas_parents) &#010;[*missing parents]%end;%nn;
         %if;(aaasame="" and aaahas_families and evarcpl="on")&#010;%nn;
           %aaaspouse; (%aaaspouse.occ;)%nn;
-          %if;(aaaspouse.birth_date.year!="") ° %aaaspouse.birth_date.year;%end;%nn;
-          %if;(aaaspouse.birth_date.year!="" and aaaspouse.is_dead) – %end;%nn;
-          %if;(aaaspouse.birth_date.year="" and aaaspouse.death_date.year!="") †%else;%aaaspouse.death_date.year;%end;%nn;
-          %if;(not aaaspouse.has_parents)&#010;[*missing parents].%end;%nn;
-        %end;'>%nn;
+          %if;(aaaspouse.birth_date.year!="" and aaaspouse.death_date.year!="") %aaaspouse.birth_date.year; – %aaaspouse.death_date.year;%nn;
+          %elseif;(aaaspouse.birth_date.year!="") °%aaaspouse.birth_date.year;%nn;
+          %elseif;(aaaspouse.death_date.year!="") †%aaaspouse.death_date.year;%nn;
+          %end;%nn;
+          %if;(not aaaspouse.has_parents)&#010;[*missing parents]%end;%nn;
+        %end;%nn;
+        %if;(aaahas_parents)Click for ancestors%end;'>%nn;
     </a>
   </div>
 %end;
@@ -170,14 +173,6 @@
   %let;bg_col;bgg%in;
   <div id="s%aaaanc_sosa.v;"%nn;
     style="position:absolute;border:solid 1px;top:tttpx;left:lllpx;%nn;
-    %if;(aaasame="")
-      %if;(evarcpl="on")
-        %if;(not aaahas_parents)border-left: 3px solid;%end;%nn;
-        %if;(not aaaspouse.has_parents)border-right: 3px solid;%end;%nn;
-      %elseif;(not aaahas_parents )
-         border-top:3px solid;%nn;
-      %end;
-    %end;
     width:%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;px;%nn;
     height:%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;px;%nn;
     %if;(not aaais_male)border-radius:6px;%end;background-color:%if;(aaais_male)#D0E4F5%else;#F5D0D8%end;;overflow:hidden;z-index:2">
@@ -216,7 +211,7 @@
       %end;
     %end;
     %if;(e.cgl!="on")
-      <a data-sosa="%aaaanc_sosa.v;" data-purl="%prefix;%aaaaccess;" tabindex="-1" style="display:block;width:100%%;height:100%%;z-index:2;"
+      <a data-sosa="%aaaanc_sosa.v;" data-purl="%prefix;%aaaaccess;" tabindex="-1" style="display:flex;align-items:center;justify-content:center;width:100%%;height:100%%;z-index:2;"
         href="%prefix_base_password;%aaaaccess;&t=T&t1=CT&
           %foreach;env_binding;%if;(not (env.key="t" or env.key="t1" or env.key="p"
             or env.key="n" or env.key="oc"))%env.key=%env.val;&%end;%end;"
@@ -226,20 +221,23 @@
           %if;(evarcpl="on") & %expr(aaaanc_sosa.v+1)%end;%nn;
           &#010;%nn;
           %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname;&#010;%nn;
-          %if;(aaabirth_date.year!="")° %aaabirth_date.year;%end;%nn;
-          %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
-          %if;(aaabirth_date.year="" and aaadeath_date.year!="")†%else;%aaadeath_date.year;%end;&#010;%nn;
-          %if;(not aaahas_parents) [*missing parents].&#010;%end;%nn;
+          %if;(aaabirth_date.year!="" and aaadeath_date.year!="")%aaabirth_date.year; – %aaadeath_date.year;&#010;%nn;
+          %elseif;(aaabirth_date.year!="")°%aaabirth_date.year;&#010;%nn;
+          %elseif;(aaadeath_date.year!="")†%aaadeath_date.year;&#010;%nn;
+          %end;%nn;
+          %if;(not aaahas_parents) [*missing parents]&#010;%end;%nn;
           %if;(aaasame=""  and aaahas_families and evarcpl="on")%nn;
             %if;(aaaspouse.is_male) ♂%else; ♀%end; %aaaspouse; (%aaaspouse.occ;)&#010;%nn;
-            %if;(aaaspouse.birth_date.year!="")° %aaaspouse.birth_date.year;%end;%nn;
-            %if;(aaaspouse.birth_date.year!="" and aaaspouse.is_dead) – %end;%nn;
-            %if;(aaaspouse.birth_date.year="" and aaaspouse.death_date.year!="")†%else;%aaaspouse.death_date.year;%end;&#010;%nn;
-            %if;(not aaaspouse.has_parents) [*missing parents].%end;%nn;
-          %end;'>%nn;
+            %if;(aaaspouse.birth_date.year!="" and aaaspouse.death_date.year!="")%aaaspouse.birth_date.year; – %aaaspouse.death_date.year;%nn;
+            %elseif;(aaaspouse.birth_date.year!="")°%aaaspouse.birth_date.year;%nn;
+            %elseif;(aaaspouse.death_date.year!="")†%aaaspouse.death_date.year;%nn;
+            %end;&#010;%nn;
+            %if;(not aaaspouse.has_parents) [*missing parents]%end;%nn;
+          %end;%nn;
+          %if;(aaahas_parents)Click for ancestors%end;'>%nn;
         %let;fs1;%if;(sss>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
         %let;tm;%if;(boxsize=2)8%else;2%end;%in;
-        <span style="margin:%tm;px 0 2px 0;text-align:center;width:100%%;font-size:%fs1;px;">%nn;
+        <span style="text-align:center;width:100%%;font-size:%fs1;px;">%nn;
           %if;(aaaanc_sosa!="")%aaaanc_sosa;%else;1%end;</span>
       </a>
     %end;
@@ -308,13 +306,13 @@
         %if;(aaabirth_date.year!="")° %aaabirth_date.year;%end;%nn;
         %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
         %if;(aaabirth_date.year="" and aaadeath_date.year!="")†%else;%aaadeath_date.year;%end;&#010;%nn;
-        %if;(not aaahas_parents) [*missing parents].&#010;%end;%nn;
+        %if;(not aaahas_parents) [*missing parents]&#010;%end;%nn;
         %if;(aaasame="" and aaahas_families and evarcpl="on")%nn;
           %if;(aaaspouse.is_male) ♂%else; ♀%end; %aaaspouse; (%aaaspouse.occ;)&#010;%nn;
           %if;(aaaspouse.birth_date.year!="")° %aaaspouse.birth_date.year;%end;%nn;
           %if;(aaaspouse.birth_date.year!="" and aaaspouse.is_dead) – %end;%nn;
           %if;(aaaspouse.birth_date.year="" and aaaspouse.death_date.year!="")†%else;%aaaspouse.death_date.year;%end;&#010;%nn;
-          %if;(not aaaspouse.has_parents) [*missing parents].%end;%nn;
+          %if;(not aaaspouse.has_parents) [*missing parents]%end;%nn;
         %end;'>%nn;
     %if;(xxx=1)┼
     %elseif;((xxx>1 and xxx<4) or (xxx>7 and xxx<16) or (xxx>31 and xxx<64) or
@@ -748,40 +746,50 @@
   var activeBox = null;
   var backStack = [];
   var fwdStack = [];
+  // Person identity key: data-purl (Sosa box mode) or href (compact dot mode)
+  function personKey(a) { return a.dataset.purl || a.getAttribute('href'); }
   // Get the highlight target: the parent box div in Sosa mode, the <a> itself in compact
   function hlTarget(a) {
     var box = document.getElementById('s' + a.dataset.sosa);
     return (box && box.querySelector('span')) ? box : a;
   }
-  function activate(el, navDir) {
+  function activate(el, navDir, noScroll) {
     if (!el) return false;
     if (activeEl && activeEl !== el) {
       if (navDir === 'back') { fwdStack.push(activeEl); }
       else if (navDir === 'fwd') { backStack.push(activeEl); }
       else { backStack.push(activeEl); fwdStack = []; }
     }
-    if (activeBox) activeBox.classList.remove('hi-active');
-    // clear previous peer highlights
-    for (var i = 0; i < peerEls.length; i++) peerEls[i].classList.remove('hi-implex-peer');
+    if (activeBox) { activeBox.classList.remove('hi-active'); activeBox.classList.remove('hi-glow'); }
+    // clear previous peer highlights + glow
+    for (var i = 0; i < peerEls.length; i++) { peerEls[i].classList.remove('hi-implex-peer'); peerEls[i].classList.remove('hi-glow'); }
     peerEls = [];
     var target = hlTarget(el);
     target.classList.add('hi-active');
     activeBox = target;
     activeEl = el;
     // highlight implex peers
-    var href = el.getAttribute('href');
+    var pk = personKey(el);
     var peers = tree.querySelectorAll('a[data-sosa]');
     for (var i = 0; i < peers.length; i++) {
-      if (peers[i] !== el && peers[i].getAttribute('href') === href) {
+      if (peers[i] !== el && personKey(peers[i]) === pk) {
         var pt = hlTarget(peers[i]);
         pt.classList.add('hi-implex-peer');
         peerEls.push(pt);
       }
     }
+    // persistent glow on active + peers
+    target.classList.add('hi-glow');
+    for (var i = 0; i < peerEls.length; i++) peerEls[i].classList.add('hi-glow');
+    // scroll into view (skip for hover)
+    if (!noScroll) {
+      var scrollTarget = document.getElementById('s' + el.dataset.sosa) || target;
+      scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }
     // update info bar
     if (infoEl) {
       var t = el.getAttribute('title') || '';
-      infoEl.textContent = t.replace(/\n/g, ' \u00b7 ');
+      infoEl.textContent = t.replace(/\n/g, ' \u00b7 ').replace(/( \u00b7 )+$/, '').replace(/^( \u00b7 )+/, '');
     }
     return true;
   }
@@ -879,7 +887,7 @@
     var byHref = {};
     var els = tree.querySelectorAll('a[data-sosa]');
     for (var i = 0; i < els.length; i++) {
-      var h = els[i].getAttribute('href');
+      var h = personKey(els[i]);
       if (!byHref[h]) byHref[h] = [];
       byHref[h].push({ sosa: els[i].dataset.sosa, el: els[i] });
     }
@@ -956,8 +964,6 @@
       if (!n || n < 1) return;
       if (activateSosa(n)) {
         flashActive();
-        var dot = document.getElementById('s' + n);
-        if (dot) dot.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
       } else {
         this.style.background = '#fdd';
         var inp = this;
@@ -982,10 +988,7 @@
     clearTimeout(hoverTimer);
     hoverTimer = setTimeout(function() {
       if (activeEl === a) return;
-      activate(a);
-      clearGlow();
-      if (activeBox) { activeBox.classList.add('hi-glow'); glowEls.push(activeBox); }
-      for (var i = 0; i < peerEls.length; i++) { peerEls[i].classList.add('hi-glow'); glowEls.push(peerEls[i]); }
+      activate(a, null, true);
     }, 500);
     if (hoveredA !== a) {
       if (hoveredA) hoveredA.setAttribute('title', origTitle);
@@ -995,6 +998,8 @@
     if (cmdHeld) {
       var name = origTitle.split('\n')[1] || '';
       a.setAttribute('title', '\u2318+click: go to ' + name.trim());
+    } else if (hoveredA === a) {
+      a.setAttribute('title', origTitle);
     }
   });
   tree.addEventListener('mouseout', function(e) {
@@ -1003,7 +1008,6 @@
     var related = e.relatedTarget;
     if (related && a.contains(related)) return;
     clearTimeout(hoverTimer);
-    clearGlow();
     if (hoveredA === a) {
       a.setAttribute('title', origTitle);
       hoveredA = null; origTitle = '';
@@ -1063,9 +1067,9 @@
       else if (e.key === 'ArrowDown' && s > 1) target = Math.floor(s / 2);
       else if (e.key === 'ArrowUp') {
         // Cycle through implex instances
-        var href = activeEl.getAttribute('href');
+        var pk2 = personKey(activeEl);
         var matches = Array.prototype.slice.call(tree.querySelectorAll('a[data-sosa]')).filter(function(a) {
-          return a.getAttribute('href') === href;
+          return personKey(a) === pk2;
         });
         if (matches.length > 1) {
           var idx = matches.indexOf(activeEl);
