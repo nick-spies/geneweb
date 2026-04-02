@@ -13,6 +13,9 @@
 %let;fs;%evarfs;%in;
 %( global sosa of the display root; prefer URL param over GeneWeb's min-sosa %)
 %let;dsosa;%if;(e.dsosa!="")%e.dsosa;%elseif;(sosa!="")%sosa;%else;1%end;%in;
+%( original person name — carried through re-roots via URL params %)
+%let;ofn;%if;(e.ofn!="")%e.ofn;%else;%first_name;%end;%in;
+%let;osn;%if;(e.osn!="")%e.osn;%else;%surname;%end;%in;
 %( 2^(level-1) lookup for global sosa computation %)
 %define;pow2(ll)%if;(ll=0)1%elseif;(ll=1)2%elseif;(ll=2)4%elseif;(ll=3)8%elseif;(ll=4)16%elseif;(ll=5)32%elseif;(ll=6)64%elseif;(ll=7)128%elseif;(ll=8)256%elseif;(ll=9)512%elseif;(ll=10)1024%elseif;(ll=11)2048%elseif;(ll=12)4096%else;8192%end;%end;
 %( dimensions des boites %)
@@ -123,7 +126,7 @@
     z-index:2;pointer-events:none;">
   </div>
   <div style="position:absolute;top:%httop;px;left:%htleft;px;width:%hitsz;px;height:%hitsz;px;z-index:3;cursor:pointer;">
-    <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" %if;(aaasame!="")data-same="%aaasame.v;" %end;tabindex="-1" style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;"
+    <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" %if;(aaasame!="")data-same="%aaasame.v;" %end;%if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" %end;tabindex="-1" style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;&ofn=%ofn;&osn=%osn;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
       title='Gen %ggen; · Sosa %gsn;%nn;
         %if;(aaasame!="") (=%expr((dsosa - 1) * p2 + aaasame.v))%end;%nn;
@@ -221,10 +224,10 @@
       %end;
     %end;
     %if;(e.cgl!="on")
-      <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" data-purl="%prefix;%aaaaccess;" tabindex="-1" style="display:flex;align-items:center;justify-content:center;width:100%%;height:100%%;z-index:2;"
-        href="%prefix_base_password;%aaaaccess;&t=T&t1=CT&dsosa=%gsn;&
+      <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" data-purl="%prefix;%aaaaccess;" %if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" %end;tabindex="-1" style="display:flex;align-items:center;justify-content:center;width:100%%;height:100%%;z-index:2;"
+        href="%prefix_base_password;%aaaaccess;&t=T&t1=CT&dsosa=%gsn;&ofn=%ofn;&osn=%osn;&
           %foreach;env_binding;%if;(not (env.key="t" or env.key="t1" or env.key="p"
-            or env.key="n" or env.key="oc" or env.key="dsosa"))%env.key=%env.val;&%end;%end;"
+            or env.key="n" or env.key="oc" or env.key="dsosa" or env.key="ofn" or env.key="osn"))%env.key=%env.val;&%end;%end;"
         %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
         title='Gen %ggen; · Sosa %gsn;%nn;
           %if;(aaasame!="") (=%expr((dsosa - 1) * p2 + aaasame.v))%end;%nn;
@@ -306,7 +309,7 @@
   %let;xxx;%if;(evarcpl="on")%expr(aaaanc_sosa.v/2)%else;%aaaanc_sosa.v;%end;%in;
   <div id="s%aaaanc_sosa.v;" style="font-family:monospace;margin:0">
     %(%let;anclev;%expr(evarv-aaaanc_sosa.lvl+2)%in;%)
-    <a style="top:tttpx;left:lllpx;" href="%url_set.i_p_n_oc;&%aaaaccess;"
+    <a style="top:tttpx;left:lllpx;" href="%url_set.i_p_n_oc;&%aaaaccess;&ofn=%ofn;&osn=%osn;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
       title='Gen %ggen; – Sosa %nn;
         %if;(evarcpl="")%gsn; %if;(aaasame!="")=Sosa %expr((dsosa - 1) * p2 + aaasame.v)%end;
@@ -633,11 +636,11 @@
 %end;
 %let;sgen;%if;(dsosa<2)1%elseif;(dsosa<4)2%elseif;(dsosa<8)3%elseif;(dsosa<16)4%elseif;(dsosa<32)5%elseif;(dsosa<64)6%elseif;(dsosa<128)7%elseif;(dsosa<256)8%elseif;(dsosa<512)9%elseif;(dsosa<1024)10%elseif;(dsosa<2048)11%elseif;(dsosa<4096)12%elseif;(dsosa<8192)13%elseif;(dsosa<16384)14%elseif;(dsosa<32768)15%elseif;(dsosa<65536)16%elseif;(dsosa<131072)17%elseif;(dsosa<262144)18%elseif;(dsosa<524288)19%elseif;(dsosa<1048576)20%elseif;(dsosa<2097152)21%elseif;(dsosa<4194304)22%elseif;(dsosa<8388608)23%elseif;(dsosa<16777216)24%elseif;(dsosa<33554432)25%elseif;(dsosa<67108864)26%elseif;(dsosa<134217728)27%elseif;(dsosa<268435456)28%elseif;(dsosa<536870912)29%elseif;(dsosa<1073741824)30%else;31%end;%in;
 <h2 class="mt-2 mb-5 text-center">%nn;
-  %if;(sosa_ref.first_name=first_name and sosa_ref.surname=surname)%nn;
-    %apply;my_title("ancestors tree of", evarhi, first_name) %surname; %dates%nn;
+  %if;(dsosa>1)%nn;
+    %apply;my_title("ancestors tree of", evarhi, ofn) %osn;%nn;
+    %sp;— from Sosa %dsosa; %first_name; %surname; %dates (to Gen %expr(sgen + evarv - 1))%nn;
   %else;%nn;
-    [*ancestor/ancestors]1 [of] %sosa_ref.first_name; %sosa_ref.surname;%nn;
-    %if;(dsosa>1)%sp;— from Sosa %dsosa; %first_name; %surname; %dates (to Gen %expr(sgen + evarv - 1))%end;%nn;
+    %apply;my_title("ancestors tree of", evarhi, first_name) %surname; %dates%nn;
   %end;%nn;
 </h2>
 %let;boxsize;%if;((evarv<9 and evarcpl!="on") or (evarv<10 and evarcpl="on"))2%else;1%end;%in;
@@ -945,6 +948,7 @@
     // For each last-gen ancestor with parents beyond the chart, place ghost boxes
     // where father (sosa*2) and mother (sosa*2+1) would appear.
     // H-tree geometry: next-gen offset = parent-to-child offset rotated 90° and halved.
+    var ghostOutline = (new URLSearchParams(location.search).get('ghost') === 'outline');
     var all = tree.querySelectorAll('a[data-sosa]');
     var maxGen = 0;
     for (var i = 0; i < all.length; i++) {
@@ -970,15 +974,63 @@
         var nx = -dy / 2, ny = dx / 2;
         var gx1 = bx + nx, gy1 = by + ny;
         var gx2 = bx - nx, gy2 = by - ny;
+        // Triangle size: base = box width or height, height = half that
+        var base = Math.max(bw, bh);
+        var tri = Math.round(base / 4);
+        // gi=0 = father (even sosa, positive rotation), gi=1 = mother (odd sosa, negative)
+        var hasF = all[i].dataset.hasf === '1';
+        var hasM = all[i].dataset.hasm === '1';
+        var colors = ['rgba(100,160,220,0.2)', 'rgba(220,100,140,0.2)'];
+        var strokeColors = ['rgba(100,160,220,0.5)', 'rgba(220,100,140,0.5)'];
         for (var gi = 0; gi < 2; gi++) {
+          if (gi === 0 && !hasF) continue;
+          if (gi === 1 && !hasM) continue;
+          var gx = gi === 0 ? gx1 : gx2;
+          var gy = gi === 0 ? gy1 : gy2;
+          var col = colors[gi];
+          var strokeCol = strokeColors[gi];
           var ghost = document.createElement('div');
-          ghost.style.cssText = 'position:absolute;' +
-            'top:' + (gi === 0 ? gy1 : gy2) + 'px;' +
-            'left:' + (gi === 0 ? gx1 : gx2) + 'px;' +
-            'width:' + bw + 'px;height:' + bh + 'px;' +
-            'background:rgba(160,160,160,0.35);' +
-            'border:2px dashed rgba(100,100,100,0.6);' +
-            'z-index:1;pointer-events:none;';
+          var offx = gx - bx, offy = gy - by;
+          // Determine triangle position and points
+          var tx, ty, tw, th, pts;
+          if (Math.abs(offx) > Math.abs(offy)) {
+            tw = tri; th = bh;
+            ty = by;
+            if (offx > 0) {
+              tx = bx + bw;
+              pts = '0,0 ' + tw + ',' + Math.round(th/2) + ' 0,' + th;
+            } else {
+              tx = bx - tri;
+              pts = tw + ',0 0,' + Math.round(th/2) + ' ' + tw + ',' + th;
+            }
+          } else {
+            tw = bw; th = tri;
+            tx = bx;
+            if (offy > 0) {
+              ty = by + bh;
+              pts = '0,0 ' + tw + ',0 ' + Math.round(tw/2) + ',' + th;
+            } else {
+              ty = by - tri;
+              pts = Math.round(tw/2) + ',0 ' + tw + ',' + th + ' 0,' + th;
+            }
+          }
+          var svgNS = 'http://www.w3.org/2000/svg';
+          var svg = document.createElementNS(svgNS, 'svg');
+          svg.setAttribute('width', tw);
+          svg.setAttribute('height', th);
+          svg.style.cssText = 'position:absolute;top:' + ty + 'px;left:' + tx + 'px;z-index:1;pointer-events:none;overflow:visible;';
+          var poly = document.createElementNS(svgNS, 'polygon');
+          poly.setAttribute('points', pts);
+          if (ghostOutline) {
+            poly.setAttribute('fill', 'none');
+            poly.setAttribute('stroke', strokeCol);
+            poly.setAttribute('stroke-width', '1.5');
+          } else {
+            poly.setAttribute('fill', col);
+          }
+          svg.appendChild(poly);
+          ghost = svg;
+          ghost.classList.add('hi-ghost');
           tree.appendChild(ghost);
         }
       }
@@ -986,10 +1038,11 @@
     // Expand tree container if ghosts overflow
     var treW = parseInt(tree.style.width) || tree.offsetWidth;
     var treH = parseInt(tree.style.height) || tree.offsetHeight;
-    var ghosts = tree.querySelectorAll('div[style*="dashed"]');
+    var ghosts = tree.querySelectorAll('.hi-ghost');
     for (var i = 0; i < ghosts.length; i++) {
-      var r = ghosts[i].offsetLeft + ghosts[i].offsetWidth + 10;
-      var b = ghosts[i].offsetTop + ghosts[i].offsetHeight + 10;
+      var g = ghosts[i];
+      var r = g.offsetLeft + g.offsetWidth + 10;
+      var b = g.offsetTop + g.offsetHeight + 10;
       if (r > treW) treW = r;
       if (b > treH) treH = b;
     }
@@ -1040,15 +1093,6 @@
         document.body.style.paddingTop = (navBar.offsetHeight + tb.offsetHeight) + 'px';
       }
     }
-    var nav = document.querySelector('nav.navbar ul.nav');
-    if (!nav) return;
-    var li = document.createElement('li');
-    li.className = 'nav-item ml-2 d-flex align-items-center';
-    li.style.cssText = 'white-space:nowrap;';
-    li.innerHTML = '<i class="fa fa-search text-secondary mr-1"></i>' +
-      '<input id="hi-sosa-search" type="text" inputmode="numeric" class="form-control form-control-sm d-inline-block" ' +
-      'style="width:5em;height:1.8em;padding:1px 4px;font-size:13px;" title="Go to Sosa number">';
-    nav.appendChild(li);
     document.getElementById('hi-sosa-search').addEventListener('keydown', function(e) {
       if (e.key !== 'Enter') return;
       e.preventDefault();
@@ -1128,6 +1172,10 @@
   });
 
   document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var m = document.getElementById('hi-help-modal');
+      if (m && m.style.display !== 'none') { m.style.display = 'none'; return; }
+    }
     if (!activeEl) return;
     if (e.key === 'Enter') {
       e.preventDefault();
