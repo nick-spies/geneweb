@@ -797,6 +797,22 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     var box = document.getElementById('s' + a.dataset.sosa);
     return (box && box.querySelector('span')) ? box : a;
   }
+  // Run-length encode gender symbols: ['♂','♂','♂','♀','♀'] → '♂³♀²'
+  var _sup = ['\u2070','\u00b9','\u00b2','\u00b3','\u2074','\u2075','\u2076','\u2077','\u2078','\u2079'];
+  function toSup(n) {
+    if (n < 2) return '';
+    var s = '', ds = String(n);
+    for (var i = 0; i < ds.length; i++) s += _sup[parseInt(ds[i])];
+    return s;
+  }
+  function rleGender(syms) {
+    var compact = '', cur = syms[0], cnt = 1;
+    for (var i = 1; i < syms.length; i++) {
+      if (syms[i] === cur) cnt++;
+      else { compact += cur + toSup(cnt); cur = syms[i]; cnt = 1; }
+    }
+    return compact + cur + toSup(cnt);
+  }
   var initialLoad = true;
   function activate(el, navDir, noScroll) {
     if (!el) return false;
@@ -860,33 +876,34 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       setTimeout(function() { scrollGuard = false; }, 800);
     }
     // update info bar — always use original title, not Cmd-modified one
+    if (!el._hiTitle) {
+      var raw = el.getAttribute('title') || '';
+      // Run-length encode gender path in tooltip: ♂ ♂ ♂ ♀ ♀ → ♂³♀²
+      var tlines = raw.split('\n');
+      var tm = tlines[0] ? tlines[0].match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+)$/) : null;
+      if (tm) {
+        var tg = tm[2].trim().split(/\s+/);
+        if (tg.length > 10) {
+          tlines[0] = tm[1] + ' ' + rleGender(tg);
+          var encoded = tlines.join('\n');
+          el.setAttribute('title', encoded);
+          el._hiTitle = encoded;
+        } else {
+          el._hiTitle = raw;
+        }
+      } else {
+        el._hiTitle = raw;
+      }
+    }
     if (infoEl) {
-      var t = (hoveredA === el && origTitle) ? origTitle : (el.getAttribute('title') || '');
+      var t = el._hiTitle;
       var parts = t.split('\n').filter(function(s) { return s.trim(); });
       // Split line1 into gen/sosa prefix and gender path
       var line1 = parts[0] || '';
       var rest = parts.slice(1).join(' \u00b7 ');
-      var gm = line1.match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+)$/);
+      var gm = line1.match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+|[♂♀\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079]+)$/);
       var prefix = gm ? gm[1] : line1;
       var genders = gm ? gm[2].trim() : '';
-      // Compact run-length notation for long gender paths: ♂ ♂ ♂ ♀ ♀ → ♂³♀²
-      var gsyms = genders ? genders.split(/\s+/) : [];
-      if (gsyms.length > 10) {
-        var sup = ['\u2070','\u00b9','\u00b2','\u00b3','\u2074','\u2075','\u2076','\u2077','\u2078','\u2079'];
-        function toSup(n) {
-          if (n < 2) return '';
-          var s = ''; var ds = String(n);
-          for (var di = 0; di < ds.length; di++) s += sup[parseInt(ds[di])];
-          return s;
-        }
-        var compact = '', cur = gsyms[0], cnt = 1;
-        for (var gi = 1; gi < gsyms.length; gi++) {
-          if (gsyms[gi] === cur) { cnt++; }
-          else { compact += cur + toSup(cnt); cur = gsyms[gi]; cnt = 1; }
-        }
-        compact += cur + toSup(cnt);
-        genders = compact;
-      }
       // Try single line; break by category if it overflows
       var esc = function(s) { return s.replace(/</g,'&lt;'); };
       var full = prefix + (genders ? ' ' + genders : '') + (rest ? ' \u00b7 ' + rest : '');
@@ -1315,7 +1332,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     if (hoveredA !== a) {
       if (hoveredA) hoveredA.setAttribute('title', origTitle);
       hoveredA = a;
-      origTitle = a.getAttribute('title') || '';
+      origTitle = a._hiTitle || a.getAttribute('title') || '';
     }
     if (cmdHeld) {
       var name = origTitle.split('\n')[1] || '';
@@ -1360,6 +1377,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   });
   document.addEventListener('keyup', function(e) {
     if (e.key === 'Meta' || e.key === 'Control') {
+      cmdHeld = false;
+      if (hoveredA && origTitle) hoveredA.setAttribute('title', origTitle);
+    }
+  });
+  // Reset cmdHeld when window loses focus (Cmd+Tab doesn't fire keyup)
+  window.addEventListener('blur', function() {
+    if (cmdHeld) {
       cmdHeld = false;
       if (hoveredA && origTitle) hoveredA.setAttribute('title', origTitle);
     }
