@@ -125,10 +125,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   <div style="position:absolute;top:%httop;px;left:%htleft;px;width:%hitsz;px;height:%hitsz;px;z-index:3;cursor:pointer;">
     <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" %if;(aaasame!="")data-same="%aaasame.v;" %end;%if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" %end;tabindex="-1" style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;&ofn=%ofn;&osn=%osn;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-      title='Gen %ggen; · Sosa %gsn;%nn;
+      title='Gen %ggen; · Sosa %gsn; ·%nn;
         %if;(aaasame!="") (=%expr((dsosa - 1) * p2 + aaasame.v))%end;%nn;
         %if;(evarcpl="on") & %expr(gsn + 1)%end;%nn;
-        %if;(gsn>1) · %apply;sosapath(gsn)%end;%nn;
+        %if;(gsn>1) %apply;sosapath(gsn)%end;%nn;
         &#010;%nn;
         %aaafirst_name; %aaasurname;%nn;
         %if;(aaabirth_date.year!="" and aaadeath_date.year!="") %aaabirth_date.year; – %aaadeath_date.year;%nn;
@@ -226,11 +226,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           %foreach;env_binding;%if;(not (env.key="t" or env.key="t1" or env.key="p"
             or env.key="n" or env.key="oc" or env.key="dsosa" or env.key="ofn" or env.key="osn"))%env.key=%env.val;&%end;%end;"
         %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
-        title='Gen %ggen; · Sosa %gsn;%nn;
+        title='Gen %ggen; · Sosa %gsn; ·%nn;
           %if;(aaasame!="") (=%expr((dsosa - 1) * p2 + aaasame.v))%end;%nn;
           %if;(evarcpl="on") & %expr(gsn + 1)%end;%nn;
+          %if;(gsn>1) %apply;sosapath(gsn)%end;%nn;
           &#010;%nn;
-          %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname;&#010;%nn;
+          %if;(gsn<2)%if;(aaais_male) ♂%else; ♀%end;%end; %aaafirst_name; %aaasurname;&#010;%nn;
           %if;(aaabirth_date.year!="" and aaadeath_date.year!="")%aaabirth_date.year; – %aaadeath_date.year;&#010;%nn;
           %elseif;(aaabirth_date.year!="")°%aaabirth_date.year;&#010;%nn;
           %elseif;(aaadeath_date.year!="")†%aaadeath_date.year;&#010;%nn;
@@ -251,8 +252,24 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         %let;bh;%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;%in;
         %let;ndig;%if;(gsn>9999999)8%elseif;(gsn>999999)7%elseif;(gsn>99999)6%elseif;(gsn>9999)5%elseif;(gsn>999)4%elseif;(gsn>99)3%elseif;(gsn>9)2%else;1%end;%in;
         %let;textw;%expr(ndig*fs1*6/10)%in;
-        %if;(textw>bw or fs1>bh)<span class="hi-balloon">%gsn;</span>%nn;
-        %else;<span style="display:block;text-align:center;width:100%%;font-size:%fs1;px;">%gsn;</span>%end;
+        %if;(evarim="on" and aaahas_image and bh>=18)%nn;
+          %let;imsz;%expr(bh-4)%in;%nn;
+          %if;(evarcpl="on" and aaasame="" and aaahas_families)%nn;
+            <img style="max-width:%imsz;px;max-height:%imsz;px;object-fit:cover;flex-shrink:0;" src="%aaaimage_url;" alt="">%nn;
+            %if;(textw>bw or fs1>bh)<span class="hi-balloon">%gsn;</span>%nn;
+            %else;<span style="text-align:center;flex:1;font-size:%fs1;px;overflow:hidden;">%gsn;</span>%end;%nn;
+            %if;(aaaspouse.has_image)%nn;
+              <img style="max-width:%imsz;px;max-height:%imsz;px;object-fit:cover;flex-shrink:0;" src="%aaaspouse.image_url;" alt="">%nn;
+            %end;%nn;
+          %else;%nn;
+            <img style="max-width:%imsz;px;max-height:%imsz;px;object-fit:cover;flex-shrink:0;" src="%aaaimage_url;" alt="">%nn;
+            %if;(textw>bw or fs1>bh)<span class="hi-balloon">%gsn;</span>%nn;
+            %else;<span style="text-align:center;flex:1;font-size:%fs1;px;overflow:hidden;">%gsn;</span>%end;%nn;
+          %end;%nn;
+        %else;%nn;
+          %if;(textw>bw or fs1>bh)<span class="hi-balloon">%gsn;</span>%nn;
+          %else;<span style="display:block;text-align:center;width:100%%;font-size:%fs1;px;">%gsn;</span>%end;%nn;
+        %end;
       </a>
     %end;
   </div>
@@ -637,14 +654,14 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
  [*aa:::bb:tt]
 %end;
 %let;sgen;%if;(dsosa<2)1%elseif;(dsosa<4)2%elseif;(dsosa<8)3%elseif;(dsosa<16)4%elseif;(dsosa<32)5%elseif;(dsosa<64)6%elseif;(dsosa<128)7%elseif;(dsosa<256)8%elseif;(dsosa<512)9%elseif;(dsosa<1024)10%elseif;(dsosa<2048)11%elseif;(dsosa<4096)12%elseif;(dsosa<8192)13%elseif;(dsosa<16384)14%elseif;(dsosa<32768)15%elseif;(dsosa<65536)16%elseif;(dsosa<131072)17%elseif;(dsosa<262144)18%elseif;(dsosa<524288)19%elseif;(dsosa<1048576)20%elseif;(dsosa<2097152)21%elseif;(dsosa<4194304)22%elseif;(dsosa<8388608)23%elseif;(dsosa<16777216)24%elseif;(dsosa<33554432)25%elseif;(dsosa<67108864)26%elseif;(dsosa<134217728)27%elseif;(dsosa<268435456)28%elseif;(dsosa<536870912)29%elseif;(dsosa<1073741824)30%else;31%end;%in;
-<h2 class="mt-2 mb-5 text-center">%nn;
+<h3 class="mt-0 mb-3 text-center" style="font-size:1.1rem;">%nn;
   %if;(dsosa>1)%nn;
     %apply;my_title("ancestors tree of", evarhi, ofn) %osn;%nn;
     %sp;— from Sosa %dsosa; %first_name; %surname; %dates (to Gen %expr(sgen + evarv - 1))%nn;
   %else;%nn;
     %apply;my_title("ancestors tree of", evarhi, first_name) %surname; %dates%nn;
   %end;%nn;
-</h2>
+</h3>
 %let;boxsize;%if;((evarv<9 and evarcpl!="on") or (evarv<10 and evarcpl="on"))2%else;1%end;%in;
 %if;((evarcpl="on" and evarv < 4) or (evarcpl!="on" and evarv < 3))
   [*compact tree][:] [specify::generation/generations]0 > 3.
@@ -665,12 +682,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     %if;(evarhi="I")
       %if;(evarso="on")
         %if;(evarv < 13 and evarcpl="on")
-          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto">
+          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto;overflow:visible">
           %apply;graphlinks(evarv,"I")
           %apply;graph(evarv,"I",2)
           </div>
         %elseif;(evarv < 12 and evarcpl!="on")
-          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto">
+          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto;overflow:visible">
           %apply;graphlinks(evarv+1,"I")
           %apply;graph(evarv+1,"I",1)
           </div>
@@ -695,12 +712,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     %elseif;(evarhi="H")
       %if;(evarso="on")
         %if;(evarv < 13 and evarcpl="on")
-          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto">
+          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto;overflow:visible">
             %apply;graphlinks(evarv,"H")
             %apply;graph(evarv,"H",2)
           </div>
         %elseif;(evarv < 12 and evarcpl!="on")
-          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto">
+          <div id="hi-tree1" style="position:relative;width:%wids;px;height:%higs;px;margin:0 auto;overflow:visible">
             %apply;graphlinks(evarv+1,"H")
             %apply;graph(evarv+1,"H",1)
           </div>
@@ -842,10 +859,24 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       }
       setTimeout(function() { scrollGuard = false; }, 800);
     }
-    // update info bar
+    // update info bar — always use original title, not Cmd-modified one
     if (infoEl) {
-      var t = el.getAttribute('title') || '';
-      infoEl.textContent = t.replace(/\n/g, ' \u00b7 ').replace(/( \u00b7 )+$/, '').replace(/^( \u00b7 )+/, '');
+      var t = (hoveredA === el && origTitle) ? origTitle : (el.getAttribute('title') || '');
+      var parts = t.split('\n').filter(function(s) { return s.trim(); });
+      var line1 = parts[0] || '';
+      var line2 = parts.slice(1).join(' \u00b7 ');
+      var full = line1 + (line2 ? ' \u00b7 ' + line2 : '');
+      // Try single line first; wrap if it would overflow toolbar
+      infoEl.style.whiteSpace = 'nowrap';
+      infoEl.textContent = full;
+      if (line2) {
+        var tb = infoEl.closest('[id="hi-toolbar"]') || infoEl.parentNode;
+        var avail = tb.clientWidth - (infoEl.offsetLeft - tb.offsetLeft) - 8;
+        if (infoEl.scrollWidth > avail) {
+          infoEl.style.whiteSpace = 'normal';
+          infoEl.innerHTML = line1.replace(/</g,'&lt;') + '<br>' + line2.replace(/</g,'&lt;');
+        }
+      }
     }
     // remember selection across page reloads (scale/font changes)
     sessionStorage.setItem('hi-active-sosa', el.dataset.gsosa || el.dataset.sosa);
@@ -1117,6 +1148,32 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     if (!found) activateSosa(1);
     initialLoad = false;
     buildCache(); markImplexes(); addGhostBoxes(); fixToGen();
+    // Fit container to actual content bounds + center with even margins
+    (function() {
+      var maxBot = 0, maxRight = 0;
+      var kids = tree.children;
+      for (var i = 0; i < kids.length; i++) {
+        var el = kids[i];
+        if (el.style && el.style.position === 'absolute') {
+          var bot = el.offsetTop + el.offsetHeight;
+          if (bot > maxBot) maxBot = bot;
+          var r = el.offsetLeft + el.offsetWidth;
+          if (r > maxRight) maxRight = r;
+        }
+      }
+      if (maxBot > 0) {
+        tree.style.height = (maxBot + 50) + 'px';
+        var outer = tree.closest('[class*="pb-"]');
+        if (outer) outer.style.paddingBottom = '0';
+      }
+      // Center tree with 20px minimum margin on each side
+      var vw = document.documentElement.clientWidth;
+      var contentW = maxRight || parseInt(tree.style.width);
+      var margin = Math.max(20, Math.floor((vw - contentW) / 2));
+      tree.style.marginLeft = margin + 'px';
+      tree.style.marginRight = margin + 'px';
+      tree.style.width = contentW + 'px';
+    })();
   });
 
   // Home button: save original chart URL on first visit, reuse on re-roots
@@ -1257,13 +1314,22 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     }
   });
 
-  // Track Cmd key state for tooltip and info bar hints
+  // Track Cmd key state for tooltip hints (info bar always shows full info)
   var cmdHeld = false;
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Meta' || e.key === 'Control') cmdHeld = true;
+    if (e.key === 'Meta' || e.key === 'Control') {
+      cmdHeld = true;
+      if (hoveredA && origTitle) {
+        var name = origTitle.split('\n')[1] || '';
+        hoveredA.setAttribute('title', '\u2318+click: go to ' + name.trim());
+      }
+    }
   });
   document.addEventListener('keyup', function(e) {
-    if (e.key === 'Meta' || e.key === 'Control') cmdHeld = false;
+    if (e.key === 'Meta' || e.key === 'Control') {
+      cmdHeld = false;
+      if (hoveredA && origTitle) hoveredA.setAttribute('title', origTitle);
+    }
   });
 
   document.addEventListener('keydown', function(e) {

@@ -42,6 +42,9 @@
           title="[*visualize/show/hide/summary]1%if;(e.cpl!="on") [couples]%else;[individuals]%end;"
           style="white-space:nowrap;">%nn;
           %if;(e.cpl!="on")<i class="fa fa-user-plus" aria-hidden="true"></i>%else;<i class="fa fa-user" aria-hidden="true"></i>%end;</a>
+        <a href="%if;(e.image!="on")%url_set.image.on;%else;%url_set.image;%end;" class="btn btn-outline-primary%if;(e.image="on") active%end;"
+          title="%if;(e.image!="on")[*visualize/show/hide/summary]1%else;[*visualize/show/hide/summary]2%end; [image/images]1">%nn;
+          <i class="fa fa-image" aria-hidden="true"></i></a>
       </div>
       %if;(e.sosa!="on")
         <div class="btn-group btn-group-sm mr-1" id="hi-zoom-toolbar">
@@ -75,7 +78,7 @@
           %end;
         </div>
       %end;
-      <span id="hi-nav-info" class="btn btn-sm btn-outline-primary disabled ml-1" style="white-space:nowrap;"></span>
+      <span id="hi-nav-info" class="btn btn-sm btn-outline-primary disabled ml-1" style="white-space:nowrap;text-align:center;"></span>
     </div>
   %end;
 </div>
@@ -104,6 +107,7 @@
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>H / I</b></td><td style="padding:4px 0;">Switch between H-tree and I-tree layout</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Sosa / Dot</b></td><td style="padding:4px 0;">Toggle between labeled box view and compact dot view</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-user"></i> / <i class="fa fa-user-plus"></i></b></td><td style="padding:4px 0;">Toggle couple display (show spouse connectors)</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-image"></i></b></td><td style="padding:4px 0;">Toggle person photos in Sosa box view</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Scale − / +</b></td><td style="padding:4px 0;">Zoom in/out (scale boxes and layout)</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Font − / +</b></td><td style="padding:4px 0;">Adjust font size (Sosa box mode)</td></tr>
       <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">Search</td></tr>
