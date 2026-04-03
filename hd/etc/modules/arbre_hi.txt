@@ -137,6 +137,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         %end;%nn;
         %if;(not aaahas_parents) · [*missing parents]%end;%nn;
         %if;(aaahas_parents and level=evarv) · [*click for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
+        %if;(aaahas_parents and aaaanc_sosa.v=1) · ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
         %if;(aaasame="" and aaahas_families and evarcpl="on")&#010;%nn;
           %aaaspouse; (%aaaspouse.occ;)%nn;
           %if;(aaaspouse.birth_date.year!="" and aaaspouse.death_date.year!="") %aaaspouse.birth_date.year; – %aaaspouse.death_date.year;%nn;
@@ -238,6 +239,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           %end;%nn;
           %if;(not aaahas_parents) · [*missing parents]%end;%nn;
           %if;(aaahas_parents and level=evarv) · [*click for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
+          %if;(aaahas_parents and aaaanc_sosa.v=1) · ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
           &#010;%nn;
           %if;(aaasame=""  and aaahas_families and evarcpl="on")%nn;
             %if;(aaaspouse.is_male) ♂%else; ♀%end; %aaaspouse; (%aaaspouse.occ;)&#010;%nn;
@@ -344,6 +346,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         %if;(aaabirth_date.year="" and aaadeath_date.year!="")†%else;%aaadeath_date.year;%end;%nn;
         %if;(not aaahas_parents) · [*missing parents]%end;%nn;
         %if;(aaahas_parents and level=evarv) · [*click for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
+        %if;(aaahas_parents and aaaanc_sosa.v=1) · ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
         &#010;%nn;
         %if;(aaasame="" and aaahas_families and evarcpl="on")%nn;
           %if;(aaaspouse.is_male) ♂%else; ♀%end; %aaaspouse; (%aaaspouse.occ;)&#010;%nn;
