@@ -60,7 +60,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   <span style="top:%ttt;px;left:%lll;px;font-family:monospace;">x</span>
   <script>
     $(window).on("load", function() {
-      $('#hi-tree1').line(x0, y0, x1, y1, {color:"red", stroke:1, opacity:0.5, "z-index":1});
+      $('#hi-tree1').line(x0, y0, x1, y1, {color:"red", stroke:1, opacity:0.5, zindex:1});
     });
   </script>
 %end;
@@ -74,7 +74,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 %define;line(x0,y0,x1,y1)
   <script>
     $(window).on("load", function() {
-      $('#hi-tree1').line(x0, y0, x1, y1, {stroke:2, opacity:0.3, "z-index":-1});
+      $('#hi-tree1').line(x0, y0, x1, y1, {stroke:2, opacity:0.3, zindex:-1});
     });
   </script>
 %end;
