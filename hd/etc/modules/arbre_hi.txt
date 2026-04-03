@@ -245,9 +245,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
             %if;(not aaaspouse.has_parents) [*missing parents]%end;%nn;
           %end;%nn;
           %if;(aaahas_parents and level=evarv)Click for ancestors%end;'>%nn;
-        %let;fs1;%if;(gsn>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
+        %let;fs1;%if;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
         %let;tm;%if;(boxsize=2)8%else;2%end;%in;
-        %if;(evarscl<60 or (evarscl<80 and gsn>99) or gsn>999)<span class="hi-balloon">%gsn;</span>%nn;
+        %let;bw;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
+        %let;bh;%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;%in;
+        %let;ndig;%if;(gsn>9999999)8%elseif;(gsn>999999)7%elseif;(gsn>99999)6%elseif;(gsn>9999)5%elseif;(gsn>999)4%elseif;(gsn>99)3%elseif;(gsn>9)2%else;1%end;%in;
+        %let;textw;%expr(ndig*fs1*6/10)%in;
+        %if;(textw>bw or fs1>bh)<span class="hi-balloon">%gsn;</span>%nn;
         %else;<span style="display:block;text-align:center;width:100%%;font-size:%fs1;px;">%gsn;</span>%end;
       </a>
     %end;
