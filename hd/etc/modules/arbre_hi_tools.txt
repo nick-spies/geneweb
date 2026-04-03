@@ -31,7 +31,7 @@
           style="width:4em;background:#fff;color:#495057;text-align:left;"
           placeholder="Sosa" title="Type a Sosa number and press Enter">
         <button class="btn btn-sm btn-outline-primary" type="button"
-          title="Search Sosa" onclick="var e=new KeyboardEvent('keydown',{key:'Enter'});document.getElementById('hi-sosa-search').dispatchEvent(e);">
+          title="Find and highlight Sosa number" onmouseup="if(window.hiSosaSearch)window.hiSosaSearch();">
           <i class="fa fa-magnifying-glass"></i></button>
         <a href="%apply;url_set%with;hi%and;%if;(e.hi="H" or e.hi="")I%end;%end;"
           class="btn btn-outline-primary">%if;(e.hi="H" or e.hi="")I%else;H%end;</a>
@@ -42,9 +42,6 @@
           title="[*visualize/show/hide/summary]1%if;(e.cpl!="on") [couples]%else;[individuals]%end;"
           style="white-space:nowrap;">%nn;
           %if;(e.cpl!="on")<i class="fa fa-user-plus" aria-hidden="true"></i>%else;<i class="fa fa-user" aria-hidden="true"></i>%end;</a>
-        <a href="%if;(e.implx!="on")%url_set.implx.on;%else;%url_set.implx;%end;" class="btn btn-outline-primary"
-          title="%if;(e.implx!="on")[*implex links]%else;[*do not] [implex links]%end;">
-          <i class="fa fa-shuffle fa-fw"></i></a>
       </div>
       %if;(e.sosa!="on")
         <div class="btn-group btn-group-sm mr-1" id="hi-zoom-toolbar">
@@ -94,11 +91,12 @@
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Click</b></td><td style="padding:4px 0;">Re-root chart on clicked ancestor</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>%nn;
         %if;(e.sosa="on")Enter%else;⌘+Click%end;</b></td><td style="padding:4px 0;">Go to person's page</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>← → ↑ ↓</b></td><td style="padding:4px 0;">Genealogical navigation (← father, → mother, ↓ child)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Shift + arrows</b></td><td style="padding:4px 0;">Spatial navigation (move to nearest visible box)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>⌘ + ← / →</b></td><td style="padding:4px 0;">Navigate back / forward in selection history</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>← →</b></td><td style="padding:4px 0;">Genealogical navigation (← father, → mother)</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↓</b></td><td style="padding:4px 0;">Navigate to child</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↑ (on implex)</b></td><td style="padding:4px 0;">Cycle through duplicate appearances of same ancestor</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Enter</b></td><td style="padding:4px 0;">Follow link on selected box (re-root or person page)</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Shift + arrows</b></td><td style="padding:4px 0;">Spatial navigation (move to nearest visible box)</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>⌘ + ↑ / ↓</b></td><td style="padding:4px 0;">Navigate back / forward in selection history</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Enter</b></td><td style="padding:4px 0;">Re-root chart on selected ancestor</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Hover (500ms)</b></td><td style="padding:4px 0;">Highlight ancestor and its implex duplicates</td></tr>
       <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">Toolbar</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>− / +</b></td><td style="padding:4px 0;">Decrease / increase displayed generations</td></tr>
@@ -106,17 +104,14 @@
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>H / I</b></td><td style="padding:4px 0;">Switch between H-tree and I-tree layout</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Sosa / Dot</b></td><td style="padding:4px 0;">Toggle between labeled box view and compact dot view</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-user"></i> / <i class="fa fa-user-plus"></i></b></td><td style="padding:4px 0;">Toggle couple display (show spouse connectors)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-shuffle"></i></b></td><td style="padding:4px 0;">Toggle implex links (connect duplicate ancestors)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Zoom − / +</b></td><td style="padding:4px 0;">Zoom in/out (compact dot mode)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Scale − / +</b></td><td style="padding:4px 0;">Scale boxes (Sosa box mode)</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Scale − / +</b></td><td style="padding:4px 0;">Zoom in/out (scale boxes and layout)</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Font − / +</b></td><td style="padding:4px 0;">Adjust font size (Sosa box mode)</td></tr>
       <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">Search</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-magnifying-glass"></i> Sosa</b></td><td style="padding:4px 0;">Type a Sosa number and press Enter to find and highlight it</td></tr>
       <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">Visual indicators</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Gold flash</b></td><td style="padding:4px 0;">Active selection (keyboard nav, search, implex cycle)</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Orange outline</b></td><td style="padding:4px 0;">Implex peers (other appearances of same person)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>▶ triangles</b></td><td style="padding:4px 0;">Ghost indicators — missing ancestors beyond displayed generations (blue = father, pink = mother)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Gold smudge</b></td><td style="padding:4px 0;">Boundary mark where tree continues beyond view</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>▶ triangles</b></td><td style="padding:4px 0;">Ancestors exist beyond displayed generations</td></tr>
     </table>
     <div style="margin-top:12px;text-align:center;color:#888;font-size:12px;">Press Escape or click outside to close</div>
   </div>

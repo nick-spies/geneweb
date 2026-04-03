@@ -816,13 +816,21 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
                    r.right <= window.innerWidth - margin;
       if (initialLoad || !inView) {
         var scrollBehavior = initialLoad ? 'instant' : 'smooth';
-        var midY = (r.top + r.bottom) / 2;
-        var midX = (r.left + r.right) / 2;
-        var visibleTop = topOffset - margin;
-        var visibleMidY = (visibleTop + window.innerHeight) / 2;
-        var visibleMidX = window.innerWidth / 2;
-        var dy = midY - visibleMidY;
-        var dx = midX - visibleMidX;
+        var dy = 0, dx = 0;
+        if (initialLoad) {
+          // center on initial load
+          var midY = (r.top + r.bottom) / 2;
+          var midX = (r.left + r.right) / 2;
+          var visibleTop = topOffset - margin;
+          dy = midY - (visibleTop + window.innerHeight) / 2;
+          dx = midX - window.innerWidth / 2;
+        } else {
+          // just bring into view with margin
+          if (r.top < topOffset) dy = r.top - topOffset;
+          else if (r.bottom > window.innerHeight - margin) dy = r.bottom - window.innerHeight + margin;
+          if (r.left < margin) dx = r.left - margin;
+          else if (r.right > window.innerWidth - margin) dx = r.right - window.innerWidth + margin;
+        }
         window.scrollBy({ left: dx, top: dy, behavior: scrollBehavior });
       }
       setTimeout(function() { scrollGuard = false; }, 800);
@@ -833,7 +841,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       infoEl.textContent = t.replace(/\n/g, ' \u00b7 ').replace(/( \u00b7 )+$/, '').replace(/^( \u00b7 )+/, '');
     }
     // remember selection across page reloads (scale/font changes)
-    sessionStorage.setItem('hi-active-sosa', el.dataset.sosa);
+    sessionStorage.setItem('hi-active-sosa', el.dataset.gsosa || el.dataset.sosa);
     return true;
   }
   function activateSosa(n) {
@@ -1090,7 +1098,16 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   // Focus saved selection (or sosa 1) on load
   window.addEventListener('load', function() {
     var saved = parseInt(sessionStorage.getItem('hi-active-sosa'));
-    if (!saved || !activateSosa(saved)) activateSosa(1);
+    var found = false;
+    if (saved) {
+      // try local sosa first, then global
+      found = activateSosa(saved);
+      if (!found) {
+        var gEl = tree.querySelector('a[data-gsosa="' + saved + '"]');
+        if (gEl) { found = activate(gEl); }
+      }
+    }
+    if (!found) activateSosa(1);
     initialLoad = false;
     buildCache(); markImplexes(); addGhostBoxes(); fixToGen();
   });
@@ -1128,18 +1145,53 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         document.body.style.paddingTop = (navBar.offsetHeight + tb.offsetHeight) + 'px';
       }
     }
+    window.hiSosaSearch = function() {
+      var inp = document.getElementById('hi-sosa-search');
+      var n = parseInt(inp.value);
+      if (!n || n < 1) return;
+      // search by global sosa (displayed number), then local sosa
+      var el = tree.querySelector('a[data-gsosa="' + n + '"]') ||
+               tree.querySelector('a[data-sosa="' + n + '"]');
+      if (el) {
+        activate(el, null, true);
+        // if off-screen, center it; if visible, don't scroll
+        var st = document.getElementById('s' + el.dataset.sosa) || hlTarget(el);
+        var margin = 60;
+        var nav = document.querySelector('nav.navbar');
+        var tb = document.getElementById('hi-toolbar');
+        var topOff = (nav ? nav.offsetHeight : 0) + (tb ? tb.offsetHeight : 0) + margin;
+        var r = st.getBoundingClientRect();
+        var inView = r.top >= topOff && r.left >= margin &&
+                     r.bottom <= window.innerHeight - margin &&
+                     r.right <= window.innerWidth - margin;
+        if (!inView) {
+          var midY = (r.top + r.bottom) / 2;
+          var midX = (r.left + r.right) / 2;
+          var visibleMidY = (topOff - margin + window.innerHeight) / 2;
+          window.scrollBy({ left: midX - window.innerWidth / 2, top: midY - visibleMidY, behavior: 'smooth' });
+        }
+        flashActive();
+      } else {
+        // not on current display — calculate needed generations and reload
+        var gen = Math.floor(Math.log2(n)) + 1;
+        var params = new URLSearchParams(location.search);
+        var curGen = parseInt(params.get('v')) || 7;
+        if (gen > curGen) {
+          sessionStorage.setItem('hi-active-sosa', '' + n);
+          params.set('v', '' + gen);
+          window.location.search = params.toString();
+        } else {
+          // enough generations but person not found (doesn't exist in tree)
+          inp.style.background = '#fdd';
+          setTimeout(function() { inp.style.background = ''; }, 800);
+        }
+      }
+    };
     document.getElementById('hi-sosa-search').addEventListener('keydown', function(e) {
       if (e.key !== 'Enter') return;
       e.preventDefault();
-      var n = parseInt(this.value);
-      if (!n || n < 1) return;
-      if (activateSosa(n)) {
-        flashActive();
-      } else {
-        this.style.background = '#fdd';
-        var inp = this;
-        setTimeout(function() { inp.style.background = ''; }, 800);
-      }
+      e.stopPropagation();
+      window.hiSosaSearch();
     });
   })();
 
