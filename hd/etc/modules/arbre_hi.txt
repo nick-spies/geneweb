@@ -60,7 +60,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   <span style="top:%ttt;px;left:%lll;px;font-family:monospace;">x</span>
   <script>
     $(window).on("load", function() {
-      $('#hi-tree1').line(x0, y0, x1, y1, {color:"red", stroke:1, opacity:0.5, z-index:1});
+      $('#hi-tree1').line(x0, y0, x1, y1, {color:"red", stroke:1, opacity:0.5, "z-index":1});
     });
   </script>
 %end;
@@ -74,7 +74,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 %define;line(x0,y0,x1,y1)
   <script>
     $(window).on("load", function() {
-      $('#hi-tree1').line(x0, y0, x1, y1, {stroke:2, opacity:0.3, z-index:-1});
+      $('#hi-tree1').line(x0, y0, x1, y1, {stroke:2, opacity:0.3, "z-index":-1});
     });
   </script>
 %end;
@@ -740,14 +740,17 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     tree.style.width = origW + 'px';
     tree.style.height = origH + 'px';
     tree.parentNode.style.height = (origH * zoom + 20) + 'px';
-    label.textContent = Math.round(zoom * 100) + '%%';
+    if (label) label.textContent = Math.round(zoom * 100) + '%%';
   }
 
-  document.getElementById('hi-zoom-in').addEventListener('click', function() { setZoom(zoom * 1.25); });
-  document.getElementById('hi-zoom-out').addEventListener('click', function() { setZoom(zoom / 1.25); });
-  document.getElementById('hi-zoom-reset').addEventListener('click', function() { setZoom(1); });
+  var zi = document.getElementById('hi-zoom-in');
+  var zo = document.getElementById('hi-zoom-out');
+  var zr = document.getElementById('hi-zoom-reset');
+  if (zi) zi.addEventListener('click', function() { setZoom(zoom * 1.25); });
+  if (zo) zo.addEventListener('click', function() { setZoom(zoom / 1.25); });
+  if (zr) zr.addEventListener('click', function() { setZoom(1); });
 
-  tree.parentNode.addEventListener('wheel', function(e) {
+  if (tree.parentNode) tree.parentNode.addEventListener('wheel', function(e) {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
@@ -1191,7 +1194,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         }
       }
     };
-    document.getElementById('hi-sosa-search').addEventListener('keydown', function(e) {
+    var sosaInput = document.getElementById('hi-sosa-search');
+    if (sosaInput) sosaInput.addEventListener('keydown', function(e) {
       if (e.key !== 'Enter') return;
       e.preventDefault();
       e.stopPropagation();
