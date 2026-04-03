@@ -1234,7 +1234,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         if (gEl) { found = activate(gEl); }
       }
     }
-    if (!found) activateSosa(1);
+    if (!found) found = activateSosa(1);
+    if (!found) activateSosa(2);
     initialLoad = false;
     buildCache(); markImplexes(); addGhostBoxes(); fixToGen();
     // Fit container to actual content bounds + center with even margins
@@ -1475,11 +1476,23 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var target = null;
       if (e.key === 'ArrowLeft') target = s * 2;
       else if (e.key === 'ArrowRight') target = s * 2 + 1;
-      else if (e.key === 'ArrowDown' && s > 1) target = Math.floor(s / 2);
-      else if (e.key === 'ArrowDown' && s === 1 && %dsosa; > 1) {
-        // At root of re-rooted tree: go back to previous tree
-        history.back();
-        e.preventDefault(); return;
+      else if (e.key === 'ArrowDown') {
+        var cpl = '%evarcpl;' === 'on';
+        if (s > 1) {
+          var child = Math.floor(s / 2);
+          if (cpl && child % 2 === 1) child = child - 1;
+          if (child >= (cpl ? 2 : 1)) {
+            target = child;
+          } else if (%dsosa; > 1) {
+            sessionStorage.setItem('hi-active-sosa', String(%dsosa;));
+            history.back();
+            e.preventDefault(); return;
+          }
+        } else if (s === 1 && %dsosa; > 1) {
+          sessionStorage.setItem('hi-active-sosa', String(%dsosa;));
+          history.back();
+          e.preventDefault(); return;
+        }
       }
       else if (e.key === 'ArrowUp') {
         // Cycle through implex instances
