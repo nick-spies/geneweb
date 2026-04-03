@@ -1265,15 +1265,23 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     })();
   });
 
-  // Home button: save original chart URL on first visit, reuse on re-roots
+  // Home button: navigate to original person's tree (dsosa=1, using ofn/osn)
   (function() {
-    var key = 'hi-home-url';
-    var params = new URLSearchParams(location.search);
-    if (!params.get('dsosa') || params.get('dsosa') === '1') {
-      sessionStorage.setItem(key, location.href);
-    }
     var btn = document.getElementById('hi-home-btn');
-    if (btn) btn.href = sessionStorage.getItem(key) || location.href;
+    if (!btn) return;
+    var params = new URLSearchParams(location.search);
+    // Build home URL: use ofn/osn to restore original person, remove dsosa
+    var ofn = params.get('ofn') || '';
+    var osn = params.get('osn') || '';
+    if (ofn || osn) {
+      params.set('p', ofn);
+      params.set('n', osn);
+      params.delete('oc');
+      params.delete('ofn');
+      params.delete('osn');
+    }
+    params.delete('dsosa');
+    btn.href = location.pathname + '?' + params.toString();
   })();
 
   // Sosa search: inject into top navbar + make navbar sticky
@@ -1468,6 +1476,11 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (e.key === 'ArrowLeft') target = s * 2;
       else if (e.key === 'ArrowRight') target = s * 2 + 1;
       else if (e.key === 'ArrowDown' && s > 1) target = Math.floor(s / 2);
+      else if (e.key === 'ArrowDown' && s === 1 && %dsosa; > 1) {
+        // At root of re-rooted tree: go back to previous tree
+        history.back();
+        e.preventDefault(); return;
+      }
       else if (e.key === 'ArrowUp') {
         // Cycle through implex instances
         var pk2 = personKey(activeEl);
