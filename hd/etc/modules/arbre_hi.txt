@@ -247,7 +247,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           %if;(aaahas_parents and level=evarv)Click for ancestors%end;'>%nn;
         %let;fs1;%if;(gsn>999)%expr(fs-10)%elseif;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
         %let;tm;%if;(boxsize=2)8%else;2%end;%in;
-        %if;(gsn>999)<span class="hi-balloon">%gsn;</span>%nn;
+        %if;(evarscl<60 or (evarscl<80 and gsn>99) or gsn>999)<span class="hi-balloon">%gsn;</span>%nn;
         %else;<span style="display:block;text-align:center;width:100%%;font-size:%fs1;px;">%gsn;</span>%end;
       </a>
     %end;
@@ -814,7 +814,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var inView = r.top >= topOffset && r.left >= margin &&
                    r.bottom <= window.innerHeight - margin &&
                    r.right <= window.innerWidth - margin;
-      if (!inView) {
+      if (initialLoad || !inView) {
         var scrollBehavior = initialLoad ? 'instant' : 'smooth';
         var midY = (r.top + r.bottom) / 2;
         var midX = (r.left + r.right) / 2;
@@ -832,6 +832,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var t = el.getAttribute('title') || '';
       infoEl.textContent = t.replace(/\n/g, ' \u00b7 ').replace(/( \u00b7 )+$/, '').replace(/^( \u00b7 )+/, '');
     }
+    // remember selection across page reloads (scale/font changes)
+    sessionStorage.setItem('hi-active-sosa', el.dataset.sosa);
     return true;
   }
   function activateSosa(n) {
@@ -1085,8 +1087,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     }
   }
 
-  // Focus sosa 1 on load
-  window.addEventListener('load', function() { activateSosa(1); initialLoad = false; buildCache(); markImplexes(); addGhostBoxes(); fixToGen(); });
+  // Focus saved selection (or sosa 1) on load
+  window.addEventListener('load', function() {
+    var saved = parseInt(sessionStorage.getItem('hi-active-sosa'));
+    if (!saved || !activateSosa(saved)) activateSosa(1);
+    initialLoad = false;
+    buildCache(); markImplexes(); addGhostBoxes(); fixToGen();
+  });
 
   // Home button: save original chart URL on first visit, reuse on re-roots
   (function() {

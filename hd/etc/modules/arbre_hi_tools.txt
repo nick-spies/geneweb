@@ -56,7 +56,7 @@
       %end;
       %if;(e.sosa="on")
         <div class="btn-group btn-group-sm mr-1">
-          %if;(evarscl>0)
+          %if;(evarscl>20)
             <a href="%apply;url_set%with;scale/fs%and;%expr(evarscl-20)/%expr(evarfs-1)%end;"
               class="btn btn-outline-primary" title="[*reduce/increase]0 [size] (-20 %%)">−</a>
           %end;
