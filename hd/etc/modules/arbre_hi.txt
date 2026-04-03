@@ -144,7 +144,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           %end;%nn;
           %if;(not aaaspouse.has_parents)&#010;[*missing parents]%end;%nn;
         %end;%nn;
-        %if;(aaahas_parents and level=evarv)Click for ancestors%end;'>%nn;
+        %if;(aaahas_parents and level=evarv)Click for ancestors (up to gen %expr(ggen + aaaanc_depth))%end;'>%nn;
     </a>
   </div>
 %end;
@@ -245,7 +245,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
             %end;&#010;%nn;
             %if;(not aaaspouse.has_parents) [*missing parents]%end;%nn;
           %end;%nn;
-          %if;(aaahas_parents and level=evarv)Click for ancestors%end;'>%nn;
+          %if;(aaahas_parents and level=evarv)Click for ancestors (up to gen %expr(ggen + aaaanc_depth))%end;'>%nn;
         %let;fs1;%if;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
         %let;tm;%if;(boxsize=2)8%else;2%end;%in;
         %let;bw;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
@@ -653,7 +653,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 %define;my_title(aa, bb, tt)
  [*aa:::bb:tt]
 %end;
-%let;sgen;%if;(dsosa<2)1%elseif;(dsosa<4)2%elseif;(dsosa<8)3%elseif;(dsosa<16)4%elseif;(dsosa<32)5%elseif;(dsosa<64)6%elseif;(dsosa<128)7%elseif;(dsosa<256)8%elseif;(dsosa<512)9%elseif;(dsosa<1024)10%elseif;(dsosa<2048)11%elseif;(dsosa<4096)12%elseif;(dsosa<8192)13%elseif;(dsosa<16384)14%elseif;(dsosa<32768)15%elseif;(dsosa<65536)16%elseif;(dsosa<131072)17%elseif;(dsosa<262144)18%elseif;(dsosa<524288)19%elseif;(dsosa<1048576)20%elseif;(dsosa<2097152)21%elseif;(dsosa<4194304)22%elseif;(dsosa<8388608)23%elseif;(dsosa<16777216)24%elseif;(dsosa<33554432)25%elseif;(dsosa<67108864)26%elseif;(dsosa<134217728)27%elseif;(dsosa<268435456)28%elseif;(dsosa<536870912)29%elseif;(dsosa<1073741824)30%else;31%end;%in;
+%let;sgen;%if;(dsosa<2)1%elseif;(dsosa<4)2%elseif;(dsosa<8)3%elseif;(dsosa<16)4%elseif;(dsosa<32)5%elseif;(dsosa<64)6%elseif;(dsosa<128)7%elseif;(dsosa<256)8%elseif;(dsosa<512)9%elseif;(dsosa<1024)10%elseif;(dsosa<2048)11%elseif;(dsosa<4096)12%elseif;(dsosa<8192)13%elseif;(dsosa<16384)14%elseif;(dsosa<32768)15%elseif;(dsosa<65536)16%elseif;(dsosa<131072)17%elseif;(dsosa<262144)18%elseif;(dsosa<524288)19%elseif;(dsosa<1048576)20%elseif;(dsosa<2097152)21%elseif;(dsosa<4194304)22%elseif;(dsosa<8388608)23%elseif;(dsosa<16777216)24%elseif;(dsosa<33554432)25%elseif;(dsosa<67108864)26%elseif;(dsosa<134217728)27%elseif;(dsosa<268435456)28%elseif;(dsosa<536870912)29%elseif;(dsosa<1073741824)30%elseif;(dsosa<2147483648)31%elseif;(dsosa<4294967296)32%elseif;(dsosa<8589934592)33%elseif;(dsosa<17179869184)34%elseif;(dsosa<34359738368)35%elseif;(dsosa<68719476736)36%elseif;(dsosa<137438953472)37%elseif;(dsosa<274877906944)38%elseif;(dsosa<549755813888)39%elseif;(dsosa<1099511627776)40%elseif;(dsosa<2199023255552)41%elseif;(dsosa<4398046511104)42%elseif;(dsosa<8796093022208)43%elseif;(dsosa<17592186044416)44%elseif;(dsosa<35184372088832)45%elseif;(dsosa<70368744177664)46%elseif;(dsosa<140737488355328)47%elseif;(dsosa<281474976710656)48%elseif;(dsosa<562949953421312)49%elseif;(dsosa<1125899906842624)50%elseif;(dsosa<2251799813685248)51%elseif;(dsosa<4503599627370496)52%elseif;(dsosa<9007199254740992)53%elseif;(dsosa<18014398509481984)54%elseif;(dsosa<36028797018963968)55%elseif;(dsosa<72057594037927936)56%elseif;(dsosa<144115188075855872)57%elseif;(dsosa<288230376151711744)58%elseif;(dsosa<576460752303423488)59%elseif;(dsosa<1152921504606846976)60%elseif;(dsosa<2305843009213693952)61%elseif;(dsosa<4611686018427387904)62%elseif;(dsosa<9223372036854775808)63%elseif;(dsosa<18446744073709551616)64%elseif;(dsosa<36893488147419103232)65%elseif;(dsosa<73786976294838206464)66%elseif;(dsosa<147573952589676412928)67%elseif;(dsosa<295147905179352825856)68%elseif;(dsosa<590295810358705651712)69%elseif;(dsosa<1180591620717411303424)70%elseif;(dsosa<2361183241434822606848)71%elseif;(dsosa<4722366482869645213696)72%elseif;(dsosa<9444732965739290427392)73%elseif;(dsosa<18889465931478580854784)74%elseif;(dsosa<37778931862957161709568)75%elseif;(dsosa<75557863725914323419136)76%elseif;(dsosa<151115727451828646838272)77%elseif;(dsosa<302231454903657293676544)78%elseif;(dsosa<604462909807314587353088)79%else;80%end;%in;
 <h3 class="mt-0 mb-3 text-center" style="font-size:1.1rem;">%nn;
   %if;(dsosa>1)%nn;
     %apply;my_title("ancestors tree of", evarhi, ofn) %osn;%nn;
@@ -863,19 +863,45 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     if (infoEl) {
       var t = (hoveredA === el && origTitle) ? origTitle : (el.getAttribute('title') || '');
       var parts = t.split('\n').filter(function(s) { return s.trim(); });
+      // Split line1 into gen/sosa prefix and gender path
       var line1 = parts[0] || '';
-      var line2 = parts.slice(1).join(' \u00b7 ');
-      var full = line1 + (line2 ? ' \u00b7 ' + line2 : '');
-      // Try single line first; wrap if it would overflow toolbar
+      var rest = parts.slice(1).join(' \u00b7 ');
+      var gm = line1.match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+)$/);
+      var prefix = gm ? gm[1] : line1;
+      var genders = gm ? gm[2].trim() : '';
+      // Compact run-length notation for long gender paths: ♂ ♂ ♂ ♀ ♀ → ♂³♀²
+      var gsyms = genders ? genders.split(/\s+/) : [];
+      if (gsyms.length > 10) {
+        var sup = ['\u2070','\u00b9','\u00b2','\u00b3','\u2074','\u2075','\u2076','\u2077','\u2078','\u2079'];
+        function toSup(n) {
+          if (n < 2) return '';
+          var s = ''; var ds = String(n);
+          for (var di = 0; di < ds.length; di++) s += sup[parseInt(ds[di])];
+          return s;
+        }
+        var compact = '', cur = gsyms[0], cnt = 1;
+        for (var gi = 1; gi < gsyms.length; gi++) {
+          if (gsyms[gi] === cur) { cnt++; }
+          else { compact += cur + toSup(cnt); cur = gsyms[gi]; cnt = 1; }
+        }
+        compact += cur + toSup(cnt);
+        genders = compact;
+      }
+      // Try single line; break by category if it overflows
+      var esc = function(s) { return s.replace(/</g,'&lt;'); };
+      var full = prefix + (genders ? ' ' + genders : '') + (rest ? ' \u00b7 ' + rest : '');
       infoEl.style.whiteSpace = 'nowrap';
       infoEl.textContent = full;
-      if (line2) {
-        var tb = infoEl.closest('[id="hi-toolbar"]') || infoEl.parentNode;
-        var avail = tb.clientWidth - (infoEl.offsetLeft - tb.offsetLeft) - 8;
-        if (infoEl.scrollWidth > avail) {
-          infoEl.style.whiteSpace = 'normal';
-          infoEl.innerHTML = line1.replace(/</g,'&lt;') + '<br>' + line2.replace(/</g,'&lt;');
+      if (infoEl.scrollWidth > infoEl.clientWidth) {
+        var lines = [esc(prefix)];
+        if (genders) lines.push(esc(genders));
+        var restParts = rest ? rest.split(' \u00b7 ') : [];
+        for (var ri = 0; ri < restParts.length; ri++) {
+          var rp = restParts[ri].trim();
+          if (rp) lines.push(esc(rp));
         }
+        infoEl.style.whiteSpace = 'normal';
+        infoEl.innerHTML = lines.join('<br>');
       }
     }
     // remember selection across page reloads (scale/font changes)
@@ -1039,14 +1065,14 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         var nx = -dy / 2, ny = dx / 2;
         var gx1 = bx + nx, gy1 = by + ny;
         var gx2 = bx - nx, gy2 = by - ny;
-        // Triangle size: base = box width or height, height = half that
+        // Triangle size: base = box width or height, height = half that (min 6px)
         var base = Math.max(bw, bh);
-        var tri = Math.round(base / 4);
+        var tri = Math.max(6, Math.round(base / 4));
         // gi=0 = father (even sosa, positive rotation), gi=1 = mother (odd sosa, negative)
         var hasF = all[i].dataset.hasf === '1';
         var hasM = all[i].dataset.hasm === '1';
-        var colors = ['rgba(100,160,220,0.2)', 'rgba(220,100,140,0.2)'];
-        var strokeColors = ['rgba(100,160,220,0.5)', 'rgba(220,100,140,0.5)'];
+        var colors = ['rgba(100,160,220,0.45)', 'rgba(220,100,140,0.45)'];
+        var strokeColors = ['rgba(100,160,220,0.7)', 'rgba(220,100,140,0.7)'];
         for (var gi = 0; gi < 2; gi++) {
           if (gi === 0 && !hasF) continue;
           if (gi === 1 && !hasM) continue;
@@ -1057,10 +1083,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           var ghost = document.createElement('div');
           var offx = gx - bx, offy = gy - by;
           // Determine triangle position and points
+          // Base is 60% of box side, centered; drawn behind box (z-index:0)
           var tx, ty, tw, th, pts;
           if (Math.abs(offx) > Math.abs(offy)) {
-            tw = tri; th = bh;
-            ty = by;
+            var triBase = Math.round(bh * 0.6);
+            var pad = Math.round((bh - triBase) / 2);
+            tw = tri; th = triBase;
+            ty = by + pad;
             if (offx > 0) {
               tx = bx + bw;
               pts = '0,0 ' + tw + ',' + Math.round(th/2) + ' 0,' + th;
@@ -1069,8 +1098,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
               pts = tw + ',0 0,' + Math.round(th/2) + ' ' + tw + ',' + th;
             }
           } else {
-            tw = bw; th = tri;
-            tx = bx;
+            var triBase = Math.round(bw * 0.6);
+            var pad = Math.round((bw - triBase) / 2);
+            tw = triBase; th = tri;
+            tx = bx + pad;
             if (offy > 0) {
               ty = by + bh;
               pts = '0,0 ' + tw + ',0 ' + Math.round(tw/2) + ',' + th;
@@ -1083,7 +1114,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           var svg = document.createElementNS(svgNS, 'svg');
           svg.setAttribute('width', tw);
           svg.setAttribute('height', th);
-          svg.style.cssText = 'position:absolute;top:' + ty + 'px;left:' + tx + 'px;z-index:1;pointer-events:none;overflow:visible;';
+          svg.style.cssText = 'position:absolute;top:' + ty + 'px;left:' + tx + 'px;z-index:0;pointer-events:none;overflow:visible;';
           var poly = document.createElementNS(svgNS, 'polygon');
           poly.setAttribute('points', pts);
           if (ghostOutline) {
@@ -1092,6 +1123,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
             poly.setAttribute('stroke-width', '1.5');
           } else {
             poly.setAttribute('fill', col);
+            poly.setAttribute('stroke', strokeCol);
+            poly.setAttribute('stroke-width', '1');
           }
           svg.appendChild(poly);
           ghost = svg;

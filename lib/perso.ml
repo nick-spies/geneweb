@@ -3001,6 +3001,12 @@ and eval_ancestor_field_var conf base env gp loc = function
           let ep = make_ep conf base ip in
           eval_person_field_var conf base env ep loc sl
       | GP_person _ | GP_interv _ | GP_missing _ | GP_same _ -> raise Not_found)
+  | [ "anc_depth" ] -> (
+      match gp with
+      | GP_person (_, ip, _) | GP_same (_, _, ip) ->
+          let d = Cousins.max_ancestor_level conf base ip 80 in
+          str_val (string_of_int d)
+      | GP_interv _ | GP_missing _ -> null_val)
   | sl -> (
       match gp with
       | GP_person (_, ip, _) | GP_same (_, _, ip) ->

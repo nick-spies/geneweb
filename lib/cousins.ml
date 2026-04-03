@@ -150,22 +150,25 @@ let max_ancestor_level conf base ip max_lvl =
       | Some v when v <> "" -> int_of_string v
       | _ -> 12
   in
-  let x = ref 0 in
-  let mark = Driver.iper_marker (Driver.ipers base) false in
-  let rec loop level ip =
-    if level >= limit then ()
-    else if not (Collection.Marker.get mark ip) then (
-      Collection.Marker.set mark ip true;
-      x := max !x level;
-      match Driver.get_parents (pget conf base ip) with
-      | Some ifam ->
-          let cpl = Driver.foi base ifam in
-          loop (succ level) (Driver.get_father cpl);
-          loop (succ level) (Driver.get_mother cpl)
-      | _ -> ())
+  let cache = Hashtbl.create 256 in
+  let rec depth ip =
+    match Hashtbl.find_opt cache ip with
+    | Some v -> v
+    | None ->
+        Hashtbl.replace cache ip 0;
+        let v =
+          match Driver.get_parents (pget conf base ip) with
+          | Some ifam ->
+              let cpl = Driver.foi base ifam in
+              let df = depth (Driver.get_father cpl) in
+              let dm = depth (Driver.get_mother cpl) in
+              min limit (1 + max df dm)
+          | None -> 0
+        in
+        Hashtbl.replace cache ip v;
+        v
   in
-  loop 0 ip;
-  !x
+  depth ip
 
 (* find the max descendant level for some individual *)
 (* if max_desc_level in .gwf has no value, use supplied parameter *)
