@@ -135,16 +135,16 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         %elseif;(aaabirth_date.year!="") °%aaabirth_date.year;%nn;
         %elseif;(aaadeath_date.year!="") †%aaadeath_date.year;%nn;
         %end;%nn;
-        %if;(not aaahas_parents) &#010;[*missing parents]%end;%nn;
+        %if;(not aaahas_parents) · [*missing parents]%end;%nn;
+        %if;(aaahas_parents and level=evarv) · [*click for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
         %if;(aaasame="" and aaahas_families and evarcpl="on")&#010;%nn;
           %aaaspouse; (%aaaspouse.occ;)%nn;
           %if;(aaaspouse.birth_date.year!="" and aaaspouse.death_date.year!="") %aaaspouse.birth_date.year; – %aaaspouse.death_date.year;%nn;
           %elseif;(aaaspouse.birth_date.year!="") °%aaaspouse.birth_date.year;%nn;
           %elseif;(aaaspouse.death_date.year!="") †%aaaspouse.death_date.year;%nn;
           %end;%nn;
-          %if;(not aaaspouse.has_parents)&#010;[*missing parents]%end;%nn;
-        %end;%nn;
-        %if;(aaahas_parents and level=evarv)Click for ancestors (up to gen %expr(ggen + aaaanc_depth))%end;'>%nn;
+          %if;(not aaaspouse.has_parents) · [*missing parents]%end;%nn;
+        %end;'>%nn;
     </a>
   </div>
 %end;
@@ -232,20 +232,22 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           %if;(gsn>1) %apply;sosapath(gsn)%end;%nn;
           &#010;%nn;
           %if;(gsn<2)%if;(aaais_male) ♂%else; ♀%end;%end; %aaafirst_name; %aaasurname;&#010;%nn;
-          %if;(aaabirth_date.year!="" and aaadeath_date.year!="")%aaabirth_date.year; – %aaadeath_date.year;&#010;%nn;
-          %elseif;(aaabirth_date.year!="")°%aaabirth_date.year;&#010;%nn;
-          %elseif;(aaadeath_date.year!="")†%aaadeath_date.year;&#010;%nn;
+          %if;(aaabirth_date.year!="" and aaadeath_date.year!="")%aaabirth_date.year; – %aaadeath_date.year;%nn;
+          %elseif;(aaabirth_date.year!="")°%aaabirth_date.year;%nn;
+          %elseif;(aaadeath_date.year!="")†%aaadeath_date.year;%nn;
           %end;%nn;
-          %if;(not aaahas_parents) [*missing parents]&#010;%end;%nn;
+          %if;(not aaahas_parents) · [*missing parents]%end;%nn;
+          %if;(aaahas_parents and level=evarv) · [*click for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
+          &#010;%nn;
           %if;(aaasame=""  and aaahas_families and evarcpl="on")%nn;
             %if;(aaaspouse.is_male) ♂%else; ♀%end; %aaaspouse; (%aaaspouse.occ;)&#010;%nn;
             %if;(aaaspouse.birth_date.year!="" and aaaspouse.death_date.year!="")%aaaspouse.birth_date.year; – %aaaspouse.death_date.year;%nn;
             %elseif;(aaaspouse.birth_date.year!="")°%aaaspouse.birth_date.year;%nn;
             %elseif;(aaaspouse.death_date.year!="")†%aaaspouse.death_date.year;%nn;
-            %end;&#010;%nn;
-            %if;(not aaaspouse.has_parents) [*missing parents]%end;%nn;
-          %end;%nn;
-          %if;(aaahas_parents and level=evarv)Click for ancestors (up to gen %expr(ggen + aaaanc_depth))%end;'>%nn;
+            %end;%nn;
+            %if;(not aaaspouse.has_parents) · [*missing parents]%end;%nn;
+            &#010;%nn;
+          %end;'>%nn;
         %let;fs1;%if;(boxsize=2)%fs;%else;%expr(fs-5)%end;%in;
         %let;tm;%if;(boxsize=2)8%else;2%end;%in;
         %let;bw;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
@@ -339,14 +341,17 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         %if;(aaais_male) ♂%else; ♀%end; %aaafirst_name; %aaasurname; %if;(aaaocc!="" or aaaocc!=0)(%aaaocc;)%end;&#010;%nn;
         %if;(aaabirth_date.year!="")° %aaabirth_date.year;%end;%nn;
         %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
-        %if;(aaabirth_date.year="" and aaadeath_date.year!="")†%else;%aaadeath_date.year;%end;&#010;%nn;
-        %if;(not aaahas_parents) [*missing parents]&#010;%end;%nn;
+        %if;(aaabirth_date.year="" and aaadeath_date.year!="")†%else;%aaadeath_date.year;%end;%nn;
+        %if;(not aaahas_parents) · [*missing parents]%end;%nn;
+        %if;(aaahas_parents and level=evarv) · [*click for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
+        &#010;%nn;
         %if;(aaasame="" and aaahas_families and evarcpl="on")%nn;
           %if;(aaaspouse.is_male) ♂%else; ♀%end; %aaaspouse; (%aaaspouse.occ;)&#010;%nn;
           %if;(aaaspouse.birth_date.year!="")° %aaaspouse.birth_date.year;%end;%nn;
           %if;(aaaspouse.birth_date.year!="" and aaaspouse.is_dead) – %end;%nn;
-          %if;(aaaspouse.birth_date.year="" and aaaspouse.death_date.year!="")†%else;%aaaspouse.death_date.year;%end;&#010;%nn;
-          %if;(not aaaspouse.has_parents) [*missing parents]%end;%nn;
+          %if;(aaaspouse.birth_date.year="" and aaaspouse.death_date.year!="")†%else;%aaaspouse.death_date.year;%end;%nn;
+          %if;(not aaaspouse.has_parents) · [*missing parents]%end;%nn;
+          &#010;%nn;
         %end;'>%nn;
     %if;(xxx=1)┼
     %elseif;((xxx>1 and xxx<4) or (xxx>7 and xxx<16) or (xxx>31 and xxx<64) or
@@ -470,7 +475,14 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
             %else;
               %apply;boxsosa("", ancestor.anc_sosa.v, ancestor.has_parents, bg, left, top)
             %end;
-            %apply;linesosa(ancestor.anc_sosa.v, xx+1, "yy", left, top)
+            %if;(anc_sosahalf>1)
+              %let;parent_half;%expr(anc_sosahalf/2)%in;
+              %let;ptop;%expr(topxx_yy(parent_half)*hb)%in;
+              %let;pleft;%expr(leftxx_yy(parent_half)*wb)%in;
+              %let;wb2;%if;(boxsize=2)%wb1;%else;%expr(wb1/2)%end;%in;
+              %let;hb2;%if;(boxsize=2)%hb1;%else;%expr(hb1/2)%end;%in;
+              %apply;line(left+wb2, top+hb2, pleft+wb2, ptop+hb2)
+            %end;
           %end;
         %end;
       %end;
@@ -543,16 +555,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
             %else;
               %apply;boxsosa("", ancestor.anc_sosa.v, ancestor.has_parents, bg, left, top)
             %end;
-          %apply;linesosa(ancestor.anc_sosa.v, xx+1, "yy", left, top)
-          %( Couple line: connect even sosa (father) center to sosa+1 (mother) center %)
-          %if;(ancestor.anc_sosa.v %2=0 and ancestor.anc_sosa.v>1)
-            %let;bw;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
-            %let;bh;%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;%in;
-            %let;plx1;%expr(left+bw/2)%in;
-            %let;ply1;%expr(top+bh/2)%in;
-            %let;plx2;%expr(leftxx_yy(ancestor.anc_sosa.v+1)*wb+bw/2)%in;
-            %let;ply2;%expr(topxx_yy(ancestor.anc_sosa.v+1)*hb+bh/2)%in;
-            %apply;coupleline(plx1, ply1, plx2, ply2)
+          %if;(evarcpl!="on" or ancestor.anc_sosa.v %2=0 or ancestor.anc_sosa.v=1)
+            %apply;linesosa(ancestor.anc_sosa.v, xx+1, "yy", left, top)
           %end;
         %end;
       %end;
@@ -657,7 +661,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 <h3 class="mt-0 mb-3 text-center" style="font-size:1.1rem;">%nn;
   %if;(dsosa>1)%nn;
     %apply;my_title("ancestors tree of", evarhi, ofn) %osn;%nn;
-    %sp;— from Sosa %dsosa; %first_name; %surname; %dates (to Gen %expr(sgen + evarv - 1))%nn;
+    %sp;— Sosa %dsosa; %first_name; %surname; %dates ([up to] [*generation/generations]0 %expr(sgen + evarv - 1))%nn;
   %else;%nn;
     %apply;my_title("ancestors tree of", evarhi, first_name) %surname; %dates%nn;
   %end;%nn;
@@ -786,6 +790,42 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   var activeEl = null;
   var infoEl = document.getElementById('hi-nav-info');
 
+  // Localized strings for JS-generated content
+  var HI_T = {
+    'cmd_click': "\u2318+[*click]: ",
+    'help_click': "[*recenter tree on] [*ancestor/ancestors]0",
+    'help_goto': "[*go to person's page]",
+    'help_arrows': "← [*father/mother]0, → [*father/mother]1",
+    'help_down': "[*child/children]0",
+    'help_up': "[*implex/implexes]0: [*visualize/show/hide/summary]1",
+    'help_shift': "[*navigation]",
+    'help_history': "[*navigation] ← / →",
+    'help_enter': "[*recenter tree on] [*ancestor/ancestors]0",
+    'help_hover': "[*visualize/show/hide/summary]1 [*implex/implexes]0",
+    'help_gen': "[*reduce/increase]0 / [*reduce/increase]1 [*generation/generations]1",
+    'help_home': "[*return to] Sosa 1",
+    'help_layout': "H-tree / I-tree",
+    'help_view': "[*compact dot view/sosa box view]0 / [*compact dot view/sosa box view]1",
+    'help_couple': "[*visualize/show/hide/summary]1 / [*visualize/show/hide/summary]2 [*couples]",
+    'help_photo': "[*visualize/show/hide/summary]1 / [*visualize/show/hide/summary]2 [*image/images]1",
+    'help_zoom': "[*zoom/unzoom]0 / [*zoom/unzoom]1",
+    'help_font': "[*font size]",
+    'help_search': "[*find and highlight Sosa number]",
+    'help_gold_label': "✦",
+    'help_gold': "[*search] / [*navigation] / [*implex/implexes]0",
+    'help_orange_label': "◆",
+    'help_orange': "[*implex/implexes]0 ([*ancestor/ancestors]1)",
+    'help_gender': "♂=[*father/mother]0, ♀=[*father/mother]1 — Sosa 1 → [*ancestor/ancestors]0",
+    'help_rle': "♂³=♂♂♂ (×3)",
+    'help_triangle': "[*ancestor/ancestors]1 [*generation/generations]1",
+    'help_close': "[*close] (Escape)"
+  };
+  // Populate help modal cells from translations
+  document.querySelectorAll('.hi-help-text[data-key]').forEach(function(el) {
+    var k = el.dataset.key;
+    if (HI_T[k]) el.textContent = HI_T[k];
+  });
+
   var peerEls = [];
   var activeBox = null;
   var backStack = [];
@@ -880,7 +920,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var raw = el.getAttribute('title') || '';
       // Run-length encode gender path in tooltip: ♂ ♂ ♂ ♀ ♀ → ♂³♀²
       var tlines = raw.split('\n');
-      var tm = tlines[0] ? tlines[0].match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+)$/) : null;
+      var tm = tlines[0] ? tlines[0].match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*·?\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+)$/) : null;
       if (tm) {
         var tg = tm[2].trim().split(/\s+/);
         if (tg.length > 10) {
@@ -901,7 +941,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       // Split line1 into gen/sosa prefix and gender path
       var line1 = parts[0] || '';
       var rest = parts.slice(1).join(' \u00b7 ');
-      var gm = line1.match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+|[♂♀\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079]+)$/);
+      var gm = line1.match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*·?\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+|[♂♀\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079]+)$/);
       var prefix = gm ? gm[1] : line1;
       var genders = gm ? gm[2].trim() : '';
       // Try single line; break by category if it overflows
@@ -1066,8 +1106,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     for (var i = 0; i < all.length; i++) {
       var s = parseInt(all[i].dataset.sosa);
       if (Math.floor(Math.log2(s)) !== maxGen) continue;
-      var title = all[i].getAttribute('title') || '';
-      if (title.indexOf('Click for ancestors') < 0) continue;
+      if (!all[i].dataset.hasf && !all[i].dataset.hasm) continue;
       var box = document.getElementById('s' + s);
       if (!box) continue;
       var bx = box.offsetLeft, by = box.offsetTop;
@@ -1165,11 +1204,11 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     tree.style.height = treH + 'px';
   }
 
-  // Update "to Gen" in title to reflect actual deepest ancestor, not theoretical max
+  // Update max gen in title to reflect actual deepest ancestor, not theoretical max
   function fixToGen() {
-    var h2 = document.querySelector('h2.text-center');
-    if (!h2) return;
-    var m = h2.textContent.match(/to Gen (\d+)/);
+    var h3 = document.querySelector('h3.text-center');
+    if (!h3) return;
+    var m = h3.textContent.match(/\(([^)]*\s)(\d+)\s*\)/);
     if (!m) return;
     var maxGen = 0;
     var els = tree.querySelectorAll('a[data-sosa]');
@@ -1178,8 +1217,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var gm = t.match(/^Gen (\d+)/);
       if (gm) { var g = parseInt(gm[1]); if (g > maxGen) maxGen = g; }
     }
-    if (maxGen > 0 && maxGen < parseInt(m[1])) {
-      h2.textContent = h2.textContent.replace(/to Gen \d+/, 'to Gen ' + maxGen);
+    if (maxGen > 0 && maxGen < parseInt(m[2])) {
+      h3.textContent = h3.textContent.replace(/\(([^)]*\s)\d+(\s*\))/, '($1' + maxGen + '$2');
     }
   }
 
@@ -1336,7 +1375,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     }
     if (cmdHeld) {
       var name = origTitle.split('\n')[1] || '';
-      a.setAttribute('title', '\u2318+click: go to ' + name.trim());
+      a.setAttribute('title', HI_T.cmd_click + name.trim());
     } else if (hoveredA === a) {
       a.setAttribute('title', origTitle);
     }
@@ -1371,7 +1410,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       cmdHeld = true;
       if (hoveredA && origTitle) {
         var name = origTitle.split('\n')[1] || '';
-        hoveredA.setAttribute('title', '\u2318+click: go to ' + name.trim());
+        hoveredA.setAttribute('title', HI_T.cmd_click + name.trim());
       }
     }
   });

@@ -4900,6 +4900,11 @@ sl: kliknite na "%s"
 sv: klicka "%s"
 tr: "%s" i tıklayın
 
+    click for ancestors
+de: Vorfahren anzeigen
+en: click for ancestors
+fr: cliquer pour les ancêtres
+
     click to book
 co: per rinuminà tutti i dati uguali&#10;mantene Ctrl è fà un cliccu nant’à un elementu per aprelu in u dizziunariu
 de: zum Umbenennen aller identischen Daten,&#10;halte die Ctrl-Taste und klicke zum Öffnen des Eintrags im Verzeichnis
@@ -5118,6 +5123,16 @@ fr: arbre compact
 pt: árvore compacta
 sv: kompakt träd
 tr: kompakt ağaç
+
+    compact dot view/sosa box view
+de: kompakte Punktansicht/Sosa-Boxansicht
+en: compact dot view/Sosa box view
+fr: vue compacte en points/vue en boîtes Sosa
+
+    compact tree help
+de: Kompakter H-Baum — Hilfe
+en: compact H-tree — help
+fr: arbre H compact — aide
 
     compare
 co: paragunà
@@ -9047,6 +9062,11 @@ de: filtern durch
 en: filter by
 fr: filtrer par
 
+    find and highlight Sosa number
+de: Sosa-Nummer finden und hervorheben
+en: find and highlight Sosa number
+fr: trouver et mettre en évidence le numéro Sosa
+
     first free number
 af: eerste beskikbare nommer
 bg: пръв свободен номер
@@ -9722,6 +9742,11 @@ sl: pojdi na oddelek %s
 sv: gå till avsnittet %s
 tr: bölüme git %s
 zh: 转到%s部分
+
+    go to person's page
+de: zur Personenseite
+en: go to person's page
+fr: aller à la page de la personne
 
     godfather/godmother/godparents
 af: peetpa/peetma/peetouers
@@ -17213,6 +17238,11 @@ ru: пенсионер
 sv: pensionerad
 tr: emeklilik
 
+    return to
+de: zurück zu
+en: return to
+fr: retour à
+
     return to top
 af: terug na bo
 bg: върни се нагоре
@@ -21466,6 +21496,11 @@ co: aiutu per a visibilità di l’individui
 de: Hilfe zur Sichtbarkeit von Personen
 en: help for visibility of individuals
 fr: aide pour la visibilité des individus
+
+    visual indicators
+de: visuelle Indikatoren
+en: visual indicators
+fr: indicateurs visuels
 
     visualize/show/hide/summary
 bg: да се визуализира/да се покаже/да се скрие/резюме

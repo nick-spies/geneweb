@@ -9,7 +9,7 @@
 <div id="hi-toolbar" style="position:sticky;top:0;z-index:100;background:#fff;padding:4px 0;text-align:center;overflow-x:auto;overflow-y:visible;">
   %if;not cancel_links;
     <div style="display:inline-flex;flex-wrap:nowrap;align-items:center;white-space:nowrap;">
-      <button class="btn btn-sm btn-outline-primary mr-1" title="Help" onclick="document.getElementById('hi-help-modal').style.display='flex';">
+      <button class="btn btn-sm btn-outline-primary mr-1" title="[*help and shortcuts]" onclick="document.getElementById('hi-help-modal').style.display='flex';">
         <i class="fa fa-circle-question fa-fw"></i></button>
       <div class="btn-group btn-group-sm mr-1">
         %if;(evarv>=4)
@@ -25,21 +25,22 @@
       <div class="btn-group btn-group-sm mr-1">
         <a id="hi-home-btn" href="#"
             class="btn btn-outline-primary"
-            title="Return to %if;(e.ofn!="")%e.ofn; %e.osn;%else;%first_name; %surname;%end;">
+            title="[*return to] %if;(e.ofn!="")%e.ofn; %e.osn;%else;%first_name; %surname;%end;">
             <i class="fa fa-house fa-fw"></i></a>
         <input id="hi-sosa-search" type="text" inputmode="numeric" class="btn btn-sm btn-outline-primary"
           style="width:4em;background:#fff;color:#495057;text-align:left;"
-          placeholder="Sosa" title="Type a Sosa number and press Enter">
+          placeholder="Sosa" title="[*find and highlight Sosa number]">
         <button class="btn btn-sm btn-outline-primary" type="button"
-          title="Find and highlight Sosa number" onmouseup="if(window.hiSosaSearch)window.hiSosaSearch();">
+          title="[*find and highlight Sosa number]" onmouseup="if(window.hiSosaSearch)window.hiSosaSearch();">
           <i class="fa fa-magnifying-glass"></i></button>
         <a href="%apply;url_set%with;hi%and;%if;(e.hi="H" or e.hi="")I%end;%end;"
-          class="btn btn-outline-primary">%if;(e.hi="H" or e.hi="")I%else;H%end;</a>
+          class="btn btn-outline-primary"
+          title="%if;(e.hi="H" or e.hi="")I-[*tree]%else;H-[*tree]%end;">%if;(e.hi="H" or e.hi="")I%else;H%end;</a>
         <a href="%if;(e.sosa!="on")%url_set.sosa.on;%else;%url_set.sosa;%end;" class="btn btn-outline-primary"
-          title="%if;(e.sosa="on")Compact dot view%else;Sosa box view%end;">%nn;
+          title="%if;(e.sosa="on")[*compact dot view/sosa box view]0%else;[*compact dot view/sosa box view]1%end;">%nn;
           %if;(e.sosa!="on")Sosa%else;Dot%end;</a>
         <a href="%if;(e.cpl!="on")%url_set.cpl.on;%else;%url_set.cpl;%end;" class="btn btn-outline-primary"
-          title="[*visualize/show/hide/summary]1%if;(e.cpl!="on") [couples]%else;[individuals]%end;"
+          title="[*visualize/show/hide/summary]1 %if;(e.cpl!="on")[couples]%else;[person/persons]1%end;"
           style="white-space:nowrap;">%nn;
           %if;(e.cpl!="on")<i class="fa fa-user-plus" aria-hidden="true"></i>%else;<i class="fa fa-user" aria-hidden="true"></i>%end;</a>
         <a href="%if;(e.image!="on")%url_set.image.on;%else;%url_set.image;%end;" class="btn btn-outline-primary%if;(e.image="on") active%end;"
@@ -48,10 +49,10 @@
       </div>
       %if;(e.sosa!="on")
         <div class="btn-group btn-group-sm mr-1" id="hi-zoom-toolbar">
-          <button id="hi-zoom-out" class="btn btn-outline-primary" title="Zoom out">−</button>
+          <button id="hi-zoom-out" class="btn btn-outline-primary" title="[*zoom/unzoom]1">−</button>
           <span id="hi-zoom-level" class="btn btn-outline-primary disabled">100%%</span>
-          <button id="hi-zoom-in" class="btn btn-outline-primary" title="Zoom in">+</button>
-          <button id="hi-zoom-reset" class="btn btn-outline-primary" title="Reset">⟳</button>
+          <button id="hi-zoom-in" class="btn btn-outline-primary" title="[*zoom/unzoom]0">+</button>
+          <button id="hi-zoom-reset" class="btn btn-outline-primary" title="[*reset to]">⟳</button>
         </div>
       %end;
       %if;(e.sosa="on")
@@ -88,35 +89,37 @@
   <div style="background:#fff;border-radius:8px;max-width:560px;width:90%%;max-height:80vh;overflow-y:auto;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,0.25);position:relative;">
     <button onclick="document.getElementById('hi-help-modal').style.display='none';"
       style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:22px;cursor:pointer;color:#666;">&times;</button>
-    <h4 style="margin-top:0;">Compact H-tree — Help</h4>
+    <h4 style="margin-top:0;">[*compact tree help]</h4>
     <table style="width:100%%;border-collapse:collapse;font-size:14px;">
-      <tr><td colspan="2" style="padding:8px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">Navigation</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Click</b></td><td style="padding:4px 0;">Re-root chart on clicked ancestor</td></tr>
+      <tr><td colspan="2" style="padding:8px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*navigation]</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>[*click]</b></td><td class="hi-help-text" data-key="help_click" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>%nn;
-        %if;(e.sosa="on")Enter%else;⌘+Click%end;</b></td><td style="padding:4px 0;">Go to person's page</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>← →</b></td><td style="padding:4px 0;">Genealogical navigation (← father, → mother)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↓</b></td><td style="padding:4px 0;">Navigate to child</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↑ (on implex)</b></td><td style="padding:4px 0;">Cycle through duplicate appearances of same ancestor</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Shift + arrows</b></td><td style="padding:4px 0;">Spatial navigation (move to nearest visible box)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>⌘ + ↑ / ↓</b></td><td style="padding:4px 0;">Navigate back / forward in selection history</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Enter</b></td><td style="padding:4px 0;">Re-root chart on selected ancestor</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Hover (500ms)</b></td><td style="padding:4px 0;">Highlight ancestor and its implex duplicates</td></tr>
-      <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">Toolbar</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>− / +</b></td><td style="padding:4px 0;">Decrease / increase displayed generations</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-house"></i></b></td><td style="padding:4px 0;">Return to original Sosa 1 (root person)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>H / I</b></td><td style="padding:4px 0;">Switch between H-tree and I-tree layout</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Sosa / Dot</b></td><td style="padding:4px 0;">Toggle between labeled box view and compact dot view</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-user"></i> / <i class="fa fa-user-plus"></i></b></td><td style="padding:4px 0;">Toggle couple display (show spouse connectors)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-image"></i></b></td><td style="padding:4px 0;">Toggle person photos in Sosa box view</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Scale − / +</b></td><td style="padding:4px 0;">Zoom in/out (scale boxes and layout)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Font − / +</b></td><td style="padding:4px 0;">Adjust font size (Sosa box mode)</td></tr>
-      <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">Search</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-magnifying-glass"></i> Sosa</b></td><td style="padding:4px 0;">Type a Sosa number and press Enter to find and highlight it</td></tr>
-      <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">Visual indicators</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Gold flash</b></td><td style="padding:4px 0;">Active selection (keyboard nav, search, implex cycle)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Orange outline</b></td><td style="padding:4px 0;">Implex peers (other appearances of same person)</td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>▶ triangles</b></td><td style="padding:4px 0;">Ancestors exist beyond displayed generations</td></tr>
+        %if;(e.sosa="on")Enter%else;⌘+[*click]%end;</b></td><td class="hi-help-text" data-key="help_goto" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>← →</b></td><td class="hi-help-text" data-key="help_arrows" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↓</b></td><td class="hi-help-text" data-key="help_down" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↑ ([*implex/implexes]0)</b></td><td class="hi-help-text" data-key="help_up" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Shift + ←→↑↓</b></td><td class="hi-help-text" data-key="help_shift" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>⌘ + ↑ / ↓</b></td><td class="hi-help-text" data-key="help_history" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Enter</b></td><td class="hi-help-text" data-key="help_enter" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Hover (500ms)</b></td><td class="hi-help-text" data-key="help_hover" style="padding:4px 0;"></td></tr>
+      <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*tools]</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>− / +</b></td><td class="hi-help-text" data-key="help_gen" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-house"></i></b></td><td class="hi-help-text" data-key="help_home" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>H / I</b></td><td class="hi-help-text" data-key="help_layout" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Sosa / Dot</b></td><td class="hi-help-text" data-key="help_view" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-user"></i> / <i class="fa fa-user-plus"></i></b></td><td class="hi-help-text" data-key="help_couple" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-image"></i></b></td><td class="hi-help-text" data-key="help_photo" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>[*size] − / +</b></td><td class="hi-help-text" data-key="help_zoom" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>[*font size] − / +</b></td><td class="hi-help-text" data-key="help_font" style="padding:4px 0;"></td></tr>
+      <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*search]</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-magnifying-glass"></i> Sosa</b></td><td class="hi-help-text" data-key="help_search" style="padding:4px 0;"></td></tr>
+      <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*visual indicators]</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b class="hi-help-text" data-key="help_gold_label"></b></td><td class="hi-help-text" data-key="help_gold" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b class="hi-help-text" data-key="help_orange_label"></b></td><td class="hi-help-text" data-key="help_orange" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>♂ ♀</b></td><td class="hi-help-text" data-key="help_gender" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>♂³♀²</b></td><td class="hi-help-text" data-key="help_rle" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>▶</b></td><td class="hi-help-text" data-key="help_triangle" style="padding:4px 0;"></td></tr>
     </table>
-    <div style="margin-top:12px;text-align:center;color:#888;font-size:12px;">Press Escape or click outside to close</div>
+    <div style="margin-top:12px;text-align:center;color:#888;font-size:12px;" class="hi-help-text" data-key="help_close"></div>
   </div>
 </div>
