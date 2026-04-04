@@ -818,7 +818,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     'help_gold': "[*click] / [*navigation] / [*search]",
     'help_orange_label': "┊▪┊ orange",
     'help_orange': "[*implex/implexes]0",
-    'help_gender': "♂=[*father/mother]0, ♀=[*father/mother]1 — Sosa 1 → [*ancestor/ancestors]0",
+    'help_gender': "♂=[*father/mother]0, ♀=[*father/mother]1 (♂♀ = [*father/mother]0's [*father/mother]1)",
     'help_rle': "♂³♀² = ♂♂♂♀♀",
     'help_triangle': "[*click for ancestors]",
     'help_close': "[*close] (Escape)"
