@@ -21,10 +21,30 @@
 - [ ] Adjust parameters, if necessary, according to actual screen resolution.
 - [ ] Visual polish — match quality of default ascending tree
 - [ ] Merge grid-tree-renderer branch to master
-- [ ] Rename all references from ‘Grid tree’ to ‘Panorama tree’
-- [ ] make title of Panorama tree: ‘Ancestors of <name of original Sosa 1>’ OR, when a differrent display Sosa has been chosen, ‘Ancestors of <name of person with original Sosa 1> (from his/her Sosa <Sosa number of the display Sosa person with respect to actual Sosa 1>: <name of person with display Sosa 1>)’ . Discuss before doing.
+- [ ] Rename all references from 'Grid tree' to 'Panorama tree'
+- [ ] make title of Panorama tree: 'Ancestors of <name of original Sosa 1>' OR, when a differrent display Sosa has been chosen, 'Ancestors of <name of person with original Sosa 1> (from his/her Sosa <Sosa number of the display Sosa person with respect to actual Sosa 1>: <name of person with display Sosa 1>)' . Discuss before doing.
 - [x] When chart is first displayed it should fit between the page title and the top of the minimap (Build 228: auto-scroll positions Sosa 1 above minimap)
 - [ ] Display should not jitter with mouse wheel
+
+## Compact H-tree (`grid-tree-renderer` branch)
+- [x] Balloons, smart scroll, search, help modal
+- [x] Photos, layout fixes, tooltip improvements
+- [x] Big-number Sosa arithmetic, accurate ancestor depth
+- [x] Fix line z-index, CSS fixes, browser console errors
+- [x] Pixel-based balloon logic, 10% zoom steps
+- [x] Localize toolbar and help modal via lexicon + JS dictionary
+- [x] Fix couple-mode line stubs (direct parent-position lines)
+- [x] Restructure tooltips: status after dates with " · " separator
+- [x] Home button: use ofn/osn params instead of sessionStorage
+- [x] Down arrow at dSosa 1: history.back() for tree traversal
+- [x] Couples mode: down arrow snaps to even sosas, selection restore
+- [x] Sosa 1 tooltip: show "(up to generation X)"
+- [x] Help modal: clearer text for all entries
+- [ ] Ctrl/Cmd platform detection for PC vs Mac key labels in help
+- [ ] Grid tree localization (~44 strings in tree_render.js)
+- [ ] Implex detection fix in Sosa box mode (use `data-purl` instead of `href`)
+- [ ] Backend: make `aaaspouse.anc_depth` accessible (add to `eval_person_field_var`) — avoids male-line primacy in couple tooltips
+- [ ] Submit compact H-tree as upstream PR
 
 ## Wiki Syntax Extensions
 - [x] Natural name person links `[[First Last (oc)]]`
@@ -48,4 +68,3 @@
 - [ ] Cross-platform install (Windows .exe, Linux packages)
 - [ ] SOSA tooltip unification across views
 - [ ] Always provide a Build badge and always update with each new build. Make note of changes with respect to build and what those changes entailed, so as to be able to re-apply them or revert them if needed.
-
