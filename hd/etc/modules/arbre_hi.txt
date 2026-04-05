@@ -72,11 +72,15 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     });
   </script>
 %end;
-%define;line(x0,y0,x1,y1,ss)
+%define;line(x0,y0,x1,y1,ss,bw)
   <script>
     $(window).on("load", function() {
-      var c = (ss %% 2 === 0) ? 'rgba(74,138,199,0.5)' : 'rgba(208,96,128,0.5)';
-      $('#hi-tree1').line(x0, y0, x1, y1, {color:c, stroke:5, opacity:1, zindex:1, class:'hi-line hi-line-' + ss});
+      var c = (ss %% 2 === 0) ? '#a0c4e8' : '#e8b0c0';
+      var sw = Math.max(2, Math.round(bw * 0.6));
+      // Clamp to even number for consistent rendering when rotated
+      sw = sw - (sw %% 2);
+      var adj = sw / 2;
+      $('#hi-tree1').line(x0, y0 - adj, x1, y1 - adj, {color:c, stroke:sw, opacity:1, zindex:1, class:'hi-line hi-line-' + ss});
     });
   </script>
 %end;
@@ -99,8 +103,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     <div style="position:absolute;top:%d2y;px;left:%d2x;px;width:6px;height:6px;background:#555;z-index:2;"></div>
     <script>
       $(window).on("load", function() {
-        var c = (%lns; %% 2 === 0) ? 'rgba(74,138,199,0.6)' : 'rgba(208,96,128,0.6)';
-        $('#hi-tree1').line(%x0;, %y0;, %mx;, %my;, {color:c, stroke:4, opacity:1, zindex:1, class:'hi-line hi-line-%lns;'});
+        var c = (%lns; %% 2 === 0) ? '#a0c4e8' : '#e8b0c0';
+        var sw = Math.max(2, Math.round(%hb1; * 0.6));
+        var adj = sw / 2;
+        $('#hi-tree1').line(%x0;, %y0; - adj, %mx;, %my; - adj, {color:c, stroke:sw, opacity:1, zindex:1, class:'hi-line hi-line-%lns;'});
       });
     </script>
   %end;
@@ -324,7 +330,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     %let;y1;%expr(y0+hb2)%in;
     %let;x2;%if;(or="h")%if;(ss%2=0)%expr(x1+len2)%else;%expr(x1-len2)%end;%else;%x1;%end;%in;
     %let;y2;%if;(or="v")%if;(ss%2=0)%expr(y1+len2)%else;%expr(y1-len2)%end;%else;%y1;%end;%in;
-    %apply;line(x1, y1, x2, y2, ss)
+    %apply;line(x1, y1, x2, y2, ss, hb1)
   %end;
 %end;
 
@@ -487,7 +493,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
               %let;pleft;%expr(leftxx_yy(parent_half)*wb)%in;
               %let;wb2;%if;(boxsize=2)%wb1;%else;%expr(wb1/2)%end;%in;
               %let;hb2;%if;(boxsize=2)%hb1;%else;%expr(hb1/2)%end;%in;
-              %apply;line(left+wb2, top+hb2, pleft+wb2, ptop+hb2, anc_sosahalf)
+              %apply;line(left+wb2, top+hb2, pleft+wb2, ptop+hb2, anc_sosahalf, hb1)
             %end;
           %end;
         %end;
@@ -1224,16 +1230,21 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       }
 
       // ── Draw connecting lines (parent-child) on ground plane ──
-      // Blue for father lines (even sosa), red for mother lines (odd sosa)
-      var isoLineW = Math.max(1, 4 * Math.sqrt(isoZoom));
-      isoCtx.lineWidth = isoLineW;
+      // EXPERIMENTAL: line width matches projected box width (revert to fixed 6px if too busy)
+      // var isoLineW = Math.max(2, 6 * Math.sqrt(isoZoom));  // fixed-width fallback
       for (var sid in boxPos) {
         var s = parseInt(sid);
         if (s <= 1) continue;
         var parentId = String(Math.floor(s / 2));
         if (!boxPos[parentId]) continue;
-        var cp = toScreen(boxPos[sid].x, boxPos[sid].y, 0);
+        var bp = boxPos[sid];
+        var cp = toScreen(bp.x, bp.y, 0);
         var pp = toScreen(boxPos[parentId].x, boxPos[parentId].y, 0);
+        // Line width = projected box width along the line direction
+        var cR = toScreen(bp.x + bp.w / 2, bp.y, 0);
+        var cL = toScreen(bp.x - bp.w / 2, bp.y, 0);
+        var projW = Math.sqrt((cR.x - cL.x) * (cR.x - cL.x) + (cR.y - cL.y) * (cR.y - cL.y));
+        isoCtx.lineWidth = Math.max(2, projW * 0.6);
         isoCtx.strokeStyle = (s % 2 === 0) ? 'rgba(74,138,199,0.5)' : 'rgba(208,96,128,0.5)';
         isoCtx.beginPath();
         isoCtx.moveTo(cp.x, cp.y);
@@ -1308,7 +1319,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 
       for (var i = 0; i < barPts.length; i++) {
         var p = barPts[i];
-        var hFrac = p.depth / maxDepth;  // 0..1
+        var hFrac = p.depth > 0 ? Math.max(0.04, p.depth / maxDepth) : 0;  // min visible height
         var foot = toScreen(p.x, p.y, 0);
         var top = toScreen(p.x, p.y, hFrac);
 
@@ -1515,9 +1526,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       } else {
         // Carry iso focus back to flat chart
         var isoSosa = isoSelectedSosa;
+        isoCtx.clearRect(0, 0, isoW, isoH);
         isoCanvas.style.display = 'none';
+        isoCanvas.width = 0;
+        isoCanvas.height = 0;
         tree.style.display = '';
-        if (isoBtn) isoBtn.classList.remove('active');
+        if (isoBtn) { isoBtn.classList.remove('active'); isoBtn.blur(); }
         draw();
         if (isoSosa && window.hiFlatActivateSosa) window.hiFlatActivateSosa(isoSosa);
       }
