@@ -1014,7 +1014,30 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (!isNaN(_savT)) isoTilt = _savT;
     } catch(_) {}
     var isoSelectedSosa = null;   // currently selected sosa in iso view
+    // Pending selection from previous page's ↓-pop (see ArrowDown handler).
+    // When user stepped ↓ at local sosa 1 of a rerooted chart, we navigated
+    // browser-back to the previous chart with this hint so the popped dSosa
+    // is preselected there.
+    try {
+      var _pSel = sessionStorage.getItem('hiIsoPendingSel');
+      if (_pSel) {
+        sessionStorage.removeItem('hiIsoPendingSel');
+        isoSelectedSosa = _pSel;
+      }
+    } catch(_) {}
     var isoScreenPts = {};        // sosa -> {x, y} screen coords after projection
+    var isoBarSegs = [];          // [{sosa, foot:{x,y}, top:{x,y}, halfW}] — hit-test for bars
+    var isoBackStack = [];        // prior iso selections (per-chart)
+    var isoFwdStack = [];         // forward selections after a Cmd+↓ back
+    function isoPushHistory(prev) {
+      if (prev == null) return;
+      // Skip if identical to current back top (no-op moves)
+      var top = isoBackStack[isoBackStack.length - 1];
+      if (top === prev) return;
+      isoBackStack.push(prev);
+      if (isoBackStack.length > 100) isoBackStack.shift();
+      isoFwdStack.length = 0;  // new branch invalidates forward history
+    }
     var isoChartDirs = {};  // chart directions projected to screen, updated by drawIso
     var isoRoot = 1;              // current display-root sosa (1 = original root)
     var isoRootStack = new Array();  // history of previous roots for back-navigation
@@ -1090,13 +1113,30 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       drawIso();
     }, { passive: false });
 
-    // Click to select nearest person
+    // Click to select nearest person. Tests both box dots (isoScreenPts)
+    // and bar segments (isoBarSegs) so clicking a tall bar selects the
+    // person under it.
     function isoFindNearest(cx, cy) {
       var best = null, bestD = 20;  // max 20px hit distance
       for (var sid in isoScreenPts) {
         var sp = isoScreenPts[sid];
         var d = Math.sqrt((sp.x - cx) * (sp.x - cx) + (sp.y - cy) * (sp.y - cy));
         if (d < bestD) { bestD = d; best = sid; }
+      }
+      // Also test distance from click to each bar segment.
+      for (var bi = 0; bi < isoBarSegs.length; bi++) {
+        var seg = isoBarSegs[bi];
+        var ax = seg.foot.x, ay = seg.foot.y;
+        var bx = seg.top.x, by = seg.top.y;
+        var dx = bx - ax, dy = by - ay;
+        var len2 = dx * dx + dy * dy;
+        var t = len2 > 0 ? ((cx - ax) * dx + (cy - ay) * dy) / len2 : 0;
+        if (t < 0) t = 0; else if (t > 1) t = 1;
+        var px = ax + dx * t, py = ay + dy * t;
+        var segD = Math.sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy));
+        // Hit tolerance: bar half-width + 4px slack
+        var tol = (seg.halfW || 3) + 4;
+        if (segD < tol && segD < bestD) { bestD = segD; best = String(seg.sosa); }
       }
       return best;
     }
@@ -1127,6 +1167,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var rect = isoCanvas.getBoundingClientRect();
       var cx = e.clientX - rect.left, cy = e.clientY - rect.top;
       var hit = isoFindNearest(cx, cy);
+      if (hit && hit !== isoSelectedSosa) isoPushHistory(isoSelectedSosa);
       isoSelectedSosa = hit;
       drawIso();
       isoUpdateInfo();
@@ -1166,6 +1207,26 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       return best;
     }
 
+    // If the selected person's projected point is outside the visible
+    // canvas (with a margin), pan so they're snapped into view. Called after
+    // keyboard navigation changes the selection.
+    function isoEnsureSelectedVisible() {
+      if (!isoSelectedSosa) return;
+      var p = isoScreenPts[isoSelectedSosa];
+      if (!p) return;
+      var margin = 40;
+      var dx = 0, dy = 0;
+      if (p.x < margin) dx = margin - p.x;
+      else if (p.x > isoW - margin) dx = (isoW - margin) - p.x;
+      if (p.y < margin) dy = margin - p.y;
+      else if (p.y > isoH - margin) dy = (isoH - margin) - p.y;
+      if (dx !== 0 || dy !== 0) {
+        isoPanX += dx;
+        isoPanY += dy;
+        drawIso();
+      }
+    }
+
     // Arrow key navigation in iso view
     // Registered in CAPTURE phase so we run before any other document/window
     // keydown handlers (the flat-chart nav handler otherwise intercepts Enter
@@ -1178,6 +1239,25 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (e.key === 'Enter' || e.key === 'Backspace' || e.key.startsWith('Arrow')) {
         e.preventDefault();
         e.stopImmediatePropagation();
+      }
+      // Cmd/Ctrl + ↓/↑: walk back/forward through iso selection history
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        if (e.key === 'ArrowDown' && isoBackStack.length > 0) {
+          var prev = isoBackStack.pop();
+          if (isoSelectedSosa) isoFwdStack.push(isoSelectedSosa);
+          isoSelectedSosa = prev;
+          drawIso();
+          isoEnsureSelectedVisible();
+          isoUpdateInfo();
+        } else if (e.key === 'ArrowUp' && isoFwdStack.length > 0) {
+          var nxt = isoFwdStack.pop();
+          if (isoSelectedSosa) isoBackStack.push(isoSelectedSosa);
+          isoSelectedSosa = nxt;
+          drawIso();
+          isoEnsureSelectedVisible();
+          isoUpdateInfo();
+        }
+        return;
       }
       // Backspace: pop previous iso root (re-root history)
       if (e.key === 'Backspace' && isoRootStack.length > 0) {
@@ -1216,7 +1296,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
             // shifts absolute scale labels, and the sosa itself lets a later
             // ↓-pop or browser-back restore selection to this person in the
             // previous chart. The url lets us reconcile after browser back.
-            isoGenStack.push({ sosa: s, url: targetUrl });
+            // Each entry also records `from` — the URL of the chart we're
+            // leaving — so ↓-pop can navigate back to it without touching
+            // browser history (Enter and ↓-pop are both forward nav).
+            isoGenStack.push({ sosa: s, url: targetUrl, from: window.location.href });
             isoSaveStack();
             // Persist rotation/tilt so the next chart opens at the same angle
             try {
@@ -1235,21 +1318,26 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       } else {
         // Plain arrow: fixed genealogical navigation
         // ← father, → mother, ↓ child (same as main chart)
-        // At the root (s=1), ↓ drops back to the previous iso chart by
-        // popping the gen stack and stepping browser history back.
+        // ↓ at local sosa 1 pops back to the previous iso chart (if any),
+        // selecting the dSosa we just left — which is now an ancestor
+        // somewhere on that chart's plane. Continuing ↓ keeps stepping
+        // toward the original oSosa; stops when we reach Sosa 1 of the
+        // base (first-loaded) chart.
         if (e.key === 'ArrowDown' && s === 1 && isoGenStack.length > 0) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          // Pop back to previous iso chart; selection restores to the sosa
-          // that was entered there to reach this chart — so the next ↓ keeps
-          // stepping toward the original oSosa.
-          var popped = isoGenStack.pop();
-          isoSaveStack();
-          try {
-            // Tell the previous page which sosa to re-select and step down from
-            sessionStorage.setItem('hiIsoPendingSelDown', String((popped && popped.sosa) || 1));
-          } catch(_) {}
-          window.history.back();
+          var popped = isoGenStack[isoGenStack.length - 1];
+          var parentUrl = popped && popped.from;
+          if (parentUrl) {
+            // Pop the stack entry, stash the popped sosa as pending selection
+            // for the parent chart, then forward-navigate (no browser back).
+            isoGenStack.pop();
+            isoSaveStack();
+            try {
+              sessionStorage.setItem('hiIsoPendingSel', String((popped && popped.sosa) || 1));
+              sessionStorage.setItem('hiIsoAngle', String(isoAngle));
+              sessionStorage.setItem('hiIsoTilt', String(isoTilt));
+            } catch(_) {}
+            window.location.href = parentUrl;
+          }
           return;
         }
         if (e.key === 'ArrowLeft') next = s * 2;
@@ -1261,8 +1349,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 
       if (next) {
         e.preventDefault();
+        isoPushHistory(isoSelectedSosa);
         isoSelectedSosa = String(next);
         drawIso();
+        isoEnsureSelectedVisible();
         isoUpdateInfo();
       }
     }, true);
@@ -1292,6 +1382,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         }
         barPts.push({ x: bx + bw2 / 2, y: by + bh2 / 2, depth: d, sosa: sosa });
       }
+      // hasExtraDepth: does any leaf have ancestors beyond the rendered tree?
+      // If not, there's nothing above the ground plane — skip vertical ruler lines.
+      var hasExtraDepth = maxDepth > baseGen;
       if (maxDepth === 0) maxDepth = 1;
       // Scale runs from baseGen (ground = leaf generation of rendered tree)
       // to maxDepth (top = deepest ancestor). All in absolute gen numbers
@@ -1454,6 +1547,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         depthMap = newDepthMap;
         if (newMaxDepth > 0) maxDepth = newMaxDepth;
         if (newBaseGen > 0) minDepth = newBaseGen;
+        hasExtraDepth = maxDepth > minDepth;
         depthSpan = Math.max(1, maxDepth - minDepth);
         // Also filter barPts to subtree members and remap their x,y to the
         // new box positions so bars sit on top of the re-rooted boxes.
@@ -1515,7 +1609,11 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           var rbg = (rootBox && rootBox.style.backgroundColor || '').toLowerCase();
           isMale = rbg.indexOf('208, 228, 245') >= 0 || rbg.indexOf('d0e4f5') >= 0;
         }
-        isoCtx.fillStyle = isMale ? '#A8CDEB' : '#EBB2C0';
+        var isSel = (sid === isoSelectedSosa);
+        // Selected box: fully saturated color. Others: light shade.
+        isoCtx.fillStyle = isSel
+          ? (isMale ? '#3070a8' : '#b04870')
+          : (isMale ? '#A8CDEB' : '#EBB2C0');
         var sp = toScreen(bp.x, bp.y, 0);
         isoScreenPts[sid] = { x: sp.x, y: sp.y };
         // Project box corners through isometric transform
@@ -1632,11 +1730,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var barW = Math.max(3, Math.min(8, isoW / Math.max(1, barPts.length))) * Math.sqrt(isoZoom);
 
       var selSosaInt = parseInt(isoSelectedSosa) || 0;
+      isoBarSegs = [];
       for (var i = 0; i < barPts.length; i++) {
         var p = barPts[i];
         var hFrac = (p.depth - minDepth) / depthSpan;  // 0..1
         var foot = toScreen(p.x, p.y, 0);
         var top = toScreen(p.x, p.y, hFrac);
+        isoBarSegs.push({ sosa: p.sosa, foot: foot, top: top, halfW: barW / 2 });
         var barMale = (p.sosa > 1 && p.sosa % 2 === 0);
         var isSelBar = (p.sosa === selSosaInt);
 
@@ -1657,7 +1757,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCtx.moveTo(foot.x, foot.y);
         isoCtx.lineTo(top.x, top.y);
         isoCtx.stroke();
-        isoCtx.strokeStyle = (p.sosa <= 1) ? '#cccccc' : barMale ? '#A8CDEB' : '#EBB2C0';
+        isoCtx.strokeStyle = isSelBar
+          ? (barMale ? '#3070a8' : '#b04870')
+          : ((p.sosa <= 1) ? '#cccccc' : barMale ? '#A8CDEB' : '#EBB2C0');
         isoCtx.lineWidth = barW;
         isoCtx.beginPath();
         isoCtx.moveTo(foot.x, foot.y);
@@ -1733,18 +1835,22 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       for (var ci = 0; ci < 4; ci++) {
         var cwx = cWx[ci], cwy = cWy[ci];
         var foot = toScreen(cwx, cwy, 0);
-        var top = toScreen(cwx, cwy, 1);
-        // Vertical ruler line
-        isoCtx.strokeStyle = 'rgba(0,0,0,0.3)';
-        isoCtx.lineWidth = 1;
-        isoCtx.beginPath();
-        isoCtx.moveTo(foot.x, foot.y);
-        isoCtx.lineTo(top.x, top.y);
-        isoCtx.stroke();
+        if (hasExtraDepth) {
+          var top = toScreen(cwx, cwy, 1);
+          // Vertical ruler line
+          isoCtx.strokeStyle = 'rgba(0,0,0,0.3)';
+          isoCtx.lineWidth = 1;
+          isoCtx.beginPath();
+          isoCtx.moveTo(foot.x, foot.y);
+          isoCtx.lineTo(top.x, top.y);
+          isoCtx.stroke();
+        }
         // Tick marks at each generation level — in the plane, pointing outward from chart center
+        // When hasExtraDepth is false, draw only the ground-level tick/label.
         var tickLen = 8;
-        for (var g = 0; g <= depthSpan; g += tickStep) {
-          var hFrac = g / depthSpan;
+        var gEnd = hasExtraDepth ? depthSpan : 0;
+        for (var g = 0; g <= gEnd; g += tickStep) {
+          var hFrac = hasExtraDepth ? g / depthSpan : 0;
           var tp = toScreen(cwx, cwy, hFrac);
           var centerAtHh = toScreen(treeW / 2, treeH / 2, hFrac);
           var odx = tp.x - centerAtHh.x, ody = tp.y - centerAtHh.y;
@@ -1759,6 +1865,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           isoCtx.textAlign = oux >= 0 ? 'left' : 'right';
           isoCtx.textBaseline = 'middle';
           isoCtx.fillText(String(g + minDepth + isoGenOffset), tp.x + oux * (tickLen + 5), tp.y + ouy * (tickLen + 5));
+          if (!hasExtraDepth) break;
         }
       }
       // Mark: short segment at each corner scale post at the selected person's bar height,
@@ -1826,9 +1933,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       isoMode = !isoMode;
       try { sessionStorage.setItem('hiIsoMode', isoMode ? '1' : '0'); } catch(_) {}
       if (isoMode) {
-        // Carry flat chart focus into iso view
-        var flatActive = window.hiFlatGetSosa ? window.hiFlatGetSosa() : null;
-        if (flatActive) isoSelectedSosa = flatActive;
+        // Carry flat chart focus into iso view — but only if iso doesn't
+        // already have a selection (e.g., from a ↓-pop pendingSel hint).
+        if (!isoSelectedSosa) {
+          var flatActive = window.hiFlatGetSosa ? window.hiFlatGetSosa() : null;
+          if (flatActive) isoSelectedSosa = flatActive;
+        }
         isoPanX = 0; isoPanY = 0;
         tree.style.display = 'none';
         sizeIsoCanvas();
@@ -1864,30 +1974,20 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       }
       isoSaveStack();
       isoGenOffset = isoGenOffsetSum();
-      if (isoMode) drawIso();
+      // Apply pending selection left by a ↓-pop from a deeper chart
+      try {
+        var _pSel2 = sessionStorage.getItem('hiIsoPendingSel');
+        if (_pSel2) {
+          sessionStorage.removeItem('hiIsoPendingSel');
+          isoSelectedSosa = _pSel2;
+        }
+      } catch(_) {}
+      if (isoMode) { drawIso(); isoEnsureSelectedVisible(); isoUpdateInfo(); }
     });
     // Restore iso view across navigations (e.g., Enter re-root loads new page)
     try {
       if (sessionStorage.getItem('hiIsoMode') === '1') {
-        setTimeout(function(){
-          window.hiIsoToggle();
-          // If we got here via ↓-pop from a rerooted chart, step one gen
-          // down in this chart from the sosa that was used to reroot there.
-          var pend = sessionStorage.getItem('hiIsoPendingSelDown');
-          if (pend) {
-            sessionStorage.removeItem('hiIsoPendingSelDown');
-            var ps = parseInt(pend);
-            if (ps > 1) {
-              var child = Math.floor(ps / 2);
-              // Only select if box exists in this chart
-              if (isoScreenPts[String(child)]) {
-                isoSelectedSosa = String(child);
-                drawIso();
-                isoUpdateInfo();
-              }
-            }
-          }
-        }, 0);
+        setTimeout(function(){ window.hiIsoToggle(); }, 0);
       }
     } catch(_) {}
   })();
@@ -2354,12 +2454,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     var saved = parseInt(sessionStorage.getItem('hi-active-sosa'));
     var found = false;
     if (saved) {
-      // try local sosa first, then global
-      found = activateSosa(saved);
-      if (!found) {
-        var gEl = tree.querySelector('a[data-gsosa="' + saved + '"]');
-        if (gEl) { found = activate(gEl); }
-      }
+      // Saved value is a global sosa (written via el.dataset.gsosa). Try
+      // data-gsosa first so cross-chart navigation (Enter-reroot) correctly
+      // picks the same person (new dSosa = local sosa 1) rather than
+      // colliding with an unrelated local-sosa match in the new chart.
+      var gEl = tree.querySelector('a[data-gsosa="' + saved + '"]');
+      if (gEl) { found = activate(gEl); }
+      if (!found) found = activateSosa(saved);
     }
     if (!found) found = activateSosa(1);
     if (!found) activateSosa(2);
