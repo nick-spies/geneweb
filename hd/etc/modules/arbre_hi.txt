@@ -1036,7 +1036,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var selA = tree.querySelector('a[data-sosa="' + isoSelectedSosa + '"]');
       if (!selA) { bar.innerHTML = ''; return; }
       var title = (selA._hiTitle || selA.getAttribute('title') || '').split('\n');
-      bar.innerHTML = 'Sosa ' + isoSelectedSosa + ' \u00b7 ' + title.slice(0, 2).join(' \u00b7 ');
+      var info = 'Sosa ' + isoSelectedSosa + ' \u00b7 ' + title.slice(0, 2).join(' \u00b7 ');
+      var dep = parseInt(selA.dataset.depth);
+      if (dep) info += ' \u00b7 max gen ' + dep;
+      bar.innerHTML = info;
     }
 
     var isoDragStartX = 0, isoDragStartY = 0, isoDragMoved = false;
@@ -1153,7 +1156,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var cosA = Math.cos(isoAngle), sinA = Math.sin(isoAngle);
       var cosT = Math.cos(isoTilt), sinT = Math.sin(isoTilt);
       var PAD = 12;
-      var barMaxH = 0.35;  // world units — scales with chart
+      var barMaxH = 0.28;  // world units — scales with chart
 
       // Normalize tree coords to [0..1] range for uniform scaling
       var normX = treeW > 0 ? 1.0 / treeW : 1;
@@ -1236,8 +1239,20 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 
       // ── Draw connecting lines (parent-child) on ground plane ──
       // Blue for father lines (even sosa), red for mother lines (odd sosa)
-      var isoLineW = Math.max(1, 4 * Math.sqrt(isoZoom));
-      isoCtx.lineWidth = isoLineW;
+      // Line width = 60% of the narrow side of the (smaller) box, in screen pixels.
+      var isoNarrowPx = {};  // sid -> projected narrow-side px
+      for (var npid in boxPos) {
+        var nbp = boxPos[npid];
+        var nhw = nbp.w / 2, nhh = nbp.h / 2;
+        var nc0 = toScreen(nbp.x - nhw, nbp.y - nhh, 0);
+        var nc1 = toScreen(nbp.x + nhw, nbp.y - nhh, 0);
+        var nc3 = toScreen(nbp.x - nhw, nbp.y + nhh, 0);
+        var ndx1 = nc1.x - nc0.x, ndy1 = nc1.y - nc0.y;
+        var ndx2 = nc3.x - nc0.x, ndy2 = nc3.y - nc0.y;
+        var nl1 = Math.sqrt(ndx1 * ndx1 + ndy1 * ndy1);
+        var nl2 = Math.sqrt(ndx2 * ndx2 + ndy2 * ndy2);
+        isoNarrowPx[npid] = Math.min(nl1, nl2);
+      }
       for (var sid in boxPos) {
         var s = parseInt(sid);
         if (s <= 1) continue;
@@ -1245,6 +1260,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         if (!boxPos[parentId]) continue;
         var cp = toScreen(boxPos[sid].x, boxPos[sid].y, 0);
         var pp = toScreen(boxPos[parentId].x, boxPos[parentId].y, 0);
+        var lineW = Math.min(isoNarrowPx[sid] || 4, isoNarrowPx[parentId] || 4) * 0.4;
+        if (lineW < 1) lineW = 1;
+        isoCtx.lineWidth = lineW;
         isoCtx.strokeStyle = (s % 2 === 0) ? 'rgba(74,138,199,0.5)' : 'rgba(208,96,128,0.5)';
         isoCtx.beginPath();
         isoCtx.moveTo(cp.x, cp.y);
@@ -1257,7 +1275,16 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       for (var sid in boxPos) {
         var bp = boxPos[sid];
         var s2 = parseInt(sid);
-        isoCtx.fillStyle = (s2 <= 1) ? '#999' : (s2 % 2 === 0) ? '#4a8ac7' : '#d06080';
+        // Gender: even sosa = male (square), odd = female (rounded). Root: check flat box color.
+        var isMale;
+        if (s2 > 1) {
+          isMale = (s2 % 2 === 0);
+        } else {
+          var rootBox = document.getElementById('s' + sid);
+          var rbg = (rootBox && rootBox.style.backgroundColor || '').toLowerCase();
+          isMale = rbg.indexOf('208, 228, 245') >= 0 || rbg.indexOf('d0e4f5') >= 0;
+        }
+        isoCtx.fillStyle = isMale ? '#A8CDEB' : '#EBB2C0';
         var sp = toScreen(bp.x, bp.y, 0);
         isoScreenPts[sid] = { x: sp.x, y: sp.y };
         // Project box corners through isometric transform
@@ -1267,11 +1294,44 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         var c2 = toScreen(bp.x + hw, bp.y + hh, 0);
         var c3 = toScreen(bp.x - hw, bp.y + hh, 0);
         isoCtx.beginPath();
-        isoCtx.moveTo(c0.x, c0.y);
-        isoCtx.lineTo(c1.x, c1.y);
-        isoCtx.lineTo(c2.x, c2.y);
-        isoCtx.lineTo(c3.x, c3.y);
-        isoCtx.closePath();
+        if (isMale) {
+          isoCtx.moveTo(c0.x, c0.y);
+          isoCtx.lineTo(c1.x, c1.y);
+          isoCtx.lineTo(c2.x, c2.y);
+          isoCtx.lineTo(c3.x, c3.y);
+          isoCtx.closePath();
+        } else {
+          // Rounded corners for females: quadratic curve through each vertex.
+          var e01x = c1.x - c0.x, e01y = c1.y - c0.y;
+          var e12x = c2.x - c1.x, e12y = c2.y - c1.y;
+          var e23x = c3.x - c2.x, e23y = c3.y - c2.y;
+          var e30x = c0.x - c3.x, e30y = c0.y - c3.y;
+          var L01 = Math.sqrt(e01x * e01x + e01y * e01y) || 1;
+          var L12 = Math.sqrt(e12x * e12x + e12y * e12y) || 1;
+          var L23 = Math.sqrt(e23x * e23x + e23y * e23y) || 1;
+          var L30 = Math.sqrt(e30x * e30x + e30y * e30y) || 1;
+          var r = Math.min(L01, L12, L23, L30) * 0.35;
+          if (r > 10) r = 10;
+          // Shrink endpoints of each edge inward by r
+          var a0x = c0.x + e01x / L01 * r, a0y = c0.y + e01y / L01 * r;
+          var b0x = c1.x - e01x / L01 * r, b0y = c1.y - e01y / L01 * r;
+          var a1x = c1.x + e12x / L12 * r, a1y = c1.y + e12y / L12 * r;
+          var b1x = c2.x - e12x / L12 * r, b1y = c2.y - e12y / L12 * r;
+          var a2x = c2.x + e23x / L23 * r, a2y = c2.y + e23y / L23 * r;
+          var b2x = c3.x - e23x / L23 * r, b2y = c3.y - e23y / L23 * r;
+          var a3x = c3.x + e30x / L30 * r, a3y = c3.y + e30y / L30 * r;
+          var b3x = c0.x - e30x / L30 * r, b3y = c0.y - e30y / L30 * r;
+          isoCtx.moveTo(a0x, a0y);
+          isoCtx.lineTo(b0x, b0y);
+          isoCtx.quadraticCurveTo(c1.x, c1.y, a1x, a1y);
+          isoCtx.lineTo(b1x, b1y);
+          isoCtx.quadraticCurveTo(c2.x, c2.y, a2x, a2y);
+          isoCtx.lineTo(b2x, b2y);
+          isoCtx.quadraticCurveTo(c3.x, c3.y, a3x, a3y);
+          isoCtx.lineTo(b3x, b3y);
+          isoCtx.quadraticCurveTo(c0.x, c0.y, a0x, a0y);
+          isoCtx.closePath();
+        }
         isoCtx.fill();
         // Subtle border
         isoCtx.strokeStyle = 'rgba(0,0,0,0.15)';
@@ -1348,16 +1408,24 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCtx.fillRect(foot.x - 1, foot.y - 1, 3, 2);
       }
 
-      // ── Gold ring on selected person (on top of bars) ──
+      // ── Gold ring on selected person: ellipse axis-aligned with box, lying on ground plane ──
       if (isoSelectedSosa && isoScreenPts[isoSelectedSosa]) {
-        var sel = isoScreenPts[isoSelectedSosa];
         var selBp = boxPos[isoSelectedSosa];
-        var hlR = selBp ? Math.max(6, Math.max(selBp.w, selBp.h) * fitScale * normX * 0.6) : 8;
-        isoCtx.strokeStyle = '#ffd700';
-        isoCtx.lineWidth = Math.max(1.5, 2.5 * Math.sqrt(isoZoom));
-        isoCtx.beginPath();
-        isoCtx.arc(sel.x, sel.y, hlR, 0, Math.PI * 2);
-        isoCtx.stroke();
+        if (selBp) {
+          var rx = selBp.w * 0.7;
+          var ry = selBp.h * 0.7;
+          isoCtx.strokeStyle = '#ffd700';
+          isoCtx.lineWidth = Math.max(2.5, 4 * Math.sqrt(isoZoom));
+          isoCtx.beginPath();
+          var segs = 32;
+          for (var ri = 0; ri <= segs; ri++) {
+            var ang = (ri / segs) * Math.PI * 2;
+            var pt = toScreen(selBp.x + rx * Math.cos(ang), selBp.y + ry * Math.sin(ang), 0);
+            if (ri === 0) isoCtx.moveTo(pt.x, pt.y);
+            else isoCtx.lineTo(pt.x, pt.y);
+          }
+          isoCtx.stroke();
+        }
       }
 
       // ── Edge labels: Top (y=0) and Father (x=0) ──
@@ -1404,44 +1472,30 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       isoCtx.moveTo(cTR.x, cTR.y); isoCtx.lineTo(cBR.x, cBR.y);
       isoCtx.stroke();
 
-      // ── Vertical ruler lines at three far corners ──
-      // Find the nearest corner (lowest screen Y = closest to viewer) and skip it
+      // ── Vertical ruler lines at all four corners ──
       var cWx = new Array(0, treeW, 0, treeW);
       var cWy = new Array(0, 0, treeH, treeH);
-      var cSc = new Array(cTL, cTR, cBL, cBR);
-      var nearIdx = 0;
-      for (var ci = 1; ci < 4; ci++) {
-        if (cSc[ci].y > cSc[nearIdx].y) nearIdx = ci;
+      // Adaptive tick step based on screen length of a vertical line
+      var _vfoot = toScreen(0, 0, 0), _vtop = toScreen(0, 0, 1);
+      var _vLenPx = Math.sqrt((_vtop.x - _vfoot.x) * (_vtop.x - _vfoot.x) + (_vtop.y - _vfoot.y) * (_vtop.y - _vfoot.y));
+      var _minSpacingPx = 22;  // min pixels between labeled ticks
+      var _minStep = maxDepth * _minSpacingPx / Math.max(1, _vLenPx);
+      var _niceSteps = new Array(1, 2, 5, 10, 20, 50, 100);
+      var tickStep = _niceSteps[_niceSteps.length - 1];
+      for (var _si = 0; _si < _niceSteps.length; _si++) {
+        if (_niceSteps[_si] >= _minStep) { tickStep = _niceSteps[_si]; break; }
       }
-      // Horizontal lines along the far edge at each tick height level
-      var tickStep = maxDepth <= 20 ? 5 : 10;
-      // Four edges: TL-TR(0-1), TR-BR(1-3), BR-BL(3-2), BL-TL(2-0)
-      var edgeA = new Array(0, 1, 3, 2);
-      var edgeB = new Array(1, 3, 2, 0);
-      // Find the farthest edge (opposite the near corner = lowest midpoint Y)
-      var farEdge = -1, farY = 1e9;
-      for (var ei = 0; ei < 4; ei++) {
-        if (edgeA[ei] === nearIdx || edgeB[ei] === nearIdx) continue;
-        var midY = (cSc[edgeA[ei]].y + cSc[edgeB[ei]].y) / 2;
-        if (midY < farY) { farY = midY; farEdge = ei; }
+      // Depth of the selected person's bar (only set if selected person has ancestors beyond view)
+      var selDepth = 0;
+      if (isoSelectedSosa && depthMap[parseInt(isoSelectedSosa)]) {
+        selDepth = depthMap[parseInt(isoSelectedSosa)];
       }
-      if (farEdge >= 0) {
-        isoCtx.strokeStyle = 'rgba(0,0,0,0.12)';
-        isoCtx.lineWidth = 0.5;
-        var fea = edgeA[farEdge], feb = edgeB[farEdge];
-        for (var g = tickStep; g <= maxDepth; g += tickStep) {
-          var hFrac = g / maxDepth;
-          var pa = toScreen(cWx[fea], cWy[fea], hFrac);
-          var pb = toScreen(cWx[feb], cWy[feb], hFrac);
-          isoCtx.beginPath();
-          isoCtx.moveTo(pa.x, pa.y);
-          isoCtx.lineTo(pb.x, pb.y);
-          isoCtx.stroke();
-        }
+      var selMarkColor = null;
+      if (selDepth > 0) {
+        var selSInt = parseInt(isoSelectedSosa);
+        selMarkColor = (selSInt <= 1) ? '#b8860b' : (selSInt % 2 === 0) ? '#4a8ac7' : '#d06080';
       }
-
       for (var ci = 0; ci < 4; ci++) {
-        if (ci === nearIdx) continue;
         var cwx = cWx[ci], cwy = cWy[ci];
         var foot = toScreen(cwx, cwy, 0);
         var top = toScreen(cwx, cwy, 1);
@@ -1452,29 +1506,43 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCtx.moveTo(foot.x, foot.y);
         isoCtx.lineTo(top.x, top.y);
         isoCtx.stroke();
-        // Tick marks at each generation level
-        var tickLen = 4;
-        // Determine tick direction (perpendicular to vertical line, pointing outward)
-        var vx = top.x - foot.x, vy = top.y - foot.y;
-        var vLen = Math.sqrt(vx * vx + vy * vy);
-        var perpX = -vy / vLen, perpY = vx / vLen;
-        // Point ticks outward from center
-        var midChart = toScreen(treeW / 2, treeH / 2, 0.5);
-        var toCenter = (foot.x - midChart.x) * perpX + (foot.y - midChart.y) * perpY;
-        if (toCenter < 0) { perpX = -perpX; perpY = -perpY; }
-        var tickStep = maxDepth <= 20 ? 5 : 10;
+        // Tick marks at each generation level — in the plane, pointing outward from chart center
+        var tickLen = 8;
         for (var g = 0; g <= maxDepth; g += tickStep) {
           var hFrac = g / maxDepth;
           var tp = toScreen(cwx, cwy, hFrac);
+          var centerAtHh = toScreen(treeW / 2, treeH / 2, hFrac);
+          var odx = tp.x - centerAtHh.x, ody = tp.y - centerAtHh.y;
+          var oLen = Math.sqrt(odx * odx + ody * ody) || 1;
+          var oux = odx / oLen, ouy = ody / oLen;
           isoCtx.beginPath();
           isoCtx.moveTo(tp.x, tp.y);
-          isoCtx.lineTo(tp.x + perpX * tickLen, tp.y + perpY * tickLen);
+          isoCtx.lineTo(tp.x + oux * tickLen, tp.y + ouy * tickLen);
           isoCtx.stroke();
           isoCtx.fillStyle = '#555';
           isoCtx.font = 'bold 13px sans-serif';
-          isoCtx.textAlign = toCenter > 0 ? 'left' : 'right';
+          isoCtx.textAlign = oux >= 0 ? 'left' : 'right';
           isoCtx.textBaseline = 'middle';
-          isoCtx.fillText(String(g), tp.x + perpX * (tickLen + 5), tp.y + perpY * (tickLen + 5));
+          isoCtx.fillText(String(g), tp.x + oux * (tickLen + 5), tp.y + ouy * (tickLen + 5));
+        }
+      }
+      // Mark: short segment at each corner scale post at the selected person's bar height,
+      // in the plane at that elevation, pointing outward from chart center.
+      if (selMarkColor) {
+        var hMarkPlane = selDepth / maxDepth;
+        var segLen = Math.max(14, 20 * Math.sqrt(isoZoom));
+        var centerAtH = toScreen(treeW / 2, treeH / 2, hMarkPlane);
+        isoCtx.strokeStyle = selMarkColor;
+        isoCtx.lineWidth = Math.max(4, 6 * Math.sqrt(isoZoom));
+        for (var mci = 0; mci < 4; mci++) {
+          var mtp = toScreen(cWx[mci], cWy[mci], hMarkPlane);
+          var mdx = mtp.x - centerAtH.x, mdy = mtp.y - centerAtH.y;
+          var mLen = Math.sqrt(mdx * mdx + mdy * mdy) || 1;
+          var mux = mdx / mLen, muy = mdy / mLen;
+          isoCtx.beginPath();
+          isoCtx.moveTo(mtp.x, mtp.y);
+          isoCtx.lineTo(mtp.x + mux * segLen, mtp.y + muy * segLen);
+          isoCtx.stroke();
         }
       }
 
