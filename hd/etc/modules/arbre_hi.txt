@@ -940,6 +940,59 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 
     // Isometric depth view: toggle button on minimap
     var isoMode = false;
+    // Cumulative generation offset across iso reroot navigations. Each Enter
+    // reroot shifts the new chart's oSosa by floor(log2(selected_sosa)) gens
+    // relative to the previous chart, so the scale labels show absolute gens
+    // with respect to the first-viewed oSosa. Stored as a stack of gen
+    // increments so that ↓ on the root can pop back to the previous chart.
+    // Each entry: { sosa, url }  — sosa that was Entered on in the previous
+    // chart, and the URL of the resulting (rerooted) chart. Authoritative
+    // source is history.state (preserved automatically by browser across
+    // back/forward); sessionStorage is used to bootstrap on first visit.
+    var isoGenStack = [];
+    if (window.history.state && Array.isArray(window.history.state.isoStack)) {
+      isoGenStack = window.history.state.isoStack;
+    } else {
+      try {
+        var _gs = sessionStorage.getItem('hiIsoGenStack');
+        if (_gs) isoGenStack = JSON.parse(_gs) || [];
+      } catch(_) {}
+    }
+    function isoSaveStack() {
+      try { sessionStorage.setItem('hiIsoGenStack', JSON.stringify(isoGenStack)); } catch(_) {}
+      try {
+        var st = window.history.state || {};
+        st.isoStack = isoGenStack;
+        window.history.replaceState(st, '');
+      } catch(_) {}
+    }
+    // Reconcile stack with current URL: browser back/forward may land us on
+    // an earlier chart without our code being notified. Truncate the stack
+    // so its top matches the current page (or becomes empty at the base).
+    (function(){
+      var hereHref = window.location.href;
+      var idx = -1;
+      for (var i = isoGenStack.length - 1; i >= 0; i--) {
+        if (isoGenStack[i] && isoGenStack[i].url === hereHref) { idx = i; break; }
+      }
+      if (idx < 0) {
+        // Not in stack — we're at the base chart
+        isoGenStack = [];
+      } else if (idx < isoGenStack.length - 1) {
+        // Back-navigated past deeper charts — truncate
+        isoGenStack = isoGenStack.slice(0, idx + 1);
+      }
+      isoSaveStack();
+    })();
+    function isoGenOffsetSum() {
+      var s = 0;
+      for (var i = 0; i < isoGenStack.length; i++) {
+        var sv = parseInt(isoGenStack[i] && isoGenStack[i].sosa) || 0;
+        if (sv > 1) s += Math.floor(Math.log(sv) / Math.log(2));
+      }
+      return s;
+    }
+    var isoGenOffset = isoGenOffsetSum();
     var isoCanvas = document.createElement('canvas');
     isoCanvas.style.cssText = 'display:none;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:4px;';
     tree.parentNode.insertBefore(isoCanvas, tree.nextSibling);
@@ -948,12 +1001,30 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 
     var isoBtn = document.getElementById('hi-iso-btn');
     var isoAngle = -Math.PI / 4;  // rotation so father/Top edge faces upper-left
+    // Restore iso rotation/tilt across reroot navigations
+    try {
+      var _savA = parseFloat(sessionStorage.getItem('hiIsoAngle'));
+      if (!isNaN(_savA)) isoAngle = _savA;
+    } catch(_) {}
     var isoZoom = 1.0;           // zoom level (1.0 = fit to viewport)
     var isoPanX = 0, isoPanY = 0;  // pan offset in pixels
     var isoTilt = Math.atan(1 / Math.sqrt(2));  // ~35.264° default isometric tilt
+    try {
+      var _savT = parseFloat(sessionStorage.getItem('hiIsoTilt'));
+      if (!isNaN(_savT)) isoTilt = _savT;
+    } catch(_) {}
     var isoSelectedSosa = null;   // currently selected sosa in iso view
     var isoScreenPts = {};        // sosa -> {x, y} screen coords after projection
     var isoChartDirs = {};  // chart directions projected to screen, updated by drawIso
+    var isoRoot = 1;              // current display-root sosa (1 = original root)
+    var isoRootStack = new Array();  // history of previous roots for back-navigation
+
+    // Test if sosa s is in the ancestral subtree of root r (s = r * 2^k + offset)
+    function isoInSubtree(s, r) {
+      if (r <= 1) return true;
+      while (s > r) s = Math.floor(s / 2);
+      return s === r;
+    }
 
     // Drag to rotate (horizontal) or tilt (Shift+vertical)
     var isoDragging = false, isoLastX = 0, isoLastY = 0;
@@ -1037,7 +1108,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var selA = tree.querySelector('a[data-sosa="' + isoSelectedSosa + '"]');
       if (!selA) { bar.innerHTML = ''; return; }
       var title = (selA._hiTitle || selA.getAttribute('title') || '').split('\n');
-      var info = 'Sosa ' + isoSelectedSosa + ' \u00b7 ' + title.slice(0, 2).join(' \u00b7 ');
+      var gsosa = selA.getAttribute('data-gsosa') || isoSelectedSosa;
+      var info = 'Sosa ' + gsosa + ' \u00b7 ' + title.slice(0, 2).join(' \u00b7 ');
       var dep = parseInt(selA.dataset.depth);
       if (dep) info += ' \u00b7 max gen ' + dep;
       bar.innerHTML = info;
@@ -1095,14 +1167,65 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     }
 
     // Arrow key navigation in iso view
+    // Registered in CAPTURE phase so we run before any other document/window
+    // keydown handlers (the flat-chart nav handler otherwise intercepts Enter
+    // and navigates via activeEl.href before we can preventDefault).
     document.addEventListener('keydown', function(e) {
-      if (!isoMode || !isoSelectedSosa) return;
+      if (window.HI_ISO_DEBUG) console.log('[iso-keydown:capture]', e.key, 'isoMode=', isoMode, 'sel=', isoSelectedSosa, 'root=', isoRoot);
+      if (!isoMode) return;
+      // In iso mode, block Enter/Arrows/Backspace from reaching flat-chart handlers
+      // and from triggering default actions on any focused link
+      if (e.key === 'Enter' || e.key === 'Backspace' || e.key.startsWith('Arrow')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+      // Backspace: pop previous iso root (re-root history)
+      if (e.key === 'Backspace' && isoRootStack.length > 0) {
+        e.preventDefault();
+        isoRoot = isoRootStack.pop();
+        isoSelectedSosa = String(isoRoot);
+        isoPanX = 0; isoPanY = 0;
+        drawIso();
+        isoUpdateInfo();
+        return;
+      }
+      if (!isoSelectedSosa) return;
       var s = parseInt(isoSelectedSosa);
       var next = null;
 
       if (e.key === 'Enter') {
-        var a = tree.querySelector('a[data-sosa="' + s + '"]');
-        if (a) window.location.href = a.getAttribute('href');
+        // Re-root iso to selected person by navigating to that person's URL,
+        // preserving iso mode (t1=CT&hi=I). The server renders a fresh chart
+        // of v generations rooted at R, which is what users expect — seeing
+        // R's own ancestors at full depth, not just the few that happened to
+        // be drawn as R's subtree in the original chart.
+        if (window.HI_ISO_DEBUG) console.log('[iso Enter] s=', s, 'isoRoot=', isoRoot);
+        if (s !== 1) {
+          var selA = tree.querySelector('a[data-sosa="' + s + '"]');
+          if (selA && selA.href) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            // Append dsosa=<gsosa> to the href so the new chart numbers its
+            // sosas relative to the original oSosa (display-sosa offset),
+            // not restarting from 1.
+            var gsosa = selA.getAttribute('data-gsosa') || String(s);
+            var targetUrl = selA.href;
+            var sep = targetUrl.indexOf('?') >= 0 ? '&' : '?';
+            if (!/[?&]dsosa=/.test(targetUrl)) targetUrl += sep + 'dsosa=' + gsosa;
+            // Push {sosa, target url} onto the stack; its gen (floor(log2 sosa))
+            // shifts absolute scale labels, and the sosa itself lets a later
+            // ↓-pop or browser-back restore selection to this person in the
+            // previous chart. The url lets us reconcile after browser back.
+            isoGenStack.push({ sosa: s, url: targetUrl });
+            isoSaveStack();
+            // Persist rotation/tilt so the next chart opens at the same angle
+            try {
+              sessionStorage.setItem('hiIsoAngle', String(isoAngle));
+              sessionStorage.setItem('hiIsoTilt', String(isoTilt));
+            } catch(_) {}
+            window.location.href = targetUrl;
+          }
+        }
         return;
       }
 
@@ -1112,6 +1235,23 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       } else {
         // Plain arrow: fixed genealogical navigation
         // ← father, → mother, ↓ child (same as main chart)
+        // At the root (s=1), ↓ drops back to the previous iso chart by
+        // popping the gen stack and stepping browser history back.
+        if (e.key === 'ArrowDown' && s === 1 && isoGenStack.length > 0) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          // Pop back to previous iso chart; selection restores to the sosa
+          // that was entered there to reach this chart — so the next ↓ keeps
+          // stepping toward the original oSosa.
+          var popped = isoGenStack.pop();
+          isoSaveStack();
+          try {
+            // Tell the previous page which sosa to re-select and step down from
+            sessionStorage.setItem('hiIsoPendingSelDown', String((popped && popped.sosa) || 1));
+          } catch(_) {}
+          window.history.back();
+          return;
+        }
         if (e.key === 'ArrowLeft') next = s * 2;
         else if (e.key === 'ArrowRight') next = s * 2 + 1;
         else if (e.key === 'ArrowDown' && s > 1) next = Math.floor(s / 2);
@@ -1125,7 +1265,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         drawIso();
         isoUpdateInfo();
       }
-    });
+    }, true);
 
     function drawIso() {
       isoCtx.clearRect(0, 0, isoW, isoH);
@@ -1133,6 +1273,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       // ── Collect data ──
       var topAncs = tree.querySelectorAll('a[data-depth]');
       var maxDepth = 0;
+      var baseGen = 0;  // generation of the leaves of the rendered tree (wrt oSosa 1)
       var barPts = [];
       for (var i = 0; i < topAncs.length; i++) {
         var d = parseInt(topAncs[i].dataset.depth) || 0;
@@ -1143,9 +1284,20 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         var bw2 = parseInt(box.style.width), bh2 = parseInt(box.style.height);
         if (isNaN(bx) || isNaN(by)) continue;
         var sosa = parseInt(topAncs[i].dataset.sosa) || 0;
+        // bars are emitted for leaf-level persons; their 0-indexed gen is
+        // floor(log2(sosa)). Take the max across bars to get the tree's leaf gen.
+        if (sosa > 0) {
+          var bg = Math.floor(Math.log(sosa) / Math.log(2));
+          if (bg > baseGen) baseGen = bg;
+        }
         barPts.push({ x: bx + bw2 / 2, y: by + bh2 / 2, depth: d, sosa: sosa });
       }
       if (maxDepth === 0) maxDepth = 1;
+      // Scale runs from baseGen (ground = leaf generation of rendered tree)
+      // to maxDepth (top = deepest ancestor). All in absolute gen numbers
+      // with respect to oSosa 1.
+      var minDepth = baseGen;
+      var depthSpan = Math.max(1, maxDepth - minDepth);
       var depthMap = {};
       for (var i = 0; i < barPts.length; i++) depthMap[barPts[i].sosa] = barPts[i].depth;
 
@@ -1236,6 +1388,84 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         var bw3 = parseInt(b.style.width), bh3 = parseInt(b.style.height);
         if (isNaN(bt2) || isNaN(bl2)) continue;
         boxPos[sid] = { x: bl2 + (bw3 || 0) / 2, y: bt2 + (bh3 || 0) / 2, w: bw3 || 0, h: bh3 || 0, bg: b.style.backgroundColor || '' };
+      }
+
+      // ── Re-root: map each subtree member to the position its corresponding
+      // display-sosa would occupy in the original chart. This keeps the same
+      // visual scale as the original iso view — the re-rooted person R takes
+      // the center slot (where oSosa 1 was), its parents take the slots of
+      // sosa 2 and 3, etc. Original box dimensions preserved.
+      if (isoRoot > 1 && boxPos[String(isoRoot)]) {
+        var rootBits = Math.floor(Math.log(isoRoot) / Math.log(2));
+        var remapped = {};
+        for (var sid in boxPos) {
+          var sv = parseInt(sid);
+          if (!isoInSubtree(sv, isoRoot)) continue;
+          var svBits = Math.floor(Math.log(sv) / Math.log(2));
+          var d = svBits - rootBits;
+          var twoD = Math.pow(2, d);
+          // sv = isoRoot * 2^d + j, where 0 <= j < 2^d; dSosa m = 2^d + j
+          var j = sv - isoRoot * twoD;
+          var m = twoD + j;
+          var pos = boxPos[String(m)];
+          if (!pos) continue;
+          remapped[sid] = { x: pos.x, y: pos.y, w: pos.w, h: pos.h, bg: boxPos[sid].bg };
+        }
+        // Scale up the re-rooted subtree so it fills the plane at a natural size.
+        // The subtree occupies only the slot positions 1..2^(evarv-rootBits)-1,
+        // which is a small portion of the original plane. Scale uniformly, but
+        // cap to prevent huge boxes when subtree is very small.
+        var rKeys = Object.keys(remapped);
+        if (rKeys.length > 1) {
+          var rMinX = Infinity, rMinY = Infinity, rMaxX = -Infinity, rMaxY = -Infinity;
+          for (var ki = 0; ki < rKeys.length; ki++) {
+            var rp = remapped[rKeys[ki]];
+            if (rp.x - rp.w / 2 < rMinX) rMinX = rp.x - rp.w / 2;
+            if (rp.x + rp.w / 2 > rMaxX) rMaxX = rp.x + rp.w / 2;
+            if (rp.y - rp.h / 2 < rMinY) rMinY = rp.y - rp.h / 2;
+            if (rp.y + rp.h / 2 > rMaxY) rMaxY = rp.y + rp.h / 2;
+          }
+          var rW2 = Math.max(1, rMaxX - rMinX);
+          var rH2 = Math.max(1, rMaxY - rMinY);
+          var rSc = Math.min(treeW / rW2, treeH / rH2, 4);
+          var rOfX = (treeW - rW2 * rSc) / 2 - rMinX * rSc;
+          var rOfY = (treeH - rH2 * rSc) / 2 - rMinY * rSc;
+          for (var ki2 = 0; ki2 < rKeys.length; ki2++) {
+            var rsp = remapped[rKeys[ki2]];
+            remapped[rKeys[ki2]] = { x: rsp.x * rSc + rOfX, y: rsp.y * rSc + rOfY, w: rsp.w * rSc, h: rsp.h * rSc, bg: rsp.bg };
+          }
+        }
+        boxPos = remapped;
+        // Filter depthMap to subtree and recompute max. depth values stay
+        // in absolute oSosa-1 gen coords. baseGen for the subtree = max
+        // gen of leaf-level boxes that have bars in the subtree.
+        var newDepthMap = {};
+        var newMaxDepth = 0;
+        var newBaseGen = 0;
+        for (var dk in depthMap) {
+          if (isoInSubtree(parseInt(dk), isoRoot)) {
+            var dv = depthMap[dk];
+            newDepthMap[dk] = dv;
+            if (dv > newMaxDepth) newMaxDepth = dv;
+            var bg2 = Math.floor(Math.log(parseInt(dk)) / Math.log(2));
+            if (bg2 > newBaseGen) newBaseGen = bg2;
+          }
+        }
+        depthMap = newDepthMap;
+        if (newMaxDepth > 0) maxDepth = newMaxDepth;
+        if (newBaseGen > 0) minDepth = newBaseGen;
+        depthSpan = Math.max(1, maxDepth - minDepth);
+        // Also filter barPts to subtree members and remap their x,y to the
+        // new box positions so bars sit on top of the re-rooted boxes.
+        var newBarPts = [];
+        for (var bi = 0; bi < barPts.length; bi++) {
+          var bp = barPts[bi];
+          if (!isoInSubtree(bp.sosa, isoRoot)) continue;
+          var np = boxPos[String(bp.sosa)];
+          if (!np) continue;
+          newBarPts.push({ x: np.x, y: np.y, depth: bp.depth, sosa: bp.sosa });
+        }
+        barPts = newBarPts;
       }
 
       // ── Draw connecting lines (parent-child) on ground plane ──
@@ -1370,6 +1600,30 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         }
       }
 
+      // ── Edge labels (drawn on ground plane, so bars occlude them) ──
+      var labelWorldSz = 0.035;
+      function drawPlaneLabel(wx, wy, label, color, adx, ady, cdx, cdy) {
+        var orig = toScreen(wx, wy, 0);
+        var aEnd = toScreen(wx + adx * labelWorldSz, wy + ady * labelWorldSz, 0);
+        var cEnd = toScreen(wx + cdx * labelWorldSz, wy + cdy * labelWorldSz, 0);
+        var ax = aEnd.x - orig.x, ay = aEnd.y - orig.y;
+        var cx = cEnd.x - orig.x, cy = cEnd.y - orig.y;
+        if (ax < 0) { ax = -ax; ay = -ay; cx = -cx; cy = -cy; }
+        if (ax * cy - ay * cx < 0) { cx = -cx; cy = -cy; }
+        isoCtx.save();
+        isoCtx.setTransform(ax, ay, cx, cy, orig.x, orig.y);
+        isoCtx.fillStyle = color;
+        isoCtx.font = 'bold 1px sans-serif';
+        isoCtx.textAlign = 'center';
+        isoCtx.textBaseline = 'middle';
+        isoCtx.fillText(label, 0, 0);
+        isoCtx.restore();
+      }
+      drawPlaneLabel(-treeW * 0.08, treeH / 2, 'Top', '#b8860b', 0, treeH, treeW, 0);
+      drawPlaneLabel(treeW * 1.08, treeH / 2, 'Bottom', '#999', 0, treeH, treeW, 0);
+      drawPlaneLabel(treeW / 2, -treeH * 0.10, 'Left', '#999', treeW, 0, 0, treeH);
+      drawPlaneLabel(treeW / 2, treeH * 1.12, 'Right', '#999', treeW, 0, 0, treeH);
+
       // ── Draw bars (back to front: sort by projected y at ground level) ──
       barPts.sort(function(a, b) {
         var pa = toScreen(a.x, a.y, 0), pb = toScreen(b.x, b.y, 0);
@@ -1377,28 +1631,40 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       });
       var barW = Math.max(3, Math.min(8, isoW / Math.max(1, barPts.length))) * Math.sqrt(isoZoom);
 
+      var selSosaInt = parseInt(isoSelectedSosa) || 0;
       for (var i = 0; i < barPts.length; i++) {
         var p = barPts[i];
-        var hFrac = p.depth / maxDepth;  // 0..1
+        var hFrac = (p.depth - minDepth) / depthSpan;  // 0..1
         var foot = toScreen(p.x, p.y, 0);
         var top = toScreen(p.x, p.y, hFrac);
+        var barMale = (p.sosa > 1 && p.sosa % 2 === 0);
+        var isSelBar = (p.sosa === selSosaInt);
 
-        // Bar outline then fill
+        // Selected bar: gold halo behind the bar
+        if (isSelBar) {
+          isoCtx.strokeStyle = '#ffd700';
+          isoCtx.lineWidth = barW + 6;
+          isoCtx.beginPath();
+          isoCtx.moveTo(foot.x, foot.y);
+          isoCtx.lineTo(top.x, top.y);
+          isoCtx.stroke();
+        }
+        // Bar outline then fill. Use same shade as the person's box so bars
+        // read as extensions of the box beneath them.
         isoCtx.strokeStyle = 'rgba(0,0,0,0.3)';
         isoCtx.lineWidth = barW + 2;
         isoCtx.beginPath();
         isoCtx.moveTo(foot.x, foot.y);
         isoCtx.lineTo(top.x, top.y);
         isoCtx.stroke();
-        var barMale = (p.sosa > 1 && p.sosa % 2 === 0);
-        isoCtx.strokeStyle = (p.sosa <= 1) ? 'rgba(128,128,128,0.7)' : barMale ? 'rgba(74,138,199,0.7)' : 'rgba(208,96,128,0.7)';
+        isoCtx.strokeStyle = (p.sosa <= 1) ? '#cccccc' : barMale ? '#A8CDEB' : '#EBB2C0';
         isoCtx.lineWidth = barW;
         isoCtx.beginPath();
         isoCtx.moveTo(foot.x, foot.y);
         isoCtx.lineTo(top.x, top.y);
         isoCtx.stroke();
 
-        // Cap dot
+        // Cap dot — gender-shaded, darker for contrast against the bar
         isoCtx.fillStyle = (p.sosa <= 1) ? '#888' : barMale ? '#3070a8' : '#b04870';
         isoCtx.beginPath();
         isoCtx.arc(top.x, top.y, barW * 0.8, 0, Math.PI * 2);
@@ -1429,41 +1695,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         }
       }
 
-      // ── Edge labels: Top (y=0) and Father (x=0) ──
-      // Four corners: TL=(0,0), TR=(treeW,0), BL=(0,treeH), BR=(treeW,treeH)
+      // ── Ground plane border lines ──
       var cTL = toScreen(0, 0, 0), cTR = toScreen(treeW, 0, 0);
       var cBL = toScreen(0, treeH, 0), cBR = toScreen(treeW, treeH, 0);
-      var groundMid = toScreen(treeW / 2, treeH / 2, 0);
-
-      // Draw label lying flat on ground plane at world coords (wx, wy)
-      // Uses unit world vectors projected to screen — label is a fixed world size
-      var labelWorldSz = 0.035;  // normalized world units (chart spans ~1.0)
-      function drawPlaneLabel(wx, wy, label, color, adx, ady, cdx, cdy) {
-        var orig = toScreen(wx, wy, 0);
-        // Project labelWorldSz world units in each direction
-        var aEnd = toScreen(wx + adx * labelWorldSz, wy + ady * labelWorldSz, 0);
-        var cEnd = toScreen(wx + cdx * labelWorldSz, wy + cdy * labelWorldSz, 0);
-        var ax = aEnd.x - orig.x, ay = aEnd.y - orig.y;
-        var cx = cEnd.x - orig.x, cy = cEnd.y - orig.y;
-        // Ensure text reads left-to-right on screen
-        if (ax < 0) { ax = -ax; ay = -ay; cx = -cx; cy = -cy; }
-        // Ensure right-handed (not mirrored)
-        if (ax * cy - ay * cx < 0) { cx = -cx; cy = -cy; }
-        isoCtx.save();
-        isoCtx.setTransform(ax, ay, cx, cy, orig.x, orig.y);
-        isoCtx.fillStyle = color;
-        isoCtx.font = 'bold 1px sans-serif';
-        isoCtx.textAlign = 'center';
-        isoCtx.textBaseline = 'middle';
-        isoCtx.fillText(label, 0, 0);
-        isoCtx.restore();
-      }
-      // Direction vectors scaled by tree dims so both axes produce equal normalized steps
-      drawPlaneLabel(-treeW * 0.08, treeH / 2, 'Top', '#b8860b', 0, treeH, treeW, 0);
-      drawPlaneLabel(treeW * 1.08, treeH / 2, 'Bottom', '#999', 0, treeH, treeW, 0);
-      drawPlaneLabel(treeW / 2, -treeH * 0.10, 'Left', '#999', treeW, 0, 0, treeH);
-      drawPlaneLabel(treeW / 2, treeH * 1.12, 'Right', '#999', treeW, 0, 0, treeH);
-      // Ground plane border lines
       isoCtx.strokeStyle = '#ccc';
       isoCtx.lineWidth = 1;
       isoCtx.beginPath();
@@ -1480,7 +1714,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var _vfoot = toScreen(0, 0, 0), _vtop = toScreen(0, 0, 1);
       var _vLenPx = Math.sqrt((_vtop.x - _vfoot.x) * (_vtop.x - _vfoot.x) + (_vtop.y - _vfoot.y) * (_vtop.y - _vfoot.y));
       var _minSpacingPx = 22;  // min pixels between labeled ticks
-      var _minStep = maxDepth * _minSpacingPx / Math.max(1, _vLenPx);
+      var _minStep = depthSpan * _minSpacingPx / Math.max(1, _vLenPx);
       var _niceSteps = new Array(1, 2, 5, 10, 20, 50, 100);
       var tickStep = _niceSteps[_niceSteps.length - 1];
       for (var _si = 0; _si < _niceSteps.length; _si++) {
@@ -1509,8 +1743,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCtx.stroke();
         // Tick marks at each generation level — in the plane, pointing outward from chart center
         var tickLen = 8;
-        for (var g = 0; g <= maxDepth; g += tickStep) {
-          var hFrac = g / maxDepth;
+        for (var g = 0; g <= depthSpan; g += tickStep) {
+          var hFrac = g / depthSpan;
           var tp = toScreen(cwx, cwy, hFrac);
           var centerAtHh = toScreen(treeW / 2, treeH / 2, hFrac);
           var odx = tp.x - centerAtHh.x, ody = tp.y - centerAtHh.y;
@@ -1524,13 +1758,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           isoCtx.font = 'bold 13px sans-serif';
           isoCtx.textAlign = oux >= 0 ? 'left' : 'right';
           isoCtx.textBaseline = 'middle';
-          isoCtx.fillText(String(g), tp.x + oux * (tickLen + 5), tp.y + ouy * (tickLen + 5));
+          isoCtx.fillText(String(g + minDepth + isoGenOffset), tp.x + oux * (tickLen + 5), tp.y + ouy * (tickLen + 5));
         }
       }
       // Mark: short segment at each corner scale post at the selected person's bar height,
       // in the plane at that elevation, pointing outward from chart center.
       if (selMarkColor) {
-        var hMarkPlane = selDepth / maxDepth;
+        var hMarkPlane = (selDepth - minDepth) / depthSpan;
         var segLen = Math.max(14, 20 * Math.sqrt(isoZoom));
         var centerAtH = toScreen(treeW / 2, treeH / 2, hMarkPlane);
         isoCtx.strokeStyle = selMarkColor;
@@ -1590,6 +1824,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     window.hiIsoToggle = function() {
       if (isoBtn) isoBtn.blur();
       isoMode = !isoMode;
+      try { sessionStorage.setItem('hiIsoMode', isoMode ? '1' : '0'); } catch(_) {}
       if (isoMode) {
         // Carry flat chart focus into iso view
         var flatActive = window.hiFlatGetSosa ? window.hiFlatGetSosa() : null;
@@ -1602,6 +1837,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         drawIso();
         isoUpdateInfo();
       } else {
+        // Turning iso off: reset cumulative gen stack so next iso session starts fresh
+        isoGenStack = [];
+        isoGenOffset = 0;
+        isoSaveStack();
         // Carry iso focus back to flat chart
         var isoSosa = isoSelectedSosa;
         isoCanvas.style.display = 'none';
@@ -1614,6 +1853,43 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     window.addEventListener('resize', function() {
       if (isoMode) { sizeIsoCanvas(); drawIso(); }
     });
+    // On bfcache restore (browser back/forward), reconcile the gen stack
+    // with the current URL — the in-memory stack may be stale from when we
+    // last left this page.
+    window.addEventListener('pageshow', function(e) {
+      if (!e.persisted) return;
+      // On bfcache restore, prefer history.state (per-entry, always in sync)
+      if (window.history.state && Array.isArray(window.history.state.isoStack)) {
+        isoGenStack = window.history.state.isoStack;
+      }
+      isoSaveStack();
+      isoGenOffset = isoGenOffsetSum();
+      if (isoMode) drawIso();
+    });
+    // Restore iso view across navigations (e.g., Enter re-root loads new page)
+    try {
+      if (sessionStorage.getItem('hiIsoMode') === '1') {
+        setTimeout(function(){
+          window.hiIsoToggle();
+          // If we got here via ↓-pop from a rerooted chart, step one gen
+          // down in this chart from the sosa that was used to reroot there.
+          var pend = sessionStorage.getItem('hiIsoPendingSelDown');
+          if (pend) {
+            sessionStorage.removeItem('hiIsoPendingSelDown');
+            var ps = parseInt(pend);
+            if (ps > 1) {
+              var child = Math.floor(ps / 2);
+              // Only select if box exists in this chart
+              if (isoScreenPts[String(child)]) {
+                isoSelectedSosa = String(child);
+                drawIso();
+                isoUpdateInfo();
+              }
+            }
+          }
+        }, 0);
+      }
+    } catch(_) {}
   })();
 
   // Keyboard navigation
@@ -2134,6 +2410,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     }
     params.delete('dsosa');
     btn.href = location.pathname + '?' + params.toString();
+    btn.addEventListener('click', function() {
+      try { sessionStorage.setItem('hiIsoGenStack', '[]'); } catch(_) {}
+    });
   })();
 
   // Sosa search: inject into top navbar + make navbar sticky
