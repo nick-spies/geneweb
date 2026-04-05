@@ -40,8 +40,9 @@
 - [x] Couples mode: down arrow snaps to even sosas, selection restore
 - [x] Sosa 1 tooltip: show "(up to generation X)"
 - [x] Help modal: clearer text for all entries
-- [ ] Ctrl/Cmd platform detection for PC vs Mac key labels in help
-- [ ] Grid tree localization (~44 strings in tree_render.js)
+- [x] Sticky title: h3 stays visible below toolbar when scrolling
+- [x] Ctrl/Cmd platform detection for PC vs Mac key labels in help
+- [x] Grid tree localization (~44 strings in tree_render.js via i18n dict)
 - [ ] Implex detection fix in Sosa box mode (use `data-purl` instead of `href`)
 - [ ] Backend: make `aaaspouse.anc_depth` accessible (add to `eval_person_field_var`) — avoids male-line primacy in couple tooltips
 - [ ] Submit compact H-tree as upstream PR

@@ -26,13 +26,30 @@
 %if;(e.t="T" and e.t1="CT")
   %(js loaded before because jquery.line.js needs jquery loaded before %)
   %include;js
-  <div style="position:sticky;top:0;z-index:100;background:#fff;">
+  <div id="hi-sticky-header" style="position:sticky;top:0;z-index:100;background:#fff;">
   %if;not cancel_links;
     %include;menubar
   %end;
   %include;modules/arbre_hi_tools
   %include;templm/tools
   </div>
+  <div id="hi-sticky-title" style="position:sticky;top:0;z-index:99;background:#fff;">
+    <h3 id="hi-title" class="mt-0 mb-0 text-center" style="font-size:0.95rem;padding:1px 0;margin:0;">%nn;
+      %apply;ttl() %dates%nn;
+    </h3>
+    <div id="hi-nav-info" class="btn btn-sm btn-outline-primary disabled" style="text-align:center;width:100%%;word-wrap:break-word;overflow-wrap:break-word;padding:1px 0;"></div>
+  </div>
+  <script>
+  (function() {
+    var hdr = document.getElementById('hi-sticky-header');
+    var ttl = document.getElementById('hi-sticky-title');
+    if (hdr && ttl) {
+      function setTop() { ttl.style.top = hdr.offsetHeight + 'px'; }
+      setTop();
+      window.addEventListener('resize', setTop);
+    }
+  })();
+  </script>
 %elseif;not cancel_links;
   %include;menubar
 %end;

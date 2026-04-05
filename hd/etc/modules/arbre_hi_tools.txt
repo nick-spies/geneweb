@@ -9,7 +9,7 @@
 <div id="hi-toolbar" style="position:sticky;top:0;z-index:100;background:#fff;padding:4px 0;text-align:center;overflow-x:auto;overflow-y:visible;">
   %if;not cancel_links;
     <div style="display:inline-flex;flex-wrap:nowrap;align-items:center;white-space:nowrap;">
-      <button class="btn btn-sm btn-outline-primary mr-1" title="[*help and shortcuts]" onclick="document.getElementById('hi-help-modal').style.display='flex';">
+      <button class="btn btn-sm btn-outline-primary mr-1" title="[*help and shortcuts]" onclick="hiHelpToggle(true);">
         <i class="fa fa-circle-question fa-fw"></i></button>
       <div class="btn-group btn-group-sm mr-1">
         %if;(evarv>=4)
@@ -46,6 +46,9 @@
         <a href="%if;(e.image!="on")%url_set.image.on;%else;%url_set.image;%end;" class="btn btn-outline-primary%if;(e.image="on") active%end;"
           title="%if;(e.image!="on")[*visualize/show/hide/summary]1%else;[*visualize/show/hide/summary]2%end; [image/images]1">%nn;
           <i class="fa fa-image" aria-hidden="true"></i></a>
+        <button id="hi-iso-btn" class="btn btn-outline-primary" title="[*ancestor/ancestors]0 depth"
+          onclick="if(window.hiIsoToggle)window.hiIsoToggle();">
+          <i class="fa fa-chart-bar" aria-hidden="true"></i></button>
       </div>
       %if;(e.sosa!="on")
         <div class="btn-group btn-group-sm mr-1" id="hi-zoom-toolbar">
@@ -80,26 +83,34 @@
         </div>
       %end;
     </div>
-    <div id="hi-nav-info" class="btn btn-sm btn-outline-primary disabled" style="text-align:center;width:100%%;word-wrap:break-word;overflow-wrap:break-word;"></div>
   %end;
 </div>
 <!-- Help modal -->
+<script>
+function hiHelpToggle(show) {
+  var m = document.getElementById('hi-help-modal');
+  if (!m) return;
+  m.style.display = show ? 'flex' : 'none';
+  document.body.style.overflow = show ? 'hidden' : '';
+}
+</script>
 <div id="hi-help-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;"
-  onclick="if(event.target===this)this.style.display='none';">
-  <div style="background:#fff;border-radius:8px;max-width:560px;width:90%%;max-height:80vh;overflow-y:auto;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,0.25);position:relative;">
-    <button onclick="document.getElementById('hi-help-modal').style.display='none';"
+  onclick="if(event.target===this)hiHelpToggle(false);">
+  <div style="background:#fff;border-radius:8px;max-width:560px;width:90%%;max-height:90vh;overflow-y:auto;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,0.25);position:relative;">
+    <button onclick="hiHelpToggle(false);"
       style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:22px;cursor:pointer;color:#666;">&times;</button>
     <h4 style="margin-top:0;">[*compact tree help]</h4>
     <table style="width:100%%;border-collapse:collapse;font-size:14px;">
       <tr><td colspan="2" style="padding:8px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*navigation]</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>[*click]</b></td><td class="hi-help-text" data-key="help_click" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>%nn;
-        %if;(e.sosa="on")Enter%else;⌘+[*click]%end;</b></td><td class="hi-help-text" data-key="help_goto" style="padding:4px 0;"></td></tr>
+        %if;(e.sosa="on")Enter%else;<span class="hi-mod-key"></span>+[*click]%end;</b></td><td class="hi-help-text" data-key="help_goto" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>← →</b></td><td class="hi-help-text" data-key="help_arrows" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↓</b></td><td class="hi-help-text" data-key="help_down" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↑ ([*implex/implexes]0)</b></td><td class="hi-help-text" data-key="help_up" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Shift + ←→↑↓</b></td><td class="hi-help-text" data-key="help_shift" style="padding:4px 0;"></td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>⌘ + ↑ / ↓</b></td><td class="hi-help-text" data-key="help_history" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Home / End / PgUp / PgDn</b></td><td class="hi-help-text" data-key="help_page" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><span class="hi-mod-key"></span> + ↑ / ↓</b></td><td class="hi-help-text" data-key="help_history" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Enter</b></td><td class="hi-help-text" data-key="help_enter" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Hover (500ms)</b></td><td class="hi-help-text" data-key="help_hover" style="padding:4px 0;"></td></tr>
       <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*tools]</td></tr>

@@ -72,7 +72,7 @@ PersonBox.prototype.render = function() {
       var imgLink = document.createElement('a');
       imgLink.href = p.imageUrl;
       imgLink.target = '_blank';
-      imgLink.title = 'View full image';
+      imgLink.title = (this._i18n && this._i18n.viewFullImage) || 'View full image';
       imgLink.className = 'person-image-link';
       var img = document.createElement('img');
       img.src = p.imageUrl;
@@ -93,7 +93,8 @@ PersonBox.prototype.render = function() {
   nameLink.href = p.access;
   nameLink.className = 'person-name';
   nameLink.style.fontSize = this.fontSize + 'rem';
-  nameLink.title = this.tooltipText() + ' (click: re-root, \u2318-click: person page)';
+  var modKey = (this._i18n && this._i18n.modKey) || '\u2318';
+  nameLink.title = this.tooltipText() + ' (click: re-root, ' + modKey + '-click: person page)';
 
   var treeAccess = this.treeAccess;
   var positionSosa = this.positionSosa;
@@ -151,6 +152,7 @@ function TreeRenderer(container, data, options) {
   this.container = container;
   this.data = data;
   this.options = options || {};
+  this._t = this.options.i18n || {};
 }
 
 TreeRenderer.parseTreeData = function(text) {
@@ -376,7 +378,7 @@ TreeRenderer.prototype.render = function() {
     if (isTopGen && person && person.hasParents && !showParents) {
       var expInd = document.createElement('div');
       expInd.className = 'fu-expandable';
-      expInd.title = 'Has ancestors beyond this display';
+      expInd.title = (self._t && self._t.hasAncestors) || 'Has ancestors beyond this display';
       expInd.textContent = '\u25b2';
       unit.appendChild(expInd);
     }
@@ -389,6 +391,7 @@ TreeRenderer.prototype.render = function() {
       personEl.setAttribute('data-gen', gen + 1);
 
       var pb = new PersonBox(person);
+      pb._i18n = self._t;
       pb.showImage = style.showImage;
       pb.imgSize = style.imgSize;
       pb.fontSize = style.fontSize;
@@ -646,9 +649,9 @@ TreeRenderer.prototype.render = function() {
   this._zoomCenter = zoomCenter;
   this._zoomAt = zoomAt;
 
-  // Wheel handler: Shift+Ctrl/Cmd = zoom, otherwise pan (virtual scroll aware)
+  // Wheel handler: Ctrl/Cmd = zoom, otherwise pan (virtual scroll aware)
   container.addEventListener('wheel', function(e) {
-    if (e.shiftKey && (e.metaKey || e.ctrlKey)) {
+    if (e.metaKey || e.ctrlKey) {
       // Zoom anchored on cursor
       e.preventDefault();
       var rect = container.getBoundingClientRect();
@@ -1350,19 +1353,22 @@ TreeRenderer.prototype.updateTitle = function() {
 
   titleEl.innerHTML = '';
 
+  var t = this._t;
+  var ancestorsOf = (t.ancestorsOf || 'Ancestors of') + ' ';
   if (opts.isRerooted) {
-    titleEl.appendChild(document.createTextNode('Ancestors of ' + sosa1Name + ' '));
+    titleEl.appendChild(document.createTextNode(ancestorsOf + sosa1Name + ' '));
     var fromSpan = document.createElement('span');
     fromSpan.className = 'text-small text-muted font-weight-lighter';
-    fromSpan.textContent = '(from ' + currentName + ')';
+    fromSpan.textContent = (t.from || '(from ') + currentName + ')';
     titleEl.appendChild(fromSpan);
   } else {
-    titleEl.appendChild(document.createTextNode('Ancestors of ' + currentName + ' '));
+    titleEl.appendChild(document.createTextNode(ancestorsOf + currentName + ' '));
   }
 
   var genSpan = document.createElement('span');
   genSpan.className = 'text-small text-muted font-weight-lighter';
-  genSpan.textContent = ' \u2014 ' + gens + ' generation' + (gens !== 1 ? 's' : '');
+  var genWord = (gens !== 1) ? (t.generations || 'generations') : (t.generation || 'generation');
+  genSpan.textContent = ' \u2014 ' + gens + ' ' + genWord;
   titleEl.appendChild(genSpan);
 
   var selfBtn = document.getElementById('self');
@@ -1396,13 +1402,16 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
   right.className = 'pano-right';
 
   // ── LEFT: Sosa 1 ──
+  var t = this._t;
   var isSelf = !opts.isRerooted;
   var sosa1Name = (opts.selfName || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
   if (opts.selfAccess) {
     var homeBtn = document.createElement('a');
     homeBtn.setAttribute('role', 'button');
     homeBtn.className = 'pano-btn' + (isSelf ? ' pano-btn-active' : ' pano-btn-alert');
-    homeBtn.title = isSelf ? 'Scroll to Sosa 1: ' + sosa1Name : 'Return to Sosa 1: ' + sosa1Name;
+    homeBtn.title = isSelf
+      ? (t.scrollToSosa1 || 'Scroll to Sosa 1: ') + sosa1Name
+      : (t.returnToSosa1 || 'Return to Sosa 1: ') + sosa1Name;
     if (!isSelf) {
       homeBtn.href = treeAccess(opts.selfAccess);
     } else {
@@ -1411,16 +1420,16 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
         if (self._scrollToSosa1) self._scrollToSosa1();
       });
     }
-    homeBtn.innerHTML = '<i class="fa fa-sitemap fa-flip-vertical"></i><br>Sosa 1';
+    homeBtn.innerHTML = '<i class="fa fa-sitemap fa-flip-vertical"></i><br>' + (t.hkSosa1Btn || 'Sosa 1');
     left.appendChild(homeBtn);
   }
 
   // ── LEFT: Move arrows ──
   var arrows = [
-    { icon: 'fa-arrow-left', dx: -200, dy: 0, title: 'Scroll left' },
-    { icon: 'fa-arrow-right', dx: 200, dy: 0, title: 'Scroll right' },
-    { icon: 'fa-arrow-up', dx: 0, dy: -200, title: 'Scroll up' },
-    { icon: 'fa-arrow-down', dx: 0, dy: 200, title: 'Scroll down' }
+    { icon: 'fa-arrow-left', dx: -200, dy: 0, title: t.scrollLeft || 'Scroll left' },
+    { icon: 'fa-arrow-right', dx: 200, dy: 0, title: t.scrollRight || 'Scroll right' },
+    { icon: 'fa-arrow-up', dx: 0, dy: -200, title: t.scrollUp || 'Scroll up' },
+    { icon: 'fa-arrow-down', dx: 0, dy: 200, title: t.scrollDown || 'Scroll down' }
   ];
   for (var a = 0; a < arrows.length; a++) {
     var ab = document.createElement('button');
@@ -1445,22 +1454,22 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
   var btnZoomOut = document.createElement('button');
   btnZoomOut.className = 'pano-btn';
   btnZoomOut.innerHTML = '<b>\u2212</b>';
-  btnZoomOut.title = 'Zoom out';
+  btnZoomOut.title = t.zoomOut || 'Zoom out';
 
   var zoomLabel = document.createElement('span');
   zoomLabel.className = 'pano-zoom-label';
   zoomLabel.textContent = Math.round(getZoom() * 100) + '%';
-  zoomLabel.title = 'Zoom level (Shift+Ctrl+scroll to zoom)';
+  zoomLabel.title = (t.hkZoom || 'Zoom') + ' (Ctrl+scroll / Cmd+scroll)';
 
   var btnZoomIn = document.createElement('button');
   btnZoomIn.className = 'pano-btn';
   btnZoomIn.innerHTML = '<b>+</b>';
-  btnZoomIn.title = 'Zoom in';
+  btnZoomIn.title = t.zoomIn || 'Zoom in';
 
   var btnZoomReset = document.createElement('button');
   btnZoomReset.className = 'pano-btn';
-  btnZoomReset.innerHTML = '<i class="fa fa-compress"></i><br>Reset';
-  btnZoomReset.title = 'Reset zoom';
+  btnZoomReset.innerHTML = '<i class="fa fa-compress"></i><br>' + (t.resetZoom || 'Reset');
+  btnZoomReset.title = t.resetZoom || 'Reset zoom';
 
   function updateZoomLabel() {
     zoomLabel.textContent = Math.round(getZoom() * 100) + '%';
@@ -1492,12 +1501,15 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
   btnZoomDir.className = 'pano-btn';
   var isInverted = localStorage.getItem('treeZoomInvert') === '1';
   btnZoomDir.innerHTML = isInverted ? '<b>&darr;+</b>' : '<b>&uarr;+</b>';
-  btnZoomDir.title = 'Zoom: scroll ' + (isInverted ? 'down' : 'up') + ' = zoom in (click to toggle)';
+  function zoomDirTip(down) {
+    return (t.zoomScrollTip1 || 'Zoom: ') + (down ? (t.scrollDownWord || '\u2193') : (t.scrollUpWord || '\u2191')) + (t.zoomScrollTip2 || ' = zoom in (click to toggle)');
+  }
+  btnZoomDir.title = zoomDirTip(isInverted);
   btnZoomDir.addEventListener('click', function() {
     var inv = localStorage.getItem('treeZoomInvert') === '1';
     localStorage.setItem('treeZoomInvert', inv ? '0' : '1');
     btnZoomDir.innerHTML = inv ? '<b>&uarr;+</b>' : '<b>&darr;+</b>';
-    btnZoomDir.title = 'Zoom: scroll ' + (inv ? 'up' : 'down') + ' = zoom in (click to toggle)';
+    btnZoomDir.title = zoomDirTip(!inv);
     // Update the live zoomInvert variable in the render closure
     if (self._setZoomInvert) self._setZoomInvert();
   });
@@ -1532,8 +1544,8 @@ TreeRenderer.prototype.buildToolbar = function(tree) {
   var helpBtn = document.createElement('button');
   helpBtn.className = 'pano-btn pano-help-btn';
   helpBtn.style.height = btnH;
-  helpBtn.innerHTML = '<i class="fa fa-question-circle"></i> Help';
-  helpBtn.title = 'Panoramic chart controls';
+  helpBtn.innerHTML = '<i class="fa fa-question-circle"></i> ' + (t.help || 'Help');
+  helpBtn.title = t.panoramicChart || 'Panoramic chart controls';
   helpBtn.addEventListener('click', function(e) {
     e.preventDefault();
     self._showHelpOverlay();
@@ -1561,29 +1573,38 @@ TreeRenderer.prototype._showHelpOverlay = function() {
   var existing = document.getElementById('pano-help-overlay');
   if (existing) { existing.remove(); return; }
 
+  var t = this._t;
+  var modKey = t.modKey || '\u2318';
+  // Build help rows from i18n keys
+  var helpRows = [
+    [t.hkDrag || 'Drag', t.helpDrag || 'Click and drag to pan the chart in any direction.'],
+    [t.hkScroll || 'Scroll', t.helpScroll || 'Scroll wheel or trackpad to pan vertically (and horizontally with Shift).'],
+    [t.hkZoom || 'Zoom', t.helpZoom || 'Ctrl+scroll (Cmd+scroll on Mac) to zoom in/out, anchored at the cursor position. Use the +/\u2212 buttons or Reset in the toolbar.'],
+    [t.hkArrows || 'Arrow keys', t.helpArrows || 'Press and hold arrow keys to pan. Speed accelerates the longer the key is held.'],
+    [t.hkMinimap || 'Minimap', t.helpMinimap || 'Click or drag on the minimap to jump to that area of the chart.'],
+    [t.hkMinimapHover || 'Minimap hover', t.helpMinimapHover || 'Hover over the minimap to see Sosa numbers at each generation level.'],
+    [t.hkGold || 'Gold indicators', t.helpGold || 'Top\u2011generation persons with ancestors beyond this display are marked with a gold border.'],
+    [t.hkShiftClick || 'Shift-click minimap', t.helpShiftClick || 'Shift\u2011click a person dot to re\u2011root the chart at that ancestor.'],
+    [t.hkClickName || 'Click name', (t.helpClickName || 'Click any name to re\u2011root. modKey\u2011click opens the person\u2019s page.').replace(/modKey/g, modKey)],
+    [t.hkSosaBadge || 'Sosa badge', t.helpSosaBadge || 'Click a Sosa number to highlight the ancestor line.'],
+    [t.hkSosa1Btn || 'Sosa 1', t.helpSosa1Btn || 'Scroll back to the root person. If re\u2011rooted, returns to the original reference person.'],
+    [t.hkGenPM || 'Generations +/\u2212', t.helpGenPM || 'Increase or decrease ancestor generations shown (max\u00a020). Hold for rapid change.'],
+    [t.hkZoomDir || '\u2191+/\u2193+', t.helpZoomDir || 'Toggles whether scroll\u2011up means zoom\u2011in or zoom\u2011out.']
+  ];
+  var rowsHtml = '';
+  for (var i = 0; i < helpRows.length; i++) {
+    rowsHtml += '<tr><td class="pano-help-key">' + helpRows[i][0] + '</td><td>' + helpRows[i][1] + '</td></tr>';
+  }
+
   var overlay = document.createElement('div');
   overlay.id = 'pano-help-overlay';
   overlay.innerHTML =
     '<div class="pano-help-card">' +
       '<div class="pano-help-header">' +
-        '<b>Panoramic Ancestor Chart</b>' +
-        '<button class="pano-help-close" title="Close">&times;</button>' +
+        '<b>' + (t.panoramicChart || 'Panoramic Ancestor Chart') + '</b>' +
+        '<button class="pano-help-close" title="' + (t.close || 'Close') + '">&times;</button>' +
       '</div>' +
-      '<table class="pano-help-table">' +
-        '<tr><td class="pano-help-key">Drag</td><td>Click and drag to pan the chart in any direction. If the cursor leaves the window, panning continues automatically with increasing speed.</td></tr>' +
-        '<tr><td class="pano-help-key">Scroll</td><td>Scroll wheel or trackpad to pan vertically (and horizontally with Shift).</td></tr>' +
-        '<tr><td class="pano-help-key">Zoom</td><td>Shift+Ctrl+scroll to zoom in/out, anchored at the cursor position. Use the +/\u2212 buttons or Reset in the toolbar.</td></tr>' +
-        '<tr><td class="pano-help-key">Arrow keys</td><td>Press and hold arrow keys to pan. Speed accelerates the longer the key is held.</td></tr>' +
-        '<tr><td class="pano-help-key">Minimap</td><td>Click or drag on the minimap to jump to that area of the chart. The rectangle shows the current viewport.</td></tr>' +
-        '<tr><td class="pano-help-key">Minimap hover</td><td>Hover over the minimap to see estimated Sosa numbers at each generation level. When over an actual person dot, their name is shown.</td></tr>' +
-        '<tr><td class="pano-help-key">Gold indicators</td><td>Top\u2011generation persons who have ancestors beyond this display are marked with a gold border on the chart and a gold dot with upward tick on the minimap.</td></tr>' +
-        '<tr><td class="pano-help-key">Shift-click minimap</td><td>Shift-click a person dot to re\u2011root the chart at that ancestor. Shift-click root person dot to go back. Use browser Back to return to any previous view.</td></tr>' +
-        '<tr><td class="pano-help-key">Click name</td><td>Click any name to re\u2011root the chart at that person (revealing their ancestors). \u2318\u2011click opens the person\u2019s page.</td></tr>' +
-        '<tr><td class="pano-help-key">Sosa badge</td><td>Click a Sosa number on a person box to highlight the ancestor line.</td></tr>' +
-        '<tr><td class="pano-help-key">Sosa 1 button</td><td>Scroll back to the root person. If re\u2011rooted, navigates back to the original reference person.</td></tr>' +
-        '<tr><td class="pano-help-key">Generations +/\u2212</td><td>Increase or decrease the number of ancestor generations shown (max\u00a020). Hold for rapid change.</td></tr>' +
-        '<tr><td class="pano-help-key">Zoom direction</td><td>The \u2191+/\u2193+ button toggles whether scroll\u2011up means zoom\u2011in or zoom\u2011out.</td></tr>' +
-      '</table>' +
+      '<table class="pano-help-table">' + rowsHtml + '</table>' +
     '</div>';
 
   overlay.addEventListener('click', function(e) {
@@ -1932,7 +1953,7 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
     overlay.className = 'tree-reroot-overlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.4);z-index:99998;display:flex;align-items:center;justify-content:center;';
     overlay.innerHTML = '<div style="background:#fff;padding:18px 32px;border-radius:8px;border:1px solid #ccc;box-shadow:0 2px 10px rgba(0,0,0,0.15);text-align:center;">' +
-      '<div style="font-size:1.1rem;color:#555;font-weight:600;">Re-rooting at ' +
+      '<div style="font-size:1.1rem;color:#555;font-weight:600;">' + (self._t.reRootingAt || 'Re-rooting at ') +
       hit.person.firstName + ' ' + hit.person.surname + ' (Sosa ' + ((hit.person.displaySosa) || hit.sosa) + ')\u2026</div></div>';
     document.body.appendChild(overlay);
     window.location.href = self._treeAccess(hit.person.access);
@@ -1943,6 +1964,7 @@ TreeRenderer.prototype._buildMinimapInToolbar = function(tree, toolbar) {
 
 TreeRenderer.prototype._buildGenControls = function(toolbar) {
   var opts = this.options;
+  var t = this._t;
   var absMax = Math.min(opts.maxGenerations || 20, 20);
   var fastMax = 12;
   var currentGen = opts.generations || 3;
@@ -1954,10 +1976,16 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
   var self = this;
   var navigating = false;
 
+  function deepTip(on) {
+    return on
+      ? (t.deepModeOn || 'Deep mode ON (up to ') + absMax + (t.clickToLimit || ') \u2014 click to limit to ') + fastMax
+      : (t.unlockBeyond || 'Deep mode OFF \u2192 up to ') + absMax;
+  }
+
   var btnMinus = document.createElement('button');
   btnMinus.className = 'pano-btn';
   btnMinus.innerHTML = '<b>\u2212</b>';
-  btnMinus.title = 'Fewer generations';
+  btnMinus.title = t.fewerGen || 'Fewer generations';
 
   var input = document.createElement('input');
   input.type = 'number';
@@ -1965,32 +1993,28 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
   input.max = effectiveMax;
   input.value = currentGen;
   input.className = 'pano-gen-input';
-  input.title = 'Type generation and press Enter';
+  input.title = t.typeGen || 'Type generation and press Enter';
 
   var btnPlus = document.createElement('button');
   btnPlus.className = 'pano-btn';
   btnPlus.innerHTML = '<b>+</b>';
-  btnPlus.title = 'More generations';
+  btnPlus.title = t.moreGen || 'More generations';
 
   // Deep mode toggle: unlocks generations beyond fastMax
   var btnDeep = document.createElement('button');
   btnDeep.className = 'pano-btn' + (deepMode ? ' pano-btn-deep-on' : '');
   btnDeep.style.fontSize = '0.75rem';
-  btnDeep.innerHTML = 'Deep';
-  btnDeep.title = deepMode
-    ? 'Deep mode ON (up to ' + absMax + ') \u2014 click to limit to ' + fastMax
-    : 'Unlock generations beyond ' + fastMax + ' (up to ' + absMax + ')';
+  btnDeep.innerHTML = t.deep || 'Deep';
+  btnDeep.title = deepTip(deepMode);
 
   var upToLabel; // set later when DOM element is created
   function updateLimits() {
     effectiveMax = deepMode ? absMax : fastMax;
     input.max = effectiveMax;
     btnDeep.className = 'pano-btn' + (deepMode ? ' pano-btn-deep-on' : '');
-    btnDeep.title = deepMode
-      ? 'Deep mode ON (up to ' + absMax + ') \u2014 click to limit to ' + fastMax
-      : 'Unlock generations beyond ' + fastMax + ' (up to ' + absMax + ')';
+    btnDeep.title = deepTip(deepMode);
     btnPlus.classList.toggle('disabled', currentGen >= effectiveMax);
-    if (upToLabel) upToLabel.textContent = 'Up to ' + effectiveMax;
+    if (upToLabel) upToLabel.textContent = (t.upTo || 'Up to ') + effectiveMax;
   }
 
   // Inject CSS animation for loading spinner (once)
@@ -2013,7 +2037,7 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.4);z-index:99998;display:flex;align-items:center;justify-content:center;pointer-events:none;';
     overlay.innerHTML = '<div style="background:#fff;padding:18px 32px;border-radius:8px;border:1px solid #ccc;box-shadow:0 2px 10px rgba(0,0,0,0.15);text-align:center;">' +
       '<div class="gen-spinner"></div>' +
-      '<div style="font-size:1.1rem;color:#555;font-weight:600;">Loading ' + v + ' generations\u2026</div>' +
+      '<div style="font-size:1.1rem;color:#555;font-weight:600;">' + (t.loading || 'Loading') + ' ' + v + ' ' + (t.generations || 'generations') + '\u2026</div>' +
       '</div>';
     document.body.appendChild(overlay);
     self._loadingOverlay = overlay;
@@ -2157,13 +2181,13 @@ TreeRenderer.prototype._buildGenControls = function(toolbar) {
   // "Up to nn" label
   upToLabel = document.createElement('span');
   upToLabel.className = 'pano-zoom-label';
-  upToLabel.textContent = 'Up to ' + effectiveMax;
+  upToLabel.textContent = (t.upTo || 'Up to ') + effectiveMax;
   toolbar.appendChild(upToLabel);
 
   // "Generations" label
   var gLabel = document.createElement('span');
   gLabel.className = 'pano-zoom-label';
-  gLabel.textContent = 'Generations';
+  gLabel.textContent = t.generations || 'Generations';
   toolbar.appendChild(gLabel);
 
   toolbar.appendChild(btnMinus);

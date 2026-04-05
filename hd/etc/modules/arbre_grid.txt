@@ -9,7 +9,7 @@
   <span class="text-small text-muted font-weight-lighter">%apply;togena(e_v)</span>
 </h3>
 
-<div id="tree-grid-container" style="overflow:scroll;width:100%;height:calc(100vh - 100px);box-sizing:border-box;background:#fff;"><div id="tree-loading" style="display:flex;align-items:center;justify-content:center;height:100%;"><div style="font-size:1.4rem;color:#555;font-weight:600;padding:20px 40px;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">Loading %e_v; generations&hellip;</div></div></div>
+<div id="tree-grid-container" style="overflow:scroll;width:100%;height:calc(100vh - 100px);box-sizing:border-box;background:#fff;"><div id="tree-loading" style="display:flex;align-items:center;justify-content:center;height:100%;"><div style="font-size:1.4rem;color:#555;font-weight:600;padding:20px 40px;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">[*loading/error]0 %e_v; [*generation/generations]1&hellip;</div></div></div>
 
 <div id="tree-data" style="display:none">
 %foreach;ancestor_tree_line(e_v+1)
@@ -21,8 +21,8 @@
 </div>
 
 <link rel="stylesheet" href="css/tree_render.css?v=75">
-<script src="js/tree_render.js?v=374"></script>
-<div style="position:fixed;top:50px;right:10px;background:#f00;color:#fff;padding:4px 12px;font-size:13px;z-index:99999;opacity:0.9;border-radius:4px;">Build 374</div>
+<script src="js/tree_render.js?v=376"></script>
+<div style="position:fixed;top:50px;right:10px;background:#f00;color:#fff;padding:4px 12px;font-size:13px;z-index:99999;opacity:0.9;border-radius:4px;">Build 376</div>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
@@ -44,9 +44,67 @@
         maxGenerations: %max_anc_level;,
         genUrlTemplate: '%apply;url_set%with;v%and;__V__%end;',
         i18n: {
+          modKey: (navigator.platform && /Mac|iPhone|iPad|iPod/.test(navigator.platform)) ? '\u2318' : 'Ctrl',
           homeTipSelf: '[*Sosa 1] ([*sosa reference])',
           homeTipOther: '[*restore default_sosa_ref]',
-          generations: '[*generation/generations]1'
+          generations: '[*generation/generations]1',
+          generation: '[*generation/generations]0',
+          ancestorsOf: '[*ascendants tree] ',
+          from: '(from ',
+          viewFullImage: '[*image/images]0',
+          hasAncestors: '[*click for ancestors]',
+          scrollToSosa1: '[*recenter tree on] Sosa 1: ',
+          returnToSosa1: '[*return to] Sosa 1: ',
+          scrollLeft: '[*navigation] \u2190',
+          scrollRight: '[*navigation] \u2192',
+          scrollUp: '[*navigation] \u2191',
+          scrollDown: '[*navigation] \u2193',
+          zoomOut: '[*zoom/unzoom]1',
+          zoomIn: '[*zoom/unzoom]0',
+          resetZoom: '[*zoom/unzoom]0 \u2192 100%%',
+          help: '[*help and shortcuts]',
+          close: '[*close]',
+          panoramicChart: '[*ascendants tree]',
+          fewerGen: '[*reduce/increase]0 [*generation/generations]1',
+          moreGen: '[*reduce/increase]1 [*generation/generations]1',
+          typeGen: '[*generation/generations]0 + Enter',
+          deep: 'Deep',
+          deepModeOn: 'Deep mode ON ([*up to] ',
+          clickToLimit: ') \u2014 [*click] \u2192 ',
+          unlockBeyond: 'Deep mode OFF \u2192 [*up to] ',
+          upTo: '[*up to] ',
+          reRootingAt: '[*recenter tree on] ',
+          loading: '[*loading/error]0',
+          zoomScrollTip1: '[*zoom/unzoom]0: ',
+          zoomScrollTip2: ' = [*zoom/unzoom]0 ([*click])',
+          scrollUpWord: '\u2191',
+          scrollDownWord: '\u2193',
+          helpDrag: 'Click and drag to pan the chart in any direction. If the cursor leaves the window, panning continues automatically with increasing speed.',
+          helpScroll: 'Scroll wheel or trackpad to pan vertically (and horizontally with Shift).',
+          helpZoom: 'Ctrl+scroll (Cmd+scroll on Mac) to zoom in/out, anchored at the cursor position. Use the +/\u2212 buttons or Reset in the toolbar.',
+          helpArrows: 'Press and hold arrow keys to pan. Speed accelerates the longer the key is held.',
+          helpMinimap: 'Click or drag on the minimap to jump to that area of the chart. The rectangle shows the current viewport.',
+          helpMinimapHover: 'Hover over the minimap to see estimated Sosa numbers at each generation level. When over an actual person dot, their name is shown.',
+          helpGold: 'Top\u2011generation persons who have ancestors beyond this display are marked with a gold border on the chart and a gold dot with upward tick on the minimap.',
+          helpShiftClick: 'Shift\u2011click a person dot to re\u2011root the chart at that ancestor. Shift\u2011click root person dot to go back. Use browser Back to return to any previous view.',
+          helpClickName: "[*click] \u2192 [*recenter tree on]. modKey\u2011[*click] \u2192 [*go to person's page].",
+          helpSosaBadge: '[*click] Sosa \u2192 highlight ancestor line.',
+          helpSosa1Btn: '[*recenter tree on] Sosa 1. If re\u2011rooted, navigates back to the original reference person.',
+          helpGenPM: '[*reduce/increase]1 / [*reduce/increase]0 [*generation/generations]1 (max\u00a020). Hold for rapid change.',
+          helpZoomDir: 'The \u2191+/\u2193+ button toggles whether scroll\u2011up means zoom\u2011in or zoom\u2011out.',
+          hkDrag: '[*drag/wheel/hover/lock/rotate]0',
+          hkScroll: '[*navigation]',
+          hkZoom: '[*zoom/unzoom]0',
+          hkArrows: '\u2190\u2191\u2193\u2192',
+          hkMinimap: 'Minimap',
+          hkMinimapHover: 'Minimap hover',
+          hkGold: '[*visual indicators]',
+          hkShiftClick: 'Shift+[*click] minimap',
+          hkClickName: '[*click] name',
+          hkSosaBadge: 'Sosa badge',
+          hkSosa1Btn: 'Sosa 1',
+          hkGenPM: '[*generation/generations]1 +/\u2212',
+          hkZoomDir: '\u2191+/\u2193+'
         }
       });
       renderer.render();
