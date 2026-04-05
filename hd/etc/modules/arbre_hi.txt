@@ -33,6 +33,7 @@
 #hi-tree1 span{position:absolute;line-height:10pt;margin:%if;((evarv<9 and evarcpl!="on") or (evarv<10 and evarcpl="on"))8px 12px%else;0px 4px%end;}
 #hi-tree1 a{position:absolute;line-height:10pt;}
 #hi-tree1 a[data-sosa]:focus{outline:none;}
+#hi-iso-btn:focus,#hi-iso-btn.focus{box-shadow:none;outline:none;}
 #hi-tree1 a.hi-active{outline:3px solid #000;outline-offset:-1px;border-radius:1px;}
 #hi-tree1 a.hi-implex-peer{outline:3px dotted #c33;outline-offset:-1px;border-radius:1px;}
 #hi-tree1 div.hi-active{outline:3px solid #000;outline-offset:-1px;border-radius:1px;}
@@ -1587,6 +1588,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     window.hiIsoSetSosa = function(s) { isoSelectedSosa = s; };
 
     window.hiIsoToggle = function() {
+      if (isoBtn) isoBtn.blur();
       isoMode = !isoMode;
       if (isoMode) {
         // Carry flat chart focus into iso view
