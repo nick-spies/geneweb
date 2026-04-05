@@ -75,12 +75,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 %define;line(x0,y0,x1,y1,ss,bw)
   <script>
     $(window).on("load", function() {
-      var c = (ss %% 2 === 0) ? '#a0c4e8' : '#e8b0c0';
+      var c = (ss %% 2 === 0) ? 'rgba(74,138,199,0.5)' : 'rgba(208,96,128,0.5)';
       var sw = Math.max(2, Math.round(bw * 0.6));
-      // Clamp to even number for consistent rendering when rotated
-      sw = sw - (sw %% 2);
-      var adj = sw / 2;
-      $('#hi-tree1').line(x0, y0 - adj, x1, y1 - adj, {color:c, stroke:sw, opacity:1, zindex:1, class:'hi-line hi-line-' + ss});
+      $('#hi-tree1').line(x0, y0, x1, y1, {color:c, stroke:sw, opacity:1, zindex:1, class:'hi-line hi-line-' + ss});
     });
   </script>
 %end;
@@ -103,10 +100,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     <div style="position:absolute;top:%d2y;px;left:%d2x;px;width:6px;height:6px;background:#555;z-index:2;"></div>
     <script>
       $(window).on("load", function() {
-        var c = (%lns; %% 2 === 0) ? '#a0c4e8' : '#e8b0c0';
+        var c = (%lns; %% 2 === 0) ? 'rgba(74,138,199,0.6)' : 'rgba(208,96,128,0.6)';
         var sw = Math.max(2, Math.round(%hb1; * 0.6));
-        var adj = sw / 2;
-        $('#hi-tree1').line(%x0;, %y0; - adj, %mx;, %my; - adj, {color:c, stroke:sw, opacity:1, zindex:1, class:'hi-line hi-line-%lns;'});
+        $('#hi-tree1').line(%x0;, %y0;, %mx;, %my;, {color:c, stroke:sw, opacity:1, zindex:1, class:'hi-line hi-line-%lns;'});
       });
     </script>
   %end;
@@ -330,7 +326,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     %let;y1;%expr(y0+hb2)%in;
     %let;x2;%if;(or="h")%if;(ss%2=0)%expr(x1+len2)%else;%expr(x1-len2)%end;%else;%x1;%end;%in;
     %let;y2;%if;(or="v")%if;(ss%2=0)%expr(y1+len2)%else;%expr(y1-len2)%end;%else;%y1;%end;%in;
-    %apply;line(x1, y1, x2, y2, ss, hb1)
+    %apply;line(x1, y1, x2, y2, ss, linebw)
   %end;
 %end;
 
@@ -493,7 +489,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
               %let;pleft;%expr(leftxx_yy(parent_half)*wb)%in;
               %let;wb2;%if;(boxsize=2)%wb1;%else;%expr(wb1/2)%end;%in;
               %let;hb2;%if;(boxsize=2)%hb1;%else;%expr(hb1/2)%end;%in;
-              %apply;line(left+wb2, top+hb2, pleft+wb2, ptop+hb2, anc_sosahalf, hb1)
+              %apply;line(left+wb2, top+hb2, pleft+wb2, ptop+hb2, anc_sosahalf, linebw)
             %end;
           %end;
         %end;
@@ -568,7 +564,14 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
               %apply;boxsosa("", ancestor.anc_sosa.v, ancestor.has_parents, bg, left, top)
             %end;
           %if;(evarcpl!="on" or ancestor.anc_sosa.v %2=0 or ancestor.anc_sosa.v=1)
-            %apply;linesosa(ancestor.anc_sosa.v, xx+1, "yy", left, top)
+            %if;(ancestor.anc_sosa.v>1)
+              %let;par_sosa;%expr(ancestor.anc_sosa.v/2)%in;
+              %let;ptop;%expr(topxx_yy(par_sosa)*hb)%in;
+              %let;pleft;%expr(leftxx_yy(par_sosa)*wb)%in;
+              %let;lwb2;%if;(boxsize=2)%wb1;%else;%expr(wb1/2)%end;%in;
+              %let;lhb2;%if;(boxsize=2)%hb1;%else;%expr(hb1/2)%end;%in;
+              %apply;line(left+lwb2, top+lhb2, pleft+lwb2, ptop+lhb2, ancestor.anc_sosa.v, linebw)
+            %end;
           %end;
         %end;
       %end;
@@ -672,6 +675,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 %let;sgen;%if;(dsosa<2)1%elseif;(dsosa<4)2%elseif;(dsosa<8)3%elseif;(dsosa<16)4%elseif;(dsosa<32)5%elseif;(dsosa<64)6%elseif;(dsosa<128)7%elseif;(dsosa<256)8%elseif;(dsosa<512)9%elseif;(dsosa<1024)10%elseif;(dsosa<2048)11%elseif;(dsosa<4096)12%elseif;(dsosa<8192)13%elseif;(dsosa<16384)14%elseif;(dsosa<32768)15%elseif;(dsosa<65536)16%elseif;(dsosa<131072)17%elseif;(dsosa<262144)18%elseif;(dsosa<524288)19%elseif;(dsosa<1048576)20%elseif;(dsosa<2097152)21%elseif;(dsosa<4194304)22%elseif;(dsosa<8388608)23%elseif;(dsosa<16777216)24%elseif;(dsosa<33554432)25%elseif;(dsosa<67108864)26%elseif;(dsosa<134217728)27%elseif;(dsosa<268435456)28%elseif;(dsosa<536870912)29%elseif;(dsosa<1073741824)30%elseif;(dsosa<2147483648)31%elseif;(dsosa<4294967296)32%elseif;(dsosa<8589934592)33%elseif;(dsosa<17179869184)34%elseif;(dsosa<34359738368)35%elseif;(dsosa<68719476736)36%elseif;(dsosa<137438953472)37%elseif;(dsosa<274877906944)38%elseif;(dsosa<549755813888)39%elseif;(dsosa<1099511627776)40%elseif;(dsosa<2199023255552)41%elseif;(dsosa<4398046511104)42%elseif;(dsosa<8796093022208)43%elseif;(dsosa<17592186044416)44%elseif;(dsosa<35184372088832)45%elseif;(dsosa<70368744177664)46%elseif;(dsosa<140737488355328)47%elseif;(dsosa<281474976710656)48%elseif;(dsosa<562949953421312)49%elseif;(dsosa<1125899906842624)50%elseif;(dsosa<2251799813685248)51%elseif;(dsosa<4503599627370496)52%elseif;(dsosa<9007199254740992)53%elseif;(dsosa<18014398509481984)54%elseif;(dsosa<36028797018963968)55%elseif;(dsosa<72057594037927936)56%elseif;(dsosa<144115188075855872)57%elseif;(dsosa<288230376151711744)58%elseif;(dsosa<576460752303423488)59%elseif;(dsosa<1152921504606846976)60%elseif;(dsosa<2305843009213693952)61%elseif;(dsosa<4611686018427387904)62%elseif;(dsosa<9223372036854775808)63%elseif;(dsosa<18446744073709551616)64%elseif;(dsosa<36893488147419103232)65%elseif;(dsosa<73786976294838206464)66%elseif;(dsosa<147573952589676412928)67%elseif;(dsosa<295147905179352825856)68%elseif;(dsosa<590295810358705651712)69%elseif;(dsosa<1180591620717411303424)70%elseif;(dsosa<2361183241434822606848)71%elseif;(dsosa<4722366482869645213696)72%elseif;(dsosa<9444732965739290427392)73%elseif;(dsosa<18889465931478580854784)74%elseif;(dsosa<37778931862957161709568)75%elseif;(dsosa<75557863725914323419136)76%elseif;(dsosa<151115727451828646838272)77%elseif;(dsosa<302231454903657293676544)78%elseif;(dsosa<604462909807314587353088)79%else;80%end;%in;
 %( title and info bar are in the sticky header in anctree.txt %)
 %let;boxsize;%if;((evarv<9 and evarcpl!="on") or (evarv<10 and evarcpl="on"))2%else;1%end;%in;
+%let;linebw;%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;%in;
 %if;((evarcpl="on" and evarv < 4) or (evarcpl!="on" and evarv < 3))
   [*compact tree][:] [specify::generation/generations]0 > 3.
 %else;
@@ -1134,11 +1138,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         var bx = parseInt(box.style.left), by = parseInt(box.style.top);
         var bw2 = parseInt(box.style.width), bh2 = parseInt(box.style.height);
         if (isNaN(bx) || isNaN(by)) continue;
-        var bg = box.style.backgroundColor || '';
-        var male = bg.indexOf('D0E4') >= 0 || bg.indexOf('d0e4') >= 0;
-        barPts.push({ x: bx + bw2 / 2, y: by + bh2 / 2, depth: d, male: male });
+        var sosa = parseInt(topAncs[i].dataset.sosa) || 0;
+        barPts.push({ x: bx + bw2 / 2, y: by + bh2 / 2, depth: d, sosa: sosa });
       }
       if (maxDepth === 0) maxDepth = 1;
+      var depthMap = {};
+      for (var i = 0; i < barPts.length; i++) depthMap[barPts[i].sosa] = barPts[i].depth;
 
       // ── Rotatable isometric projection ──
       // 3D world:  X = tree horizontal,  Z = tree vertical (into scene),  Y = bar height (up)
@@ -1230,21 +1235,16 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       }
 
       // ── Draw connecting lines (parent-child) on ground plane ──
-      // EXPERIMENTAL: line width matches projected box width (revert to fixed 6px if too busy)
-      // var isoLineW = Math.max(2, 6 * Math.sqrt(isoZoom));  // fixed-width fallback
+      // Blue for father lines (even sosa), red for mother lines (odd sosa)
+      var isoLineW = Math.max(1, 4 * Math.sqrt(isoZoom));
+      isoCtx.lineWidth = isoLineW;
       for (var sid in boxPos) {
         var s = parseInt(sid);
         if (s <= 1) continue;
         var parentId = String(Math.floor(s / 2));
         if (!boxPos[parentId]) continue;
-        var bp = boxPos[sid];
-        var cp = toScreen(bp.x, bp.y, 0);
+        var cp = toScreen(boxPos[sid].x, boxPos[sid].y, 0);
         var pp = toScreen(boxPos[parentId].x, boxPos[parentId].y, 0);
-        // Line width = projected box width along the line direction
-        var cR = toScreen(bp.x + bp.w / 2, bp.y, 0);
-        var cL = toScreen(bp.x - bp.w / 2, bp.y, 0);
-        var projW = Math.sqrt((cR.x - cL.x) * (cR.x - cL.x) + (cR.y - cL.y) * (cR.y - cL.y));
-        isoCtx.lineWidth = Math.max(2, projW * 0.6);
         isoCtx.strokeStyle = (s % 2 === 0) ? 'rgba(74,138,199,0.5)' : 'rgba(208,96,128,0.5)';
         isoCtx.beginPath();
         isoCtx.moveTo(cp.x, cp.y);
@@ -1256,9 +1256,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       isoScreenPts = {};
       for (var sid in boxPos) {
         var bp = boxPos[sid];
-        var bg2 = bp.bg;
-        isoCtx.fillStyle = (bg2.indexOf('D0E4') >= 0 || bg2.indexOf('d0e4') >= 0) ? '#4a8ac7' :
-                           (bg2.indexOf('F5D0') >= 0 || bg2.indexOf('f5d0') >= 0) ? '#d06080' : '#999';
+        var s2 = parseInt(sid);
+        isoCtx.fillStyle = (s2 <= 1) ? '#999' : (s2 % 2 === 0) ? '#4a8ac7' : '#d06080';
         var sp = toScreen(bp.x, bp.y, 0);
         isoScreenPts[sid] = { x: sp.x, y: sp.y };
         // Project box corners through isometric transform
@@ -1319,12 +1318,19 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 
       for (var i = 0; i < barPts.length; i++) {
         var p = barPts[i];
-        var hFrac = p.depth > 0 ? Math.max(0.04, p.depth / maxDepth) : 0;  // min visible height
+        var hFrac = p.depth / maxDepth;  // 0..1
         var foot = toScreen(p.x, p.y, 0);
         var top = toScreen(p.x, p.y, hFrac);
 
-        // Bar line from foot to top
-        isoCtx.strokeStyle = p.male ? 'rgba(74,138,199,0.7)' : 'rgba(208,96,128,0.7)';
+        // Bar outline then fill
+        isoCtx.strokeStyle = 'rgba(0,0,0,0.3)';
+        isoCtx.lineWidth = barW + 2;
+        isoCtx.beginPath();
+        isoCtx.moveTo(foot.x, foot.y);
+        isoCtx.lineTo(top.x, top.y);
+        isoCtx.stroke();
+        var barMale = (p.sosa > 1 && p.sosa % 2 === 0);
+        isoCtx.strokeStyle = (p.sosa <= 1) ? 'rgba(128,128,128,0.7)' : barMale ? 'rgba(74,138,199,0.7)' : 'rgba(208,96,128,0.7)';
         isoCtx.lineWidth = barW;
         isoCtx.beginPath();
         isoCtx.moveTo(foot.x, foot.y);
@@ -1332,7 +1338,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCtx.stroke();
 
         // Cap dot
-        isoCtx.fillStyle = p.male ? '#3070a8' : '#b04870';
+        isoCtx.fillStyle = (p.sosa <= 1) ? '#888' : barMale ? '#3070a8' : '#b04870';
         isoCtx.beginPath();
         isoCtx.arc(top.x, top.y, barW * 0.8, 0, Math.PI * 2);
         isoCtx.fill();
@@ -1481,6 +1487,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         if (selA) {
           var title = (selA._hiTitle || selA.getAttribute('title') || '').split('\n');
           info = 'Sosa ' + isoSelectedSosa + ' \u00b7 ' + title.slice(0, 2).join(' \u00b7 ');
+          var dep = depthMap[parseInt(isoSelectedSosa)];
+          if (dep) info += ' \u00b7 max gen ' + dep;
         } else {
           info = 'Sosa ' + isoSelectedSosa;
         }
@@ -1526,12 +1534,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       } else {
         // Carry iso focus back to flat chart
         var isoSosa = isoSelectedSosa;
-        isoCtx.clearRect(0, 0, isoW, isoH);
         isoCanvas.style.display = 'none';
-        isoCanvas.width = 0;
-        isoCanvas.height = 0;
         tree.style.display = '';
-        if (isoBtn) { isoBtn.classList.remove('active'); isoBtn.blur(); }
+        if (isoBtn) isoBtn.classList.remove('active');
         draw();
         if (isoSosa && window.hiFlatActivateSosa) window.hiFlatActivateSosa(isoSosa);
       }
