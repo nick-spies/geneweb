@@ -50,15 +50,14 @@
           onclick="if(window.hiIsoToggle)window.hiIsoToggle();">
           <i class="fa fa-chart-bar" aria-hidden="true"></i></button>
       </div>
-      %if;(e.sosa!="on")
-        <div class="btn-group btn-group-sm mr-1" id="hi-zoom-toolbar">
+        <div class="btn-group btn-group-sm mr-1" id="hi-zoom-toolbar"%if;(e.sosa="on") style="display:none"%end;>
           <button id="hi-zoom-out" class="btn btn-outline-primary" title="[*zoom/unzoom]1">−</button>
           <span id="hi-zoom-level" class="btn btn-outline-primary disabled">100%%</span>
           <button id="hi-zoom-in" class="btn btn-outline-primary" title="[*zoom/unzoom]0">+</button>
-          <button id="hi-zoom-reset" class="btn btn-outline-primary" title="[*reset to]">⟳</button>
+          <button id="hi-zoom-reset" class="btn btn-outline-primary" title="[*reset to] 100%%">⟳</button>
         </div>
-      %end;
       %if;(e.sosa="on")
+        <span id="hi-sosa-scale-tools">
         <div class="btn-group btn-group-sm mr-1">
           %if;(evarscl>20)
             <a href="%apply;url_set%with;scale%and;%expr(evarscl-10)%end;"
@@ -81,6 +80,7 @@
               title="[reduce/increase]1 [font size]">+</a>
           %end;
         </div>
+        </span>
       %end;
     </div>
   %end;

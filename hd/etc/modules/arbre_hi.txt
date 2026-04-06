@@ -777,11 +777,21 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   var zi = document.getElementById('hi-zoom-in');
   var zo = document.getElementById('hi-zoom-out');
   var zr = document.getElementById('hi-zoom-reset');
-  if (zi) zi.addEventListener('click', function() { setZoom(zoom * 1.25); });
-  if (zo) zo.addEventListener('click', function() { setZoom(zoom / 1.25); });
-  if (zr) zr.addEventListener('click', function() { setZoom(1); });
+  if (zi) zi.addEventListener('click', function() {
+    if (window.hiIsoIsActive && window.hiIsoIsActive()) { if (window.hiIsoZoomIn) window.hiIsoZoomIn(); return; }
+    setZoom(zoom * 1.25);
+  });
+  if (zo) zo.addEventListener('click', function() {
+    if (window.hiIsoIsActive && window.hiIsoIsActive()) { if (window.hiIsoZoomOut) window.hiIsoZoomOut(); return; }
+    setZoom(zoom / 1.25);
+  });
+  if (zr) zr.addEventListener('click', function() {
+    if (window.hiIsoIsActive && window.hiIsoIsActive()) { if (window.hiIsoZoomReset) window.hiIsoZoomReset(); return; }
+    setZoom(1);
+  });
 
   if (tree.parentNode) tree.parentNode.addEventListener('wheel', function(e) {
+    if (window.hiIsoIsActive && window.hiIsoIsActive()) return;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
@@ -1008,6 +1018,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (!isNaN(_savA)) isoAngle = _savA;
     } catch(_) {}
     var isoZoom = 1.0;           // zoom level (1.0 = fit to viewport)
+    try {
+      var _savZ = parseFloat(sessionStorage.getItem('hiIsoZoom'));
+      if (!isNaN(_savZ) && _savZ > 0) { isoZoom = _savZ; sessionStorage.removeItem('hiIsoZoom'); }
+    } catch(_) {}
     var isoPanX = 0, isoPanY = 0;  // pan offset in pixels
     var isoTilt = Math.atan(1 / Math.sqrt(2));  // ~35.264° default isometric tilt
     try {
@@ -1121,25 +1135,26 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       isoDragging = false;
       isoCanvas.style.cursor = 'grab';
     });
+    function isoWheelZoom(cx, cy, factor) {
+      var newZoom = Math.max(0.2, Math.min(10, isoZoom * factor));
+      var r = newZoom / isoZoom;
+      var pinSX = isoW / 2 + isoPanX;
+      var pinSY = isoH * 0.5 + isoPanY;
+      isoPanX += (cx - pinSX) * (1 - r);
+      isoPanY += (cy - pinSY) * (1 - r);
+      isoZoom = newZoom;
+      var zl = document.getElementById('hi-zoom-level');
+      if (zl) zl.textContent = Math.round(isoZoom * 100) + '%%';
+    }
     isoCanvas.addEventListener('wheel', function(e) {
       if (!isoMode) return;
       e.preventDefault();
+      var rect = isoCanvas.getBoundingClientRect();
+      var cx = e.clientX - rect.left, cy = e.clientY - rect.top;
       if (e.ctrlKey || e.metaKey) {
-        // Cmd/Ctrl+scroll = zoom anchored on cursor
-        var rect = isoCanvas.getBoundingClientRect();
-        var cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+        // Cmd/Ctrl+scroll or trackpad pinch = zoom anchored on cursor
         if (e.deltaY === 0) return;
-        var factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-        var newZoom = Math.max(0.2, Math.min(10, isoZoom * factor));
-        var r = newZoom / isoZoom;
-        // Adjust pan so cursor point stays fixed
-        // Pin point is at (isoW/2 + isoPanX, isoH*0.5 + isoPanY)
-        // Cursor offset from pin scales by r
-        var pinSX = isoW / 2 + isoPanX;
-        var pinSY = isoH * 0.5 + isoPanY;
-        isoPanX += (cx - pinSX) * (1 - r);
-        isoPanY += (cy - pinSY) * (1 - r);
-        isoZoom = newZoom;
+        isoWheelZoom(cx, cy, e.deltaY < 0 ? 1.1 : 1 / 1.1);
       } else if (e.shiftKey) {
         // Shift+scroll = tilt
         isoTilt = Math.max(0.05, Math.min(Math.PI * 0.44, isoTilt + e.deltaY * 0.003));
@@ -1455,6 +1470,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 
     function drawIso() {
       isoCtx.clearRect(0, 0, isoW, isoH);
+      // Keep zoom label in sync
+      var _zl = document.getElementById('hi-zoom-level');
+      if (_zl) _zl.textContent = Math.round(isoZoom * 100) + '%%';
 
       // ── Collect data ──
       var topAncs = tree.querySelectorAll('a[data-depth]');
@@ -1963,7 +1981,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         }
         // Bar outline then fill. Use same shade as the person's box so bars
         // read as extensions of the box beneath them.
-        isoCtx.strokeStyle = 'rgba(0,0,0,0.3)';
+        isoCtx.strokeStyle = 'rgba(0,0,0,0.45)';
         isoCtx.lineWidth = barW + 2;
         isoCtx.beginPath();
         isoCtx.moveTo(foot.x, foot.y);
@@ -1979,7 +1997,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCtx.stroke();
 
         // Cap dot — gender-shaded, darker for contrast against the bar
-        isoCtx.fillStyle = (p.sosa <= 1) ? '#888' : barMale ? '#3070a8' : '#b04870';
+        isoCtx.fillStyle = (p.sosa <= 1) ? '#ccc' : barMale ? '#70b0f0' : '#f090b0';
         isoCtx.beginPath();
         isoCtx.arc(top.x, top.y, barW * 0.8, 0, Math.PI * 2);
         isoCtx.fill();
@@ -2062,6 +2080,22 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     window.hiIsoRedraw = function() { drawIso(); isoEnsureSelectedVisible(); isoUpdateInfo(); };
     window.hiIsoGetAngle = function() { return isoAngle; };
     window.hiIsoGetTilt = function() { return isoTilt; };
+    function isoSetZoom(z) {
+      isoZoom = Math.max(0.2, Math.min(10, z));
+      var zl = document.getElementById('hi-zoom-level');
+      if (zl) zl.textContent = Math.round(isoZoom * 100) + '%%';
+      drawIso();
+    }
+    window.hiIsoZoomIn = function() { isoSetZoom(isoZoom * 1.25); };
+    window.hiIsoZoomOut = function() { isoSetZoom(isoZoom / 1.25); };
+    window.hiIsoZoomReset = function() { isoSetZoom(1); };
+    // Wire zoom buttons for sosa-box mode (the dot-mode IIFE handles its own)
+    var _zi = document.getElementById('hi-zoom-in');
+    var _zo = document.getElementById('hi-zoom-out');
+    var _zr = document.getElementById('hi-zoom-reset');
+    if (_zi && !_zi._isoWired) { _zi._isoWired = true; _zi.addEventListener('click', function() { if (isoMode) isoSetZoom(isoZoom * 1.25); }); }
+    if (_zo && !_zo._isoWired) { _zo._isoWired = true; _zo.addEventListener('click', function() { if (isoMode) isoSetZoom(isoZoom / 1.25); }); }
+    if (_zr && !_zr._isoWired) { _zr._isoWired = true; _zr.addEventListener('click', function() { if (isoMode) isoSetZoom(1); }); }
     window.hiIsoPushGenStack = function(localSosa, targetUrl) {
       isoGenStack.push({ sosa: localSosa, url: targetUrl, from: window.location.href });
       isoSaveStack();
@@ -2071,6 +2105,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (isoBtn) isoBtn.blur();
       isoMode = !isoMode;
       try { sessionStorage.setItem('hiIsoMode', isoMode ? '1' : '0'); } catch(_) {}
+      var zt = document.getElementById('hi-zoom-toolbar');
+      var st = document.getElementById('hi-sosa-scale-tools');
       if (isoMode) {
         // Carry flat chart focus into iso view — but only if iso doesn't
         // already have a selection (e.g., from a ↓-pop pendingSel hint).
@@ -2082,6 +2118,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         tree.style.display = 'none';
         sizeIsoCanvas();
         if (isoBtn) isoBtn.classList.add('active');
+        if (zt) zt.style.display = '';
+        if (st) st.style.display = 'none';
+        var zl = document.getElementById('hi-zoom-level');
+        if (zl) zl.textContent = Math.round(isoZoom * 100) + '%%';
         window.scrollTo(0, 0);
         drawIso();
         isoUpdateInfo();
@@ -2095,6 +2135,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCanvas.style.display = 'none';
         tree.style.display = '';
         if (isoBtn) isoBtn.classList.remove('active');
+        if (zt && st) { zt.style.display = 'none'; st.style.display = ''; }
         draw();
         if (isoSosa && window.hiFlatActivateSosa) window.hiFlatActivateSosa(isoSosa);
       }
@@ -2125,10 +2166,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     });
     // Save iso selection before any navigation (gen change, dropdown, etc.)
     window.addEventListener('beforeunload', function() {
-      if (isoMode && isoSelectedSosa) {
-        var selA = tree.querySelector('a[data-sosa="' + isoSelectedSosa + '"]');
-        var gsosa = selA ? (selA.getAttribute('data-gsosa') || isoSelectedSosa) : isoSelectedSosa;
-        try { sessionStorage.setItem('hiIsoPendingSel', gsosa); } catch(_) {}
+      if (isoMode) {
+        if (isoSelectedSosa) {
+          var selA = tree.querySelector('a[data-sosa="' + isoSelectedSosa + '"]');
+          var gsosa = selA ? (selA.getAttribute('data-gsosa') || isoSelectedSosa) : isoSelectedSosa;
+          try { sessionStorage.setItem('hiIsoPendingSel', gsosa); } catch(_) {}
+        }
+        try { sessionStorage.setItem('hiIsoZoom', String(isoZoom)); } catch(_) {}
       }
     });
     // Restore iso view across navigations (e.g., Enter re-root loads new page)
