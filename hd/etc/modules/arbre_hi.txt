@@ -1028,6 +1028,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     } catch(_) {}
     var isoScreenPts = {};        // sosa -> {x, y} screen coords after projection
     var isoBarSegs = [];          // [{sosa, foot:{x,y}, top:{x,y}, halfW}] — hit-test for bars
+    var isoBoxQuads = [];         // [{sosa, pts:[{x,y}×4]}] — projected box corners for click hit-test
     // RLE gender path: ♂ ♂ ♂ ♀ ♀ → ♂��♀²
     var _isoSup = ['\u2070','\u00b9','\u00b2','\u00b3','\u2074','\u2075','\u2076','\u2077','\u2078','\u2079'];
     function isoToSup(n) {
@@ -1150,8 +1151,35 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     // Click to select nearest person. Tests both box dots (isoScreenPts)
     // and bar segments (isoBarSegs) so clicking a tall bar selects the
     // person under it.
+    // Point-in-convex-quad: cross-product sign test
+    function ptInQuad(px, py, pts) {
+      var pos = 0, neg = 0;
+      for (var i = 0; i < 4; i++) {
+        var j = i < 3 ? i + 1 : 0;
+        var a = pts[i], b = pts[j];
+        var cross = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+        if (cross > 0) pos++; else if (cross < 0) neg++;
+      }
+      return pos === 0 || neg === 0;
+    }
     function isoFindNearest(cx, cy) {
       var best = null, bestD = 20;  // max 20px hit distance
+      // Test projected box quads first (ground-plane parallelograms)
+      for (var qi = 0; qi < isoBoxQuads.length; qi++) {
+        var q = isoBoxQuads[qi];
+        if (ptInQuad(cx, cy, q.pts)) {
+          // Inside a box — use distance to center as tie-breaker
+          var sp = isoScreenPts[q.sosa];
+          if (sp) {
+            var qd = Math.sqrt((sp.x - cx) * (sp.x - cx) + (sp.y - cy) * (sp.y - cy));
+            if (!best || qd < bestD) { bestD = qd; best = q.sosa; }
+          } else {
+            best = q.sosa; bestD = 0;
+          }
+        }
+      }
+      if (best) return best;
+      // Fall back to dot proximity
       for (var sid in isoScreenPts) {
         var sp = isoScreenPts[sid];
         var d = Math.sqrt((sp.x - cx) * (sp.x - cx) + (sp.y - cy) * (sp.y - cy));
@@ -1194,6 +1222,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var info = 'Sosa ' + gsosa + ' \u00b7 Gen ' + gen;
       if (pathPart) info += ' \u00b7 ' + pathPart;
       if (namePart) info += ' \u00b7 ' + namePart;
+      var dep = parseInt(selA.dataset.depth);
+      if (dep) info += ' \u00b7 up to gen ' + dep;
       bar.innerHTML = info;
     }
 
@@ -1684,6 +1714,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 
       // ── Draw all person boxes as projected parallelograms on ground plane ──
       isoScreenPts = {};
+      isoBoxQuads = [];
       for (var sid in boxPos) {
         var bp = boxPos[sid];
         var s2 = parseInt(sid);
@@ -1709,6 +1740,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         var c1 = toScreen(bp.x + hw, bp.y - hh, 0);
         var c2 = toScreen(bp.x + hw, bp.y + hh, 0);
         var c3 = toScreen(bp.x - hw, bp.y + hh, 0);
+        isoBoxQuads.push({ sosa: sid, pts: [c0, c1, c2, c3] });
         isoCtx.beginPath();
         if (isMale) {
           isoCtx.moveTo(c0.x, c0.y);
@@ -1993,6 +2025,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           info = 'Sosa ' + gsosa + ' \u00b7 Gen ' + gen;
           if (pathPart) info += ' \u00b7 ' + pathPart;
           if (namePart) info += ' \u00b7 ' + namePart;
+          var ddep = parseInt(selA.dataset.depth);
+          if (ddep) info += ' \u00b7 up to gen ' + ddep;
         } else {
           info = 'Sosa ' + isoSelectedSosa;
         }
