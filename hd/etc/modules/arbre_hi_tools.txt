@@ -43,45 +43,20 @@
           title="[*visualize/show/hide/summary]1 %if;(e.cpl!="on")[couples]%else;[person/persons]1%end;"
           style="white-space:nowrap;">%nn;
           %if;(e.cpl!="on")<i class="fa fa-user-plus" aria-hidden="true"></i>%else;<i class="fa fa-user" aria-hidden="true"></i>%end;</a>
-        <a href="%if;(e.image!="on")%url_set.image.on;%else;%url_set.image;%end;" class="btn btn-outline-primary%if;(e.image="on") active%end;"
+        <a id="hi-image-btn" href="%if;(e.image!="on")%url_set.image.on;%else;%url_set.image;%end;" class="btn btn-outline-primary%if;(e.image="on") active%end;"
           title="%if;(e.image!="on")[*visualize/show/hide/summary]1%else;[*visualize/show/hide/summary]2%end; [image/images]1">%nn;
           <i class="fa fa-image" aria-hidden="true"></i></a>
-        <button id="hi-iso-btn" class="btn btn-outline-primary" title="[*ancestor/ancestors]0 depth"
+        <button id="hi-iso-btn" class="btn btn-outline-primary" title="[*isometric view/compact view]0"
+          data-tip-iso="[*isometric view/compact view]0" data-tip-flat="[*isometric view/compact view]1"
           onclick="if(window.hiIsoToggle)window.hiIsoToggle();">
           <i class="fa fa-chart-bar" aria-hidden="true"></i></button>
       </div>
-        <div class="btn-group btn-group-sm mr-1" id="hi-zoom-toolbar"%if;(e.sosa="on") style="display:none"%end;>
+        <div class="btn-group btn-group-sm mr-1" id="hi-zoom-toolbar">
           <button id="hi-zoom-out" class="btn btn-outline-primary" title="[*zoom/unzoom]1">−</button>
           <span id="hi-zoom-level" class="btn btn-outline-primary disabled">100%%</span>
           <button id="hi-zoom-in" class="btn btn-outline-primary" title="[*zoom/unzoom]0">+</button>
           <button id="hi-zoom-reset" class="btn btn-outline-primary" title="[*reset to] 100%%">⟳</button>
         </div>
-      %if;(e.sosa="on")
-        <span id="hi-sosa-scale-tools">
-        <div class="btn-group btn-group-sm mr-1">
-          %if;(evarscl>20)
-            <a href="%apply;url_set%with;scale%and;%expr(evarscl-10)%end;"
-              class="btn btn-outline-primary" title="[*reduce/increase]0 [size] (-10 %%)">−</a>
-          %end;
-          <span class="btn btn-outline-primary disabled">%evarscl;%%</span>
-          %if;(evarscl<200)
-            <a href="%apply;url_set%with;scale%and;%expr(evarscl+10)%end;"
-              class="btn btn-outline-primary" title="[*reduce/increase]1 [size] (+10 %%)">+</a>
-          %end;
-        </div>
-        <div class="btn-group btn-group-sm mr-1">
-          %if;(evarfs>5)
-            <a href="%apply;url_set%with;fs%and;%expr(evarfs-1)%end;" class="btn btn-outline-primary"
-              title="[reduce/increase]0 [font size]">−</a>
-          %end;
-          <span class="btn btn-outline-primary disabled">%evarfs;px</span>
-          %if;(evarfs<20)
-            <a href="%apply;url_set%with;fs%and;%expr(evarfs+1)%end;" class="btn btn-outline-primary"
-              title="[reduce/increase]1 [font size]">+</a>
-          %end;
-        </div>
-        </span>
-      %end;
     </div>
   %end;
 </div>
@@ -103,8 +78,7 @@ function hiHelpToggle(show) {
     <table style="width:100%%;border-collapse:collapse;font-size:14px;">
       <tr><td colspan="2" style="padding:8px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*navigation]</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>[*click]</b></td><td class="hi-help-text" data-key="help_click" style="padding:4px 0;"></td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>%nn;
-        %if;(e.sosa="on")Enter%else;<span class="hi-mod-key"></span>+[*click]%end;</b></td><td class="hi-help-text" data-key="help_goto" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><span class="hi-mod-key"></span>+[*click]</b></td><td class="hi-help-text" data-key="help_goto" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>← →</b></td><td class="hi-help-text" data-key="help_arrows" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↓</b></td><td class="hi-help-text" data-key="help_down" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>↑ ([*implex/implexes]0)</b></td><td class="hi-help-text" data-key="help_up" style="padding:4px 0;"></td></tr>

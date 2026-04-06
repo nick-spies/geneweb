@@ -28,7 +28,8 @@
 %let;hb1;%if;cgi;22%else;%expr(22*evarscl/100)%end;%in; %( dimensions de la boite sosa %)
 %let;wb1;%if;cgi;38%else;%expr(38*evarscl/100)%end;%in;
 <style type="text/css">
-#hi-tree1 {position:relative;}
+#hi-tree1 {position:relative;overflow:visible;}
+.hi-sosa-num{font-family:sans-serif;font-weight:bold;}
 #hi-tree1 tt{position:absolute;line-height:10pt;font-family:monospace;}
 #hi-tree1 span{position:absolute;line-height:10pt;margin:%if;((evarv<9 and evarcpl!="on") or (evarv<10 and evarcpl="on"))8px 12px%else;0px 4px%end;}
 #hi-tree1 a{position:absolute;line-height:10pt;}
@@ -42,12 +43,11 @@
 .hi-flash{animation:hi-flash 1.2s ease-out forwards;overflow:visible !important;}
 .hi-glow{box-shadow:0 0 14px 8px rgba(255,200,0,0.8) !important;overflow:visible !important;}
 .hi-implex-peer.hi-glow{box-shadow:0 0 14px 8px rgba(255,100,0,0.8) !important;}
-.hi-line-active{border-color:rgba(255,200,0,0.9) !important;border-bottom-width:10px !important;z-index:0 !important;}
-.hi-balloon{position:absolute;top:-24px;left:50%%;transform:translateX(-50%%);background:#fff;border:1px solid #888;border-radius:8px;padding:1px 5px;font-size:13px;line-height:16px;white-space:nowrap;z-index:10;box-shadow:1px 1px 3px rgba(0,0,0,0.2);pointer-events:none;display:none;}
-div.hi-active .hi-balloon,div.hi-implex-peer .hi-balloon{display:block;}
+.hi-path-overlay{z-index:5;}
 div.hi-active,div.hi-implex-peer{z-index:20 !important;}
-.hi-balloon::after{content:'';position:absolute;bottom:-5px;right:calc(50%% - 5px);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid #888;}
-.hi-balloon::before{content:'';position:absolute;bottom:-4px;right:calc(50%% - 4px);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid #fff;z-index:1;}
+#hi-hover-balloon{position:absolute;background:#fff;border:1px solid #888;border-radius:8px;padding:2px 8px;font-size:13px;line-height:16px;white-space:nowrap;z-index:30;box-shadow:1px 1px 3px rgba(0,0,0,0.2);pointer-events:none;display:none;}
+#hi-hover-balloon::after{content:'';position:absolute;bottom:-5px;left:calc(50%% - 5px);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid #888;}
+#hi-hover-balloon::before{content:'';position:absolute;bottom:-4px;left:calc(50%% - 4px);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid #fff;z-index:1;}
 </style>
 <script>
   <!--
@@ -77,8 +77,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   <script>
     $(window).on("load", function() {
       var c = (ss %% 2 === 0) ? 'rgba(74,138,199,0.5)' : 'rgba(208,96,128,0.5)';
-      var sw = Math.max(2, Math.round(bw * 0.6));
-      $('#hi-tree1').line(x0, y0, x1, y1, {color:c, stroke:sw, opacity:1, zindex:1, class:'hi-line hi-line-' + ss});
+      var sw = Math.max(2, Math.round(bw * 0.4));
+      var gc = (ss %% 2 === 0) ? 'hi-line-m' : 'hi-line-f';
+      $('#hi-tree1').line(x0, y0, x1, y1, {color:c, stroke:sw, opacity:1, zindex:0, class:'hi-line hi-line-' + ss + ' ' + gc});
     });
   </script>
 %end;
@@ -102,8 +103,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     <script>
       $(window).on("load", function() {
         var c = (%lns; %% 2 === 0) ? 'rgba(74,138,199,0.6)' : 'rgba(208,96,128,0.6)';
-        var sw = Math.max(2, Math.round(%hb1; * 0.6));
-        $('#hi-tree1').line(%x0;, %y0;, %mx;, %my;, {color:c, stroke:sw, opacity:1, zindex:1, class:'hi-line hi-line-%lns;'});
+        var sw = Math.max(2, Math.round(%hb1; * 0.4));
+        var gc = (%lns; %% 2 === 0) ? 'hi-line-m' : 'hi-line-f';
+        $('#hi-tree1').line(%x0;, %y0;, %mx;, %my;, {color:c, stroke:sw, opacity:1, zindex:0, class:'hi-line hi-line-%lns; ' + gc});
       });
     </script>
   %end;
@@ -126,9 +128,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     style="position:absolute;top:%sqtop;px;left:%sqleft;px;%nn;
     width:%sqsz;px;height:%sqsz;px;%nn;
     background:%if;(aaaanc_sosa.v=1)#c33%elseif;(aaasame!="")#1e90ff%elseif;(not aaahas_parents)#a9a9a9%else;#555%end;;%nn;
-    z-index:2;pointer-events:none;">
+    z-index:10;pointer-events:none;">
   </div>
-  <div style="position:absolute;top:%httop;px;left:%htleft;px;width:%hitsz;px;height:%hitsz;px;z-index:3;cursor:pointer;">
+  <div style="position:absolute;top:%httop;px;left:%htleft;px;width:%hitsz;px;height:%hitsz;px;z-index:11;cursor:pointer;">
     <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" %if;(aaasame!="")data-same="%aaasame.v;" %end;%if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" data-depth="%expr(ggen + aaaanc_depth);" %end;tabindex="-1" style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;&ofn=%ofn;&osn=%osn;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
       title='Gen %ggen; · Sosa %gsn; ·%nn;
@@ -142,7 +144,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         %elseif;(aaadeath_date.year!="") †%aaadeath_date.year;%nn;
         %end;%nn;
         %if;(not aaahas_parents) · [*missing parents]%end;%nn;
-        %if;(aaahas_parents and level=evarv) · [*click for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
+        %if;(aaahas_parents and level=evarv) · [*Enter for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
         %if;(aaahas_parents and aaaanc_sosa.v=1) · ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
         %if;(aaasame="" and aaahas_families and evarcpl="on")&#010;%nn;
           %aaaspouse; (%aaaspouse.occ;)%nn;
@@ -192,7 +194,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     style="position:absolute;border:solid 1px;top:tttpx;left:lllpx;%nn;
     width:%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;px;%nn;
     height:%if;(boxsize=2)%expr(hb1*2)%else;%hb1;%end;px;%nn;
-    %if;(not aaais_male)border-radius:6px;%end;background-color:%if;(aaais_male)#D0E4F5%else;#F5D0D8%end;;overflow:visible;z-index:2">
+    %if;(not aaais_male)border-radius:6px;%end;background-color:%if;(aaais_male)#D0E4F5%else;#F5D0D8%end;;overflow:visible;z-index:10">
     %let;imsz;%if;(boxsize=2)%expr(hb1*2-14)%else;%expr(hb1-4)%end;%in;
     %if;(e.cgl="on")
       %let;width;%if;(boxsize=2)%expr(wb1*2)%else;%wb1;%end;%in;
@@ -244,7 +246,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           %elseif;(aaadeath_date.year!="")†%aaadeath_date.year;%nn;
           %end;%nn;
           %if;(not aaahas_parents) · [*missing parents]%end;%nn;
-          %if;(aaahas_parents and level=evarv) · [*click for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
+          %if;(aaahas_parents and level=evarv) · [*Enter for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
           %if;(aaahas_parents and aaaanc_sosa.v=1) · ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
           &#010;%nn;
           %if;(aaasame=""  and aaahas_families and evarcpl="on")%nn;
@@ -266,19 +268,16 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           %let;imsz;%expr(bh-4)%in;%nn;
           %if;(evarcpl="on" and aaasame="" and aaahas_families)%nn;
             <img style="max-width:%imsz;px;max-height:%imsz;px;object-fit:cover;flex-shrink:0;" src="%aaaimage_url;" alt="">%nn;
-            %if;(textw>bw or fs1>bh)<span class="hi-balloon">%gsn;</span>%nn;
-            %else;<span style="text-align:center;flex:1;font-size:%fs1;px;overflow:hidden;">%gsn;</span>%end;%nn;
+            <span class="hi-sosa-num" style="text-align:center;flex:1;font-size:%fs1;px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">%gsn;</span>%nn;
             %if;(aaaspouse.has_image)%nn;
               <img style="max-width:%imsz;px;max-height:%imsz;px;object-fit:cover;flex-shrink:0;" src="%aaaspouse.image_url;" alt="">%nn;
             %end;%nn;
           %else;%nn;
             <img style="max-width:%imsz;px;max-height:%imsz;px;object-fit:cover;flex-shrink:0;" src="%aaaimage_url;" alt="">%nn;
-            %if;(textw>bw or fs1>bh)<span class="hi-balloon">%gsn;</span>%nn;
-            %else;<span style="text-align:center;flex:1;font-size:%fs1;px;overflow:hidden;">%gsn;</span>%end;%nn;
+            <span class="hi-sosa-num" style="text-align:center;flex:1;font-size:%fs1;px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">%gsn;</span>%nn;
           %end;%nn;
         %else;%nn;
-          %if;(textw>bw or fs1>bh)<span class="hi-balloon">%gsn;</span>%nn;
-          %else;<span style="display:block;text-align:center;width:100%%;font-size:%fs1;px;">%gsn;</span>%end;%nn;
+          <span class="hi-sosa-num" style="display:block;text-align:center;width:100%%;font-size:%fs1;px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">%gsn;</span>%nn;
         %end;
       </a>
     %end;
@@ -351,7 +350,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         %if;(aaabirth_date.year!="" and aaais_dead) – %end;%nn;
         %if;(aaabirth_date.year="" and aaadeath_date.year!="")†%else;%aaadeath_date.year;%end;%nn;
         %if;(not aaahas_parents) · [*missing parents]%end;%nn;
-        %if;(aaahas_parents and level=evarv) · [*click for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
+        %if;(aaahas_parents and level=evarv) · [*Enter for ancestors] ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
         %if;(aaahas_parents and aaaanc_sosa.v=1) · ([up to] [*generation/generations]0 %expr(ggen + aaaanc_depth))%end;%nn;
         &#010;%nn;
         %if;(aaasame="" and aaahas_families and evarcpl="on")%nn;
@@ -693,6 +692,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   %let;higc;%if;(evarv %2=0)%expr(2*nbl*hbc+20)%elseif;(evarhi="H")%expr(2*nbl*hbc+20)%else;%expr(nbl*hbc+20)%end;%in;
   %let;higs;%expr(mmm*nbl*hbs)%in;
   %if;(evarv >= 3)
+    <div style="display:flex;justify-content:center;width:100vw;margin-left:calc(-50vw + 50%%);overflow:visible;">
     %if;(evarhi="I")
       %if;(evarso="on")
         %if;(evarv < 13 and evarcpl="on")
@@ -755,6 +755,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       %end;
     %else;no hi
     %end;
+    </div>
   %end;
 %end;
 %if;(evarso!="on")
@@ -762,41 +763,137 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
 (function() {
   var tree = document.getElementById('hi-tree1');
   if (!tree) return;
-  var zoom = 1, minZoom = 0.1, maxZoom = 3;
+  var zoom = 1, panX = 0, panY = 0, minZoom = 0.1, maxZoom = 3;
   var label = document.getElementById('hi-zoom-level');
   var origW = parseInt(tree.style.width), origH = parseInt(tree.style.height);
-  function setZoom(z) {
-    zoom = Math.max(minZoom, Math.min(maxZoom, z));
-    tree.style.transform = 'scale(' + zoom + ')';
+  tree.style.transformOrigin = '0 0';
+  try {
+    var _sz = parseFloat(sessionStorage.getItem('hiFlatZoom'));
+    if (!isNaN(_sz) && _sz > 0) {
+      zoom = _sz; sessionStorage.removeItem('hiFlatZoom');
+      var r = tree.getBoundingClientRect();
+      panX = (window.innerWidth - origW * zoom) / 2 - r.left;
+    }
+  } catch(_) {}
+  function applyTransform() {
+    tree.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
     tree.style.width = origW + 'px';
     tree.style.height = origH + 'px';
-    tree.parentNode.style.height = (origH * zoom + 20) + 'px';
+    tree.parentNode.style.height = (origH * zoom + Math.abs(panY) + 20) + 'px';
     if (label) label.textContent = Math.round(zoom * 100) + '%%';
   }
+  if (zoom !== 1 || panX !== 0) applyTransform();
+  window.addEventListener('beforeunload', function() {
+    if (!(window.hiIsoIsActive && window.hiIsoIsActive())) {
+      try { sessionStorage.setItem('hiFlatZoom', String(zoom)); } catch(_) {}
+    }
+  });
 
   var zi = document.getElementById('hi-zoom-in');
   var zo = document.getElementById('hi-zoom-out');
   var zr = document.getElementById('hi-zoom-reset');
+  var lastCX = window.innerWidth / 2, lastCY = window.innerHeight / 2;
+  document.addEventListener('mousemove', function(e) { lastCX = e.clientX; lastCY = e.clientY; });
+  function zoomAtPoint(cx, cy, newZ) {
+    newZ = Math.max(minZoom, Math.min(maxZoom, newZ));
+    var r = tree.getBoundingClientRect();
+    var dx = cx - r.left, dy = cy - r.top;
+    panX += dx * (1 - newZ / zoom);
+    panY += dy * (1 - newZ / zoom);
+    zoom = newZ;
+    applyTransform();
+  }
   if (zi) zi.addEventListener('click', function() {
     if (window.hiIsoIsActive && window.hiIsoIsActive()) { if (window.hiIsoZoomIn) window.hiIsoZoomIn(); return; }
-    setZoom(zoom * 1.25);
+    zoomAtPoint(lastCX, lastCY, zoom * 1.25);
   });
   if (zo) zo.addEventListener('click', function() {
     if (window.hiIsoIsActive && window.hiIsoIsActive()) { if (window.hiIsoZoomOut) window.hiIsoZoomOut(); return; }
-    setZoom(zoom / 1.25);
+    zoomAtPoint(lastCX, lastCY, zoom / 1.25);
   });
   if (zr) zr.addEventListener('click', function() {
     if (window.hiIsoIsActive && window.hiIsoIsActive()) { if (window.hiIsoZoomReset) window.hiIsoZoomReset(); return; }
-    setZoom(1);
+    panX = 0; panY = 0; zoom = 1; applyTransform();
   });
-
   if (tree.parentNode) tree.parentNode.addEventListener('wheel', function(e) {
     if (window.hiIsoIsActive && window.hiIsoIsActive()) return;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+      var d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (d !== 0) zoomAtPoint(e.clientX, e.clientY, zoom * (d < 0 ? 1.1 : 1 / 1.1));
     }
   }, {passive: false});
+  window.hiFlatGetZoom = function() { return zoom; };
+  window.hiFlatSetZoom = function(z) { zoomAtPoint(lastCX, lastCY, z); };
+  window.hiFlatPan = function(dx, dy) { panX += dx; panY += dy; applyTransform(); };
+})();
+</script>
+%end;
+%if;(evarso="on")
+<script>
+(function() {
+  var tree = document.getElementById('hi-tree1');
+  if (!tree) return;
+  var zoom = 1, panX = 0, panY = 0, minZoom = 0.1, maxZoom = 3;
+  var label = document.getElementById('hi-zoom-level');
+  var origW = tree.offsetWidth, origH = tree.offsetHeight;
+  tree.style.transformOrigin = '0 0';
+  try {
+    var _sz = parseFloat(sessionStorage.getItem('hiFlatZoom'));
+    if (!isNaN(_sz) && _sz > 0) {
+      zoom = _sz; sessionStorage.removeItem('hiFlatZoom');
+      var r = tree.getBoundingClientRect();
+      panX = (window.innerWidth - origW * zoom) / 2 - r.left;
+    }
+  } catch(_) {}
+  function applyTransform() {
+    tree.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+    if (tree.parentNode) tree.parentNode.style.height = (origH * zoom + Math.abs(panY) + 20) + 'px';
+    if (label) label.textContent = Math.round(zoom * 100) + '%%';
+  }
+  if (zoom !== 1 || panX !== 0) applyTransform();
+  window.addEventListener('beforeunload', function() {
+    if (!(window.hiIsoIsActive && window.hiIsoIsActive())) {
+      try { sessionStorage.setItem('hiFlatZoom', String(zoom)); } catch(_) {}
+    }
+  });
+  var lastCX = window.innerWidth / 2, lastCY = window.innerHeight / 2;
+  document.addEventListener('mousemove', function(e) { lastCX = e.clientX; lastCY = e.clientY; });
+  function zoomAtPoint(cx, cy, newZ) {
+    newZ = Math.max(minZoom, Math.min(maxZoom, newZ));
+    var r = tree.getBoundingClientRect();
+    var dx = cx - r.left, dy = cy - r.top;
+    panX += dx * (1 - newZ / zoom);
+    panY += dy * (1 - newZ / zoom);
+    zoom = newZ;
+    applyTransform();
+  }
+  if (tree.parentNode) tree.parentNode.addEventListener('wheel', function(e) {
+    if (window.hiIsoIsActive && window.hiIsoIsActive()) return;
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      var d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (d !== 0) zoomAtPoint(e.clientX, e.clientY, zoom * (d < 0 ? 1.1 : 1 / 1.1));
+    }
+  }, {passive: false});
+  var zi = document.getElementById('hi-zoom-in');
+  var zo = document.getElementById('hi-zoom-out');
+  var zr = document.getElementById('hi-zoom-reset');
+  if (zi) zi.addEventListener('click', function() {
+    if (window.hiIsoIsActive && window.hiIsoIsActive()) return;
+    zoomAtPoint(lastCX, lastCY, zoom * 1.25);
+  });
+  if (zo) zo.addEventListener('click', function() {
+    if (window.hiIsoIsActive && window.hiIsoIsActive()) return;
+    zoomAtPoint(lastCX, lastCY, zoom / 1.25);
+  });
+  if (zr) zr.addEventListener('click', function() {
+    if (window.hiIsoIsActive && window.hiIsoIsActive()) return;
+    panX = 0; panY = 0; zoom = 1; applyTransform();
+  });
+  window.hiFlatGetZoom = function() { return zoom; };
+  window.hiFlatSetZoom = function(z) { zoomAtPoint(lastCX, lastCY, z); };
+  window.hiFlatPan = function(dx, dy) { panX += dx; panY += dy; applyTransform(); };
 })();
 </script>
 %end;
@@ -805,26 +902,38 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   var tree = document.getElementById('hi-tree1');
   if (!tree) return;
 
-  // Drag-to-pan: scroll page by dragging tree background
+  // Suppress browser tooltips: move title to _hiTitle, blank title attr
+  tree.querySelectorAll('a[data-sosa][title]').forEach(function(a) {
+    a._hiTitle = a.getAttribute('title');
+    a.removeAttribute('title');
+  });
+
+  // Hover balloon: shows person name on dwell
+  var hoverBalloon = document.createElement('div');
+  hoverBalloon.id = 'hi-hover-balloon';
+  tree.appendChild(hoverBalloon);
+
+  // Cmd+drag pans the chart transform
   (function() {
     var dragging = false, lastX, lastY;
-    tree.style.cursor = 'grab';
     tree.addEventListener('mousedown', function(e) {
       if (e.button !== 0) return;
+      if (!(e.metaKey || e.ctrlKey)) return;
       if (e.target.closest('a') || e.target.closest('button')) return;
       e.preventDefault();
-      dragging = true; lastX = e.clientX; lastY = e.clientY;
+      dragging = true;
+      lastX = e.clientX; lastY = e.clientY;
       tree.style.cursor = 'grabbing';
     });
     window.addEventListener('mousemove', function(e) {
       if (!dragging) return;
-      window.scrollBy(lastX - e.clientX, lastY - e.clientY);
+      if (window.hiFlatPan) window.hiFlatPan(e.clientX - lastX, e.clientY - lastY);
       lastX = e.clientX; lastY = e.clientY;
     });
     window.addEventListener('mouseup', function() {
       if (!dragging) return;
       dragging = false;
-      tree.style.cursor = 'grab';
+      tree.style.cursor = '';
     });
   })();
 
@@ -1011,7 +1120,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     var isoW = 0, isoH = 0;
 
     var isoBtn = document.getElementById('hi-iso-btn');
-    var isoAngle = -Math.PI / 4;  // rotation so father/Top edge faces upper-left
+    var isoAngle = 3 * Math.PI / 4;  // 135° = canonical diamond: Top→upper-left, Right→upper-right, Bottom→lower-right, Left→lower-left
     // Restore iso rotation/tilt across reroot navigations
     try {
       var _savA = parseFloat(sessionStorage.getItem('hiIsoAngle'));
@@ -1541,8 +1650,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         // Rotate around Y axis by isoAngle
         var rx = nx * cosA - nz * sinA;
         var rz = nx * sinA + nz * cosA;
-        // Tilt around X axis by isoTilt
-        var screenX = rx;
+        // Tilt around X axis by isoTilt; negate X for correct chirality when viewed from above
+        var screenX = -rx;
         var screenY = -(rz * sinT + (y || 0)) ;
         return { x: screenX, y: screenY };
       }
@@ -1589,13 +1698,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var cRight = toScreen(treeW, treeH / 2, 0);      // mother side
       var cUp = toScreen(treeW / 2, 0, 0);             // earliest gen
       var cDown = toScreen(treeW / 2, treeH, 0);       // latest gen
-      // Map arrow keys to iso chart orientation (Top = fathers)
-      // Up → toward Top (fathers, x=0), Down → mothers, Left/Right → along generations
+      // Map arrow keys to iso chart orientation (matches flat chart directly)
+      // Left → fathers(x=0), Right → mothers, Up → gen0(y=0), Down → genN(y=treeH)
       isoChartDirs = {
-        ArrowUp:    { x: cLeft.x - cMid.x, y: cLeft.y - cMid.y },
-        ArrowDown:  { x: cRight.x - cMid.x, y: cRight.y - cMid.y },
-        ArrowLeft:  { x: cUp.x - cMid.x, y: cUp.y - cMid.y },
-        ArrowRight: { x: cDown.x - cMid.x, y: cDown.y - cMid.y }
+        ArrowLeft:  { x: cLeft.x - cMid.x, y: cLeft.y - cMid.y },
+        ArrowRight: { x: cRight.x - cMid.x, y: cRight.y - cMid.y },
+        ArrowUp:    { x: cUp.x - cMid.x, y: cUp.y - cMid.y },
+        ArrowDown:  { x: cDown.x - cMid.x, y: cDown.y - cMid.y }
       };
 
       // ── Build box position lookup ──
@@ -1805,6 +1914,26 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCtx.strokeStyle = 'rgba(0,0,0,0.15)';
         isoCtx.lineWidth = 0.5;
         isoCtx.stroke();
+        // Sosa number inside box when it fits
+        var edgeW = Math.sqrt((c1.x - c0.x) * (c1.x - c0.x) + (c1.y - c0.y) * (c1.y - c0.y));
+        var edgeH = Math.sqrt((c3.x - c0.x) * (c3.x - c0.x) + (c3.y - c0.y) * (c3.y - c0.y));
+        var sosaStr = sid;
+        var charW = Math.min(edgeW, edgeH) * 0.4;
+        if (charW >= 4 && sosaStr.length * charW * 0.6 < edgeW * 0.9) {
+          isoCtx.save();
+          var ax = c1.x - c0.x, ay = c1.y - c0.y;
+          var cx = c3.x - c0.x, cy = c3.y - c0.y;
+          var sc = charW;
+          var ux = ax / edgeW, uy = ay / edgeW;
+          var vx = cx / edgeH, vy = cy / edgeH;
+          isoCtx.setTransform(ux * sc, uy * sc, vx * sc, vy * sc, sp.x, sp.y);
+          isoCtx.fillStyle = isSel ? '#fff' : 'rgba(0,0,0,0.55)';
+          isoCtx.font = 'bold 1px sans-serif';
+          isoCtx.textAlign = 'center';
+          isoCtx.textBaseline = 'middle';
+          isoCtx.fillText(sosaStr, 0, 0);
+          isoCtx.restore();
+        }
       }
 
       // ── Highlight ancestor path on ground plane (before bars so bars draw on top) ──
@@ -1856,10 +1985,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCtx.fillText(label, 0, 0);
         isoCtx.restore();
       }
-      drawPlaneLabel(-treeW * 0.08, treeH / 2, 'Top', '#b8860b', 0, treeH, treeW, 0);
-      drawPlaneLabel(treeW * 1.08, treeH / 2, 'Bottom', '#999', 0, treeH, treeW, 0);
-      drawPlaneLabel(treeW / 2, -treeH * 0.10, 'Left', '#999', treeW, 0, 0, treeH);
-      drawPlaneLabel(treeW / 2, treeH * 1.12, 'Right', '#999', treeW, 0, 0, treeH);
+      drawPlaneLabel(-treeW * 0.08, treeH / 2, 'Left', '#999', 0, treeH, treeW, 0);
+      drawPlaneLabel(treeW * 1.08, treeH / 2, 'Right', '#999', 0, treeH, treeW, 0);
+      drawPlaneLabel(treeW / 2, -treeH * 0.10, 'Top', '#b8860b', -treeW, 0, 0, -treeH);
+      drawPlaneLabel(treeW / 2, treeH * 1.12, 'Bottom', '#999', treeW, 0, 0, treeH);
 
       // ── Ground plane border lines ──
       var cTL = toScreen(0, 0, 0), cTR = toScreen(treeW, 0, 0);
@@ -2105,9 +2234,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (isoBtn) isoBtn.blur();
       isoMode = !isoMode;
       try { sessionStorage.setItem('hiIsoMode', isoMode ? '1' : '0'); } catch(_) {}
-      var zt = document.getElementById('hi-zoom-toolbar');
-      var st = document.getElementById('hi-sosa-scale-tools');
+      if (isoBtn) isoBtn.title = isoMode
+        ? (isoBtn.dataset.tipFlat || 'compact view')
+        : (isoBtn.dataset.tipIso || 'isometric view');
       if (isoMode) {
+        // Transfer flat zoom to iso
+        if (window.hiFlatGetZoom) isoZoom = window.hiFlatGetZoom();
         // Carry flat chart focus into iso view — but only if iso doesn't
         // already have a selection (e.g., from a ↓-pop pendingSel hint).
         if (!isoSelectedSosa) {
@@ -2118,8 +2250,6 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         tree.style.display = 'none';
         sizeIsoCanvas();
         if (isoBtn) isoBtn.classList.add('active');
-        if (zt) zt.style.display = '';
-        if (st) st.style.display = 'none';
         var zl = document.getElementById('hi-zoom-level');
         if (zl) zl.textContent = Math.round(isoZoom * 100) + '%%';
         window.scrollTo(0, 0);
@@ -2135,7 +2265,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCanvas.style.display = 'none';
         tree.style.display = '';
         if (isoBtn) isoBtn.classList.remove('active');
-        if (zt && st) { zt.style.display = 'none'; st.style.display = ''; }
+        // Transfer iso zoom to flat
+        if (window.hiFlatSetZoom) window.hiFlatSetZoom(isoZoom);
         draw();
         if (isoSosa && window.hiFlatActivateSosa) window.hiFlatActivateSosa(isoSosa);
       }
@@ -2201,6 +2332,11 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         }, 0);
       }
     } catch(_) {}
+    // Prevent image button from reloading page when in iso mode (images don't apply)
+    var imgBtn = document.getElementById('hi-image-btn');
+    if (imgBtn) imgBtn.addEventListener('click', function(e) {
+      if (window.hiIsoIsActive && window.hiIsoIsActive()) e.preventDefault();
+    });
   })();
 
   // Keyboard navigation
@@ -2223,7 +2359,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   // Localized strings for JS-generated content
   var HI_T = {
     'cmd_click': modKey + "+[*click]: ",
-    'help_click': "[*recenter tree on] [*ancestor/ancestors]0",
+    'help_click': "[*select] [*ancestor/ancestors]0",
     'help_goto': "[*go to person's page]",
     'help_arrows': "← [*father/mother]0, → [*father/mother]1",
     'help_down': "[*child/children]0 / [*return to] [*previous]",
@@ -2248,7 +2384,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     'help_orange': "[*implex/implexes]0",
     'help_gender': "♂=[*father/mother]0, ♀=[*father/mother]1 (♂♀ = [*father/mother]0's [*father/mother]1)",
     'help_rle': "♂³♀² = ♂♂♂♀♀",
-    'help_triangle': "[*click for ancestors]",
+    'help_triangle': "[*Enter for ancestors]",
     'help_close': "[*close] (Escape)"
   };
   // Populate help modal cells from translations
@@ -2288,6 +2424,35 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     }
     return compact + cur + toSup(cnt);
   }
+  function showInfo(el) {
+    if (!infoEl || !el) return;
+    var t = el._hiTitle || '';
+    var parts = t.split('\n').filter(function(s) { return s.trim(); });
+    var line1 = parts[0] || '';
+    var rest = parts.slice(1).join(' \u00b7 ');
+    var gm = line1.match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*·?\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+|[♂♀\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079]+)$/);
+    var prefix = gm ? gm[1] : line1;
+    var genders = gm ? gm[2].trim() : '';
+    if (genders) {
+      var gs = genders.split(/\s+/);
+      if (gs.length > 4) genders = rleGender(gs);
+    }
+    var esc = function(s) { return s.replace(/</g,'&lt;'); };
+    var full = prefix + (genders ? ' ' + genders : '') + (rest ? ' \u00b7 ' + rest : '');
+    infoEl.style.whiteSpace = 'nowrap';
+    infoEl.textContent = full;
+    if (infoEl.scrollWidth > infoEl.clientWidth) {
+      var lines = [esc(prefix)];
+      if (genders) lines.push(esc(genders));
+      var restParts = rest ? rest.split(' \u00b7 ') : [];
+      for (var ri = 0; ri < restParts.length; ri++) {
+        var rp = restParts[ri].trim();
+        if (rp) lines.push(esc(rp));
+      }
+      infoEl.style.whiteSpace = 'normal';
+      infoEl.innerHTML = lines.join('<br>');
+    }
+  }
   var initialLoad = true;
   function activate(el, navDir, noScroll) {
     if (!el) return false;
@@ -2300,9 +2465,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     // clear previous peer highlights + glow
     for (var i = 0; i < peerEls.length; i++) { peerEls[i].classList.remove('hi-implex-peer'); peerEls[i].classList.remove('hi-glow'); }
     peerEls = [];
-    // clear previous ancestor path lines
-    var oldLines = tree.querySelectorAll('.hi-line-active');
-    for (var i = 0; i < oldLines.length; i++) oldLines[i].classList.remove('hi-line-active');
+    // clear previous ancestor path overlay lines
+    var oldOverlays = tree.querySelectorAll('.hi-path-overlay');
+    for (var i = 0; i < oldOverlays.length; i++) oldOverlays[i].remove();
     var target = hlTarget(el);
     target.classList.add('hi-active');
     activeBox = target;
@@ -2320,13 +2485,50 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     // persistent glow on active + peers
     target.classList.add('hi-glow');
     for (var i = 0; i < peerEls.length; i++) peerEls[i].classList.add('hi-glow');
-    // thicken ancestor path lines from selected sosa down to sosa 1
+    // draw ancestor path overlay lines (white halo + gender-colored, like iso chart)
+    function boxCenter(sosa) {
+      var a = tree.querySelector('a[data-sosa="' + sosa + '"]');
+      if (!a) return null;
+      var t = hlTarget(a);
+      var x = t.offsetLeft + t.offsetWidth / 2;
+      var y = t.offsetTop + t.offsetHeight / 2;
+      return { x: x, y: y };
+    }
+    function drawPathLine(x1, y1, x2, y2, color, width, cls) {
+      var dx = x2 - x1, dy = y2 - y1;
+      var len = Math.sqrt(dx * dx + dy * dy);
+      var angle = Math.atan2(dy, dx);
+      var line = document.createElement('div');
+      line.className = cls;
+      line.style.cssText = 'position:absolute;pointer-events:none;z-index:5;';
+      line.style.left = x1 + 'px';
+      line.style.top = (y1 - width / 2) + 'px';
+      line.style.width = len + 'px';
+      line.style.height = width + 'px';
+      line.style.background = color;
+      line.style.transformOrigin = '0 50%%';
+      line.style.transform = 'rotate(' + angle + 'rad)';
+      line.style.borderRadius = (width / 2) + 'px';
+      tree.appendChild(line);
+    }
     var s = parseInt(el.dataset.sosa);
-    while (s >= 1) {
-      var lines = tree.querySelectorAll('.hi-line-' + s);
-      for (var i = 0; i < lines.length; i++) lines[i].classList.add('hi-line-active');
-      if (s <= 1) break;
-      s = Math.floor(s / 2);
+    var segments = [];
+    while (s > 1) {
+      var ps = Math.floor(s / 2);
+      var cp = boxCenter(s), pp = boxCenter(ps);
+      if (cp && pp) segments.push({ x1: cp.x, y1: cp.y, x2: pp.x, y2: pp.y, male: s %% 2 === 0 });
+      s = ps;
+    }
+    // Pass 1: white halo
+    for (var si = 0; si < segments.length; si++) {
+      var seg = segments[si];
+      drawPathLine(seg.x1, seg.y1, seg.x2, seg.y2, '#fff', 9, 'hi-path-overlay');
+    }
+    // Pass 2: gender-colored line
+    for (var si = 0; si < segments.length; si++) {
+      var seg = segments[si];
+      var c = seg.male ? 'rgba(30,100,220,1)' : 'rgba(220,60,100,1)';
+      drawPathLine(seg.x1, seg.y1, seg.x2, seg.y2, c, 5, 'hi-path-overlay');
     }
     // scroll into view (skip for hover); only scroll if element is near edge or off-screen
     if (!noScroll) {
@@ -2381,32 +2583,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         el._hiTitle = raw;
       }
     }
-    if (infoEl) {
-      var t = el._hiTitle;
-      var parts = t.split('\n').filter(function(s) { return s.trim(); });
-      // Split line1 into gen/sosa prefix and gender path
-      var line1 = parts[0] || '';
-      var rest = parts.slice(1).join(' \u00b7 ');
-      var gm = line1.match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*·?\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+|[♂♀\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079]+)$/);
-      var prefix = gm ? gm[1] : line1;
-      var genders = gm ? gm[2].trim() : '';
-      // Try single line; break by category if it overflows
-      var esc = function(s) { return s.replace(/</g,'&lt;'); };
-      var full = prefix + (genders ? ' ' + genders : '') + (rest ? ' \u00b7 ' + rest : '');
-      infoEl.style.whiteSpace = 'nowrap';
-      infoEl.textContent = full;
-      if (infoEl.scrollWidth > infoEl.clientWidth) {
-        var lines = [esc(prefix)];
-        if (genders) lines.push(esc(genders));
-        var restParts = rest ? rest.split(' \u00b7 ') : [];
-        for (var ri = 0; ri < restParts.length; ri++) {
-          var rp = restParts[ri].trim();
-          if (rp) lines.push(esc(rp));
-        }
-        infoEl.style.whiteSpace = 'normal';
-        infoEl.innerHTML = lines.join('<br>');
-      }
-    }
+    showInfo(el);
     // remember selection across page reloads (scale/font changes)
     sessionStorage.setItem('hi-active-sosa', el.dataset.gsosa || el.dataset.sosa);
     return true;
@@ -2522,7 +2699,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           // add cross-ref to title if missing
           var el = group[j].el;
           var others = sosas.filter(function(s) { return s !== group[j].sosa; });
-          var t = el.getAttribute('title') || '';
+          var t = el._hiTitle || el.getAttribute('title') || '';
           var ref = ' (=' + others.join('|') + ')';
           // replace existing partial cross-ref or add new one
           t = t.replace(/ \(=[0-9,|]+\)/, '');
@@ -2531,7 +2708,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           var snc = Number(sn).toLocaleString();
           t = t.replace('Sosa ' + snc, 'Sosa ' + snc + ref);
           if (t.indexOf(ref) < 0) t = t.replace('Sosa ' + sn, 'Sosa ' + sn + ref);
-          el.setAttribute('title', t);
+          el._hiTitle = t;
         }
       }
     }
@@ -2651,7 +2828,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     var maxGen = 0;
     var els = tree.querySelectorAll('a[data-sosa]');
     for (var i = 0; i < els.length; i++) {
-      var t = els[i].getAttribute('title') || '';
+      var t = els[i]._hiTitle || els[i].getAttribute('title') || '';
       var gm = t.match(/^Gen (\d+)/);
       if (gm) { var g = parseInt(gm[1]); if (g > maxGen) maxGen = g; }
     }
@@ -2702,6 +2879,28 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       tree.style.marginLeft = margin + 'px';
       tree.style.marginRight = margin + 'px';
       tree.style.width = contentW + 'px';
+    })();
+    // Add border labels to flat chart (Top, Bottom, Left, Right)
+    (function() {
+      var tw = parseInt(tree.style.width), th = parseInt(tree.style.height);
+      var fs = Math.round(Math.min(tw, th) * 0.035);
+      var gap = Math.round(fs * 1.4);
+      function addLabel(text, x, y, rot) {
+        var el = document.createElement('div');
+        el.className = 'hi-border-label';
+        el.textContent = text;
+        el.style.cssText = 'position:absolute;font-size:' + fs + 'px;font-style:italic;color:#b8860b;font-weight:bold;pointer-events:none;white-space:nowrap;';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.transform = 'translate(-50%%,-50%%)' + (rot ? ' rotate(' + rot + ')' : '');
+        tree.appendChild(el);
+      }
+      addLabel('Top', tw / 2, -gap, '');
+      addLabel('Bottom', tw / 2, th + gap, '');
+      addLabel('Left', -gap, th / 2, '-90deg');
+      addLabel('Right', tw + gap, th / 2, '90deg');
+      tree.style.marginTop = (gap + fs) + 'px';
+      tree.style.marginBottom = (gap + fs) + 'px';
     })();
   });
 
@@ -2846,9 +3045,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     });
   })();
 
-  // Hover dwell: hold pointer over a node to highlight it
-  // If Cmd held on hover, show "Cmd+click: go to person" tooltip instead
-  var hoverTimer = null;
+  // Hover: show tooltip (Cmd held = "Cmd+click: go to person")
   var hoveredA = null;
   var origTitle = '';
   var glowEls = [];
@@ -2856,25 +3053,32 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     for (var i = 0; i < glowEls.length; i++) glowEls[i].classList.remove('hi-glow');
     glowEls = [];
   }
-  var scrollGuard = false;
+  var scrollGuard = false, hoverTimer = null;
   tree.addEventListener('mouseover', function(e) {
     var a = e.target.closest('a[data-sosa]');
     if (!a || scrollGuard) return;
-    clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(function() {
-      if (activeEl === a) return;
-      activate(a, null, true);
-    }, 500);
     if (hoveredA !== a) {
-      if (hoveredA) hoveredA.setAttribute('title', origTitle);
       hoveredA = a;
-      origTitle = a._hiTitle || a.getAttribute('title') || '';
-    }
-    if (cmdHeld) {
-      var name = origTitle.split('\n')[1] || '';
-      a.setAttribute('title', HI_T.cmd_click + name.trim());
-    } else if (hoveredA === a) {
-      a.setAttribute('title', origTitle);
+      origTitle = a._hiTitle || '';
+      if (hoverTimer) clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(function() {
+        if (hoveredA !== a) return;
+        showInfo(a);
+        // Show Sosa balloon if number is truncated in box
+        var numSpan = a.querySelector('.hi-sosa-num');
+        if (numSpan && numSpan.scrollWidth > numSpan.clientWidth) {
+          hoverBalloon.textContent = numSpan.textContent.trim();
+          var box = a.closest('div[id^="s"]');
+          if (box) {
+            var bx = box.offsetLeft, by = box.offsetTop, bw = box.offsetWidth;
+            hoverBalloon.style.display = 'block';
+            hoverBalloon.style.left = (bx + bw / 2 - hoverBalloon.offsetWidth / 2) + 'px';
+            hoverBalloon.style.top = (by - hoverBalloon.offsetHeight - 6) + 'px';
+          }
+        } else {
+          hoverBalloon.style.display = 'none';
+        }
+      }, 300);
     }
   });
   tree.addEventListener('mouseout', function(e) {
@@ -2882,21 +3086,23 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     if (!a) return;
     var related = e.relatedTarget;
     if (related && a.contains(related)) return;
-    clearTimeout(hoverTimer);
     if (hoveredA === a) {
-      a.setAttribute('title', origTitle);
+      if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
       hoveredA = null; origTitle = '';
+      hoverBalloon.style.display = 'none';
     }
   });
 
-  // Cmd+click = go to person page; plain click = re-root chart (default href)
+  // Click = select; Cmd+click = go to person page; Enter = re-root
   tree.addEventListener('click', function(e) {
     var a = e.target.closest('a[data-sosa]');
     if (!a) return;
+    e.preventDefault();
     if (e.metaKey || e.ctrlKey) {
-      e.preventDefault();
       var url = a.dataset.purl;
       if (url) window.location.href = url;
+    } else {
+      activate(a);
     }
   });
 

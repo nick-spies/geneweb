@@ -4905,6 +4905,11 @@ de: Vorfahren anzeigen
 en: click for ancestors
 fr: cliquer pour les ancêtres
 
+    Enter for ancestors
+de: Enter für Vorfahren
+en: Enter for ancestors
+fr: Entrée pour les ancêtres
+
     click to book
 co: per rinuminà tutti i dati uguali&#10;mantene Ctrl è fà un cliccu nant’à un elementu per aprelu in u dizziunariu
 de: zum Umbenennen aller identischen Daten,&#10;halte die Ctrl-Taste und klicke zum Öffnen des Eintrags im Verzeichnis
@@ -5133,6 +5138,11 @@ fr: vue compacte en points/vue en boîtes Sosa
 de: Kompakter H-Baum — Hilfe
 en: compact H-tree — help
 fr: arbre H compact — aide
+
+    isometric view/compact view
+de: Isometrische Ansicht/Kompaktansicht
+en: Isometric view/Compact view
+fr: Vue isométrique/Vue compacte
 
     compare
 co: paragunà
