@@ -1163,11 +1163,15 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (!isoSelectedSosa) { bar.innerHTML = ''; return; }
       var selA = tree.querySelector('a[data-sosa="' + isoSelectedSosa + '"]');
       if (!selA) { bar.innerHTML = ''; return; }
-      var title = (selA._hiTitle || selA.getAttribute('title') || '').split('\n');
       var gsosa = selA.getAttribute('data-gsosa') || isoSelectedSosa;
-      var info = 'Sosa ' + gsosa + ' \u00b7 ' + title.slice(0, 2).join(' \u00b7 ');
-      var dep = parseInt(selA.dataset.depth);
-      if (dep) info += ' \u00b7 max gen ' + dep;
+      // Compute gen directly from global Sosa (avoids cumulative template drift)
+      var gsi = parseInt(gsosa) || 1;
+      var gen = gsi > 0 ? Math.floor(Math.log(gsi) / Math.log(2)) : 0;
+      // Extract person name from title — name is on the second line (after \n)
+      var rawTitle = selA._hiTitle || selA.getAttribute('title') || '';
+      var lines = rawTitle.split('\n');
+      var namePart = (lines.length > 1 ? lines[1] : lines[0]).trim();
+      var info = 'Sosa ' + gsosa + ' \u00b7 Gen ' + gen + ' \u00b7 ' + namePart;
       bar.innerHTML = info;
     }
 
@@ -1316,8 +1320,15 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
             // not restarting from 1.
             var gsosa = selA.getAttribute('data-gsosa') || String(s);
             var targetUrl = selA.href;
-            var sep = targetUrl.indexOf('?') >= 0 ? '&' : '?';
-            if (!/[?&]dsosa=/.test(targetUrl)) targetUrl += sep + 'dsosa=' + gsosa;
+            // Replace existing dsosa or append new one (url_set propagates
+            // the current page's dsosa into every <a> href, so on a second
+            // reroot we must overwrite, not skip).
+            if (/([?&])dsosa=\d+/.test(targetUrl)) {
+              targetUrl = targetUrl.replace(/([?&])dsosa=\d+/, '$1dsosa=' + gsosa);
+            } else {
+              var sep = targetUrl.indexOf('?') >= 0 ? '&' : '?';
+              targetUrl += sep + 'dsosa=' + gsosa;
+            }
             // Push {sosa, target url} onto the stack; its gen (floor(log2 sosa))
             // shifts absolute scale labels, and the sosa itself lets a later
             // ↓-pop or browser-back restore selection to this person in the
@@ -1949,10 +1960,13 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         var selA = tree.querySelector('a[data-sosa="' + isoSelectedSosa + '"]');
         var info;
         if (selA) {
-          var title = (selA._hiTitle || selA.getAttribute('title') || '').split('\n');
-          info = 'Sosa ' + isoSelectedSosa + ' \u00b7 ' + title.slice(0, 2).join(' \u00b7 ');
-          var dep = depthMap[parseInt(isoSelectedSosa)];
-          if (dep) info += ' \u00b7 max gen ' + dep;
+          var gsosa = selA.getAttribute('data-gsosa') || isoSelectedSosa;
+          var gsi = parseInt(gsosa) || 1;
+          var gen = gsi > 0 ? Math.floor(Math.log(gsi) / Math.log(2)) : 0;
+          var rawTitle = selA._hiTitle || selA.getAttribute('title') || '';
+          var dlines = rawTitle.split('\n');
+          var namePart = (dlines.length > 1 ? dlines[1] : dlines[0]).trim();
+          info = 'Sosa ' + gsosa + ' \u00b7 Gen ' + gen + ' \u00b7 ' + namePart;
         } else {
           info = 'Sosa ' + isoSelectedSosa;
         }
