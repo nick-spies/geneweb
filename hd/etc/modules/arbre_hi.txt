@@ -2024,6 +2024,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     window.hiIsoIsActive = function() { return isoMode; };
     window.hiIsoGenOffset = function() { return isoGenOffset; };
     window.hiIsoRedraw = function() { drawIso(); isoEnsureSelectedVisible(); isoUpdateInfo(); };
+    window.hiIsoGetAngle = function() { return isoAngle; };
+    window.hiIsoGetTilt = function() { return isoTilt; };
+    window.hiIsoPushGenStack = function(localSosa, targetUrl) {
+      isoGenStack.push({ sosa: localSosa, url: targetUrl, from: window.location.href });
+      isoSaveStack();
+    };
 
     window.hiIsoToggle = function() {
       if (isoBtn) isoBtn.blur();
@@ -2086,7 +2092,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (sessionStorage.getItem('hiIsoMode') === '1') {
         setTimeout(function(){
           window.hiIsoToggle();
-          // Re-select searched sosa after gen-increase reload
+          // Re-select searched sosa after reroot/reload
           try {
             var ps = sessionStorage.getItem('hiIsoPendingSearch');
             if (ps) {
@@ -2095,6 +2101,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
               if (el) {
                 isoSelectedSosa = el.dataset.sosa;
                 drawIso(); isoEnsureSelectedVisible(); isoUpdateInfo();
+              } else {
+                // Still not on chart — put value in search box and re-trigger
+                var sinp = document.getElementById('hi-sosa-search');
+                if (sinp) { sinp.value = ps; window.hiSosaSearch(); }
               }
             }
           } catch(_) {}
@@ -2682,17 +2692,52 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           }
           flashActive();
         }
+      } else if (isIso) {
+        // Iso mode: reroot to the highest ancestor on the path to n that
+        // IS on the current chart. After reroot the searched sosa will be
+        // closer; store it as pending search so it auto-selects (or
+        // triggers another reroot) after the new chart loads.
+        var walk = n;
+        var boundary = null;
+        while (walk > 1) {
+          walk = Math.floor(walk / 2);
+          var bEl = tree.querySelector('a[data-gsosa="' + walk + '"]') ||
+                    tree.querySelector('a[data-sosa="' + walk + '"]');
+          if (bEl) { boundary = bEl; break; }
+        }
+        if (boundary && boundary.href) {
+          var gsosa = boundary.getAttribute('data-gsosa') || boundary.dataset.sosa;
+          var targetUrl = boundary.href;
+          if (/([?&])dsosa=\d+/.test(targetUrl)) {
+            targetUrl = targetUrl.replace(/([?&])dsosa=\d+/, '$1dsosa=' + gsosa);
+          } else {
+            var sep = targetUrl.indexOf('?') >= 0 ? '&' : '?';
+            targetUrl += sep + 'dsosa=' + gsosa;
+          }
+          sessionStorage.setItem('hiIsoPendingSearch', '' + n);
+          // Push gen stack so ↓ can walk back toward Sosa 1
+          if (window.hiIsoPushGenStack) {
+            window.hiIsoPushGenStack(boundary.dataset.sosa, targetUrl);
+          }
+          try {
+            sessionStorage.setItem('hiIsoAngle', String(window.hiIsoGetAngle ? window.hiIsoGetAngle() : 0));
+            sessionStorage.setItem('hiIsoTilt', String(window.hiIsoGetTilt ? window.hiIsoGetTilt() : 0));
+            sessionStorage.setItem('hiIsoPendingSel', '1');
+          } catch(_) {}
+          window.location.href = targetUrl;
+        } else {
+          // Can't find any ancestor on chart — person doesn't exist
+          inp.style.background = '#fdd';
+          setTimeout(function() { inp.style.background = ''; }, 800);
+        }
       } else {
-        // not on current display — calculate needed generations and reload
-        var genOffset = (isIso && window.hiIsoGenOffset) ? window.hiIsoGenOffset() : 0;
+        // Flat chart: not on current display — increase generations and reload
         var absGen = Math.floor(Math.log2(n));
-        var localGen = absGen - genOffset + 1;
+        var localGen = absGen + 1;
         var params = new URLSearchParams(location.search);
         var curGen = parseInt(params.get('v')) || 7;
         if (localGen > curGen) {
           sessionStorage.setItem('hi-active-sosa', '' + n);
-          // Store pending search so iso mode re-selects after reload
-          if (isIso) sessionStorage.setItem('hiIsoPendingSearch', '' + n);
           params.set('v', '' + localGen);
           window.location.search = params.toString();
         } else {
