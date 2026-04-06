@@ -131,7 +131,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     z-index:10;pointer-events:none;">
   </div>
   <div style="position:absolute;top:%httop;px;left:%htleft;px;width:%hitsz;px;height:%hitsz;px;z-index:11;cursor:pointer;">
-    <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" %if;(aaasame!="")data-same="%aaasame.v;" %end;%if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" data-depth="%expr(ggen + aaaanc_depth);" %end;tabindex="-1" style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;&ofn=%ofn;&osn=%osn;"
+    <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" %if;(aaasame!="")data-same="%aaasame.v;" %end;%if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" data-depth="%expr(ggen + aaaanc_depth);" %end;%if;(aaahas_parents and aaaanc_sosa.v=1)data-maxgen="%expr(ggen + aaaanc_depth);" %end;tabindex="-1" style="display:block;width:100%%;height:100%%;" href="%url_set.i_p_n_oc;&%aaaaccess;&ofn=%ofn;&osn=%osn;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
       title='Gen %ggen; · Sosa %gsn; ·%nn;
         %if;(aaasame!="") (=%expr((dsosa - 1) * p2 + aaasame.v))%end;%nn;
@@ -230,7 +230,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       %end;
     %end;
     %if;(e.cgl!="on")
-      <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" data-purl="%prefix;%aaaaccess;" %if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" data-depth="%expr(ggen + aaaanc_depth);" %end;tabindex="-1" style="display:flex;align-items:center;justify-content:center;width:100%%;height:100%%;z-index:2;"
+      <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" data-purl="%prefix;%aaaaccess;" %if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" data-depth="%expr(ggen + aaaanc_depth);" %end;%if;(aaahas_parents and aaaanc_sosa.v=1)data-maxgen="%expr(ggen + aaaanc_depth);" %end;tabindex="-1" style="display:flex;align-items:center;justify-content:center;width:100%%;height:100%%;z-index:2;"
         href="%prefix_base_password;%aaaaccess;&t=T&t1=CT&dsosa=%gsn;&ofn=%ofn;&osn=%osn;&
           %foreach;env_binding;%if;(not (env.key="t" or env.key="t1" or env.key="p"
             or env.key="n" or env.key="oc" or env.key="dsosa" or env.key="ofn" or env.key="osn"))%env.key=%env.val;&%end;%end;"
@@ -337,7 +337,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   %let;xxx;%if;(evarcpl="on")%expr(aaaanc_sosa.v/2)%else;%aaaanc_sosa.v;%end;%in;
   <div id="s%aaaanc_sosa.v;" style="font-family:monospace;margin:0">
     %(%let;anclev;%expr(evarv-aaaanc_sosa.lvl+2)%in;%)
-    <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" %if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" data-depth="%expr(ggen + aaaanc_depth);" %end;style="top:tttpx;left:lllpx;" href="%url_set.i_p_n_oc;&%aaaaccess;&ofn=%ofn;&osn=%osn;"
+    <a data-sosa="%aaaanc_sosa.v;" data-gsosa="%gsn;" %if;(aaahas_parents and level=evarv)data-hasf="%if;(aaafather.first_name!="")1%end;" data-hasm="%if;(aaamother.first_name!="")1%end;" data-depth="%expr(ggen + aaaanc_depth);" %end;%if;(aaahas_parents and aaaanc_sosa.v=1)data-maxgen="%expr(ggen + aaaanc_depth);" %end;style="top:tttpx;left:lllpx;" href="%url_set.i_p_n_oc;&%aaaaccess;&ofn=%ofn;&osn=%osn;"
       %if;(aaasame!="")%apply;implex1(aaasame.v)%end;
       title='Gen %ggen; – Sosa %nn;
         %if;(evarcpl="")%gsn; %if;(aaasame!="")=Sosa %expr((dsosa - 1) * p2 + aaasame.v)%end;
@@ -1349,7 +1349,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (pathPart) info += ' \u00b7 ' + pathPart;
       if (namePart) info += ' \u00b7 ' + namePart;
       var dep = parseInt(selA.dataset.depth);
-      if (dep) info += ' \u00b7 up to gen ' + dep;
+      var isDSosa = (parseInt(isoSelectedSosa) === 1 || isoSelectedSosa === String(isoRoot));
+      if (isDSosa && !dep) {
+        var s1el = tree.querySelector('a[data-sosa="1"]');
+        if (s1el && s1el.dataset.maxgen) dep = parseInt(s1el.dataset.maxgen);
+      }
+      if (dep && (isDSosa || selA.dataset.depth)) info += ' \u00b7 (up to gen ' + dep + ')';
       bar.innerHTML = info;
     }
 
@@ -2175,7 +2180,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           if (pathPart) info += ' \u00b7 ' + pathPart;
           if (namePart) info += ' \u00b7 ' + namePart;
           var ddep = parseInt(selA.dataset.depth);
-          if (ddep) info += ' \u00b7 up to gen ' + ddep;
+          var disRoot = (parseInt(isoSelectedSosa) === 1 || isoSelectedSosa === String(isoRoot));
+          if (disRoot && !ddep) {
+            var ds1 = tree.querySelector('a[data-sosa="1"]');
+            if (ds1 && ds1.dataset.maxgen) ddep = parseInt(ds1.dataset.maxgen);
+          }
+          if (ddep && (disRoot || selA.dataset.depth)) info += ' \u00b7 (up to gen ' + ddep + ')';
         } else {
           info = 'Sosa ' + isoSelectedSosa;
         }
@@ -2429,7 +2439,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     var t = el._hiTitle || '';
     var parts = t.split('\n').filter(function(s) { return s.trim(); });
     var line1 = parts[0] || '';
-    var rest = parts.slice(1).join(' \u00b7 ');
+    var rest = parts.slice(1).map(function(s) {
+      return s.replace(/\s*·?\s*Enter for ancestors\s*/i, '').replace(/[Gg]eneration[s]?/g, 'gen');
+    }).join(' \u00b7 ');
     var gm = line1.match(/^(.*?·\s*Sosa\s+\S+(?:\s*\([^)]*\))?(?:\s*·?\s*&\s*\S+)?\s*·?)\s*([\s♂♀]+|[♂♀\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079]+)$/);
     var prefix = gm ? gm[1] : line1;
     var genders = gm ? gm[2].trim() : '';
@@ -2530,38 +2542,29 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var c = seg.male ? 'rgba(30,100,220,1)' : 'rgba(220,60,100,1)';
       drawPathLine(seg.x1, seg.y1, seg.x2, seg.y2, c, 5, 'hi-path-overlay');
     }
-    // scroll into view (skip for hover); only scroll if element is near edge or off-screen
+    // scroll into view (skip for hover)
     if (!noScroll) {
       scrollGuard = true;
       var scrollTarget = document.getElementById('s' + el.dataset.sosa) || target;
-      var margin = 60;
       var nav = document.querySelector('nav.navbar');
       var tb = document.getElementById('hi-toolbar');
-      var topOffset = (nav ? nav.offsetHeight : 0) + (tb ? tb.offsetHeight : 0) + margin;
+      var fixedTop = (nav ? nav.offsetHeight : 0) + (tb ? tb.offsetHeight : 0);
+      var margin = 80;
       var r = scrollTarget.getBoundingClientRect();
-      var inView = r.top >= topOffset && r.left >= margin &&
+      var inView = r.top >= fixedTop + margin && r.left >= margin &&
                    r.bottom <= window.innerHeight - margin &&
                    r.right <= window.innerWidth - margin;
       if (initialLoad || !inView) {
-        var scrollBehavior = initialLoad ? 'instant' : 'smooth';
-        var dy = 0, dx = 0;
-        if (initialLoad) {
-          // center on initial load
-          var midY = (r.top + r.bottom) / 2;
-          var midX = (r.left + r.right) / 2;
-          var visibleTop = topOffset - margin;
-          dy = midY - (visibleTop + window.innerHeight) / 2;
-          dx = midX - window.innerWidth / 2;
-        } else {
-          // just bring into view with margin
-          if (r.top < topOffset) dy = r.top - topOffset;
-          else if (r.bottom > window.innerHeight - margin) dy = r.bottom - window.innerHeight + margin;
-          if (r.left < margin) dx = r.left - margin;
-          else if (r.right > window.innerWidth - margin) dx = r.right - window.innerWidth + margin;
-        }
-        window.scrollBy({ left: dx, top: dy, behavior: scrollBehavior });
+        var midY = (r.top + r.bottom) / 2;
+        var midX = (r.left + r.right) / 2;
+        var visH = window.innerHeight - fixedTop;
+        var targetY = fixedTop + visH / 2;
+        var targetX = window.innerWidth / 2;
+        var dy = midY - targetY;
+        var dx = midX - targetX;
+        window.scrollBy({ left: dx, top: dy, behavior: initialLoad ? 'instant' : 'smooth' });
       }
-      setTimeout(function() { scrollGuard = false; }, 800);
+      setTimeout(function() { scrollGuard = false; }, 400);
     }
     // update info bar — always use original title, not Cmd-modified one
     if (!el._hiTitle) {
@@ -2882,8 +2885,22 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     })();
     // Add border labels to flat chart (Top, Bottom, Left, Right)
     (function() {
-      var tw = parseInt(tree.style.width), th = parseInt(tree.style.height);
-      var fs = Math.round(Math.min(tw, th) * 0.035);
+      // Compute actual content bounding box from all positioned children
+      var minL = Infinity, minT = Infinity, maxR = 0, maxB = 0;
+      var kids = tree.children;
+      for (var i = 0; i < kids.length; i++) {
+        var el = kids[i];
+        if (!el.style || el.style.position !== 'absolute' || el.classList.contains('hi-border-label')) continue;
+        var l = el.offsetLeft, t = el.offsetTop;
+        var r = l + el.offsetWidth, b = t + el.offsetHeight;
+        if (l < minL) minL = l;
+        if (t < minT) minT = t;
+        if (r > maxR) maxR = r;
+        if (b > maxB) maxB = b;
+      }
+      var cx = (minL + maxR) / 2, cy = (minT + maxB) / 2;
+      var cw = maxR - minL, ch = maxB - minT;
+      var fs = Math.round(Math.min(cw, ch) * 0.035);
       var gap = Math.round(fs * 1.4);
       function addLabel(text, x, y, rot) {
         var el = document.createElement('div');
@@ -2895,10 +2912,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         el.style.transform = 'translate(-50%%,-50%%)' + (rot ? ' rotate(' + rot + ')' : '');
         tree.appendChild(el);
       }
-      addLabel('Top', tw / 2, -gap, '');
-      addLabel('Bottom', tw / 2, th + gap, '');
-      addLabel('Left', -gap, th / 2, '-90deg');
-      addLabel('Right', tw + gap, th / 2, '90deg');
+      addLabel('Top', cx, minT - gap, '');
+      addLabel('Bottom', cx, maxB + gap, '');
+      addLabel('Left', minL - gap, cy, '-90deg');
+      addLabel('Right', maxR + gap, cy, '90deg');
       tree.style.marginTop = (gap + fs) + 'px';
       tree.style.marginBottom = (gap + fs) + 'px';
     })();
