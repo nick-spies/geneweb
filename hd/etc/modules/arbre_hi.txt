@@ -1997,7 +1997,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCtx.stroke();
 
         // Cap dot — gender-shaded, darker for contrast against the bar
-        isoCtx.fillStyle = (p.sosa <= 1) ? '#ccc' : barMale ? '#70b0f0' : '#f090b0';
+        isoCtx.fillStyle = (p.sosa <= 1) ? '#888' : barMale ? '#2060a0' : '#a04068';
         isoCtx.beginPath();
         isoCtx.arc(top.x, top.y, barW * 0.8, 0, Math.PI * 2);
         isoCtx.fill();
