@@ -1028,6 +1028,24 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     } catch(_) {}
     var isoScreenPts = {};        // sosa -> {x, y} screen coords after projection
     var isoBarSegs = [];          // [{sosa, foot:{x,y}, top:{x,y}, halfW}] — hit-test for bars
+    // RLE gender path: ♂ ♂ ♂ ♀ ♀ → ♂��♀²
+    var _isoSup = ['\u2070','\u00b9','\u00b2','\u00b3','\u2074','\u2075','\u2076','\u2077','\u2078','\u2079'];
+    function isoToSup(n) {
+      if (n < 2) return '';
+      var s = '', ds = String(n);
+      for (var i = 0; i < ds.length; i++) s += _isoSup[parseInt(ds[i])];
+      return s;
+    }
+    function isoRleGender(raw) {
+      var syms = raw.trim().split(/\s+/);
+      if (syms.length < 2) return raw.trim();
+      var out = '', cur = syms[0], cnt = 1;
+      for (var i = 1; i < syms.length; i++) {
+        if (syms[i] === cur) cnt++;
+        else { out += cur + isoToSup(cnt); cur = syms[i]; cnt = 1; }
+      }
+      return out + cur + isoToSup(cnt);
+    }
     // Selection history persists across chart navigations (Enter reroot).
     // Each entry: { sosa, url } so we can navigate back to the right chart.
     var isoBackStack = [];
@@ -1167,11 +1185,15 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       // Compute gen directly from global Sosa (avoids cumulative template drift)
       var gsi = parseInt(gsosa) || 1;
       var gen = gsi > 0 ? Math.floor(Math.log(gsi) / Math.log(2)) : 0;
-      // Extract person name from title — name is on the second line (after \n)
+      // Extract gender chain (line 0 after "Gen X · Sosa Y · ") and name (line 1)
       var rawTitle = selA._hiTitle || selA.getAttribute('title') || '';
       var lines = rawTitle.split('\n');
-      var namePart = (lines.length > 1 ? lines[1] : lines[0]).trim();
-      var info = 'Sosa ' + gsosa + ' \u00b7 Gen ' + gen + ' \u00b7 ' + namePart;
+      var pathRaw = lines[0].replace(/^Gen\s+\d+\s*·\s*Sosa\s+\d+\s*·\s*/, '').trim();
+      var pathPart = pathRaw.indexOf(' ') >= 0 ? isoRleGender(pathRaw) : pathRaw;
+      var namePart = (lines.length > 1 ? lines[1] : '').trim();
+      var info = 'Sosa ' + gsosa + ' \u00b7 Gen ' + gen;
+      if (pathPart) info += ' \u00b7 ' + pathPart;
+      if (namePart) info += ' \u00b7 ' + namePart;
       bar.innerHTML = info;
     }
 
@@ -1254,6 +1276,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     document.addEventListener('keydown', function(e) {
       if (window.HI_ISO_DEBUG) console.log('[iso-keydown:capture]', e.key, 'isoMode=', isoMode, 'sel=', isoSelectedSosa, 'root=', isoRoot);
       if (!isoMode) return;
+      // Don't intercept keys when user is typing in an input field
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       // In iso mode, block Enter/Arrows/Backspace from reaching flat-chart handlers
       // and from triggering default actions on any focused link
       if (e.key === 'Enter' || e.key === 'Backspace' || e.key.startsWith('Arrow')) {
@@ -1785,6 +1809,97 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       drawPlaneLabel(treeW / 2, -treeH * 0.10, 'Left', '#999', treeW, 0, 0, treeH);
       drawPlaneLabel(treeW / 2, treeH * 1.12, 'Right', '#999', treeW, 0, 0, treeH);
 
+      // ── Ground plane border lines ──
+      var cTL = toScreen(0, 0, 0), cTR = toScreen(treeW, 0, 0);
+      var cBL = toScreen(0, treeH, 0), cBR = toScreen(treeW, treeH, 0);
+      isoCtx.strokeStyle = '#ccc';
+      isoCtx.lineWidth = 1;
+      isoCtx.beginPath();
+      isoCtx.moveTo(cTL.x, cTL.y); isoCtx.lineTo(cTR.x, cTR.y);
+      isoCtx.moveTo(cBL.x, cBL.y); isoCtx.lineTo(cBR.x, cBR.y);
+      isoCtx.moveTo(cTL.x, cTL.y); isoCtx.lineTo(cBL.x, cBL.y);
+      isoCtx.moveTo(cTR.x, cTR.y); isoCtx.lineTo(cBR.x, cBR.y);
+      isoCtx.stroke();
+
+      // ── Vertical ruler lines at all four corners ──
+      var cWx = new Array(0, treeW, 0, treeW);
+      var cWy = new Array(0, 0, treeH, treeH);
+      var tickStep = 1;  // one tick per generation, every one labeled
+      // Depth of the selected person's bar (only set if selected person has ancestors beyond view)
+      var selDepth = 0;
+      if (isoSelectedSosa && depthMap[parseInt(isoSelectedSosa)]) {
+        selDepth = depthMap[parseInt(isoSelectedSosa)];
+      }
+      var selMarkColor = null;
+      if (selDepth > 0) {
+        var selSInt = parseInt(isoSelectedSosa);
+        selMarkColor = (selSInt <= 1) ? '#b8860b' : (selSInt % 2 === 0) ? '#4a8ac7' : '#d06080';
+      }
+      for (var ci = 0; ci < 4; ci++) {
+        var cwx = cWx[ci], cwy = cWy[ci];
+        var foot = toScreen(cwx, cwy, 0);
+        var top = toScreen(cwx, cwy, 1);
+        // Vertical ruler line — always drawn
+        isoCtx.strokeStyle = 'rgba(0,0,0,0.3)';
+        isoCtx.lineWidth = 1;
+        isoCtx.beginPath();
+        isoCtx.moveTo(foot.x, foot.y);
+        isoCtx.lineTo(top.x, top.y);
+        isoCtx.stroke();
+        // Tick marks: one per generation, 0 to depthSpan (= isoSelGens)
+        var tickLen = 8;
+        for (var g = 0; g <= depthSpan; g += tickStep) {
+          var hFrac = g / depthSpan;
+          var tp = toScreen(cwx, cwy, hFrac);
+          var centerAtHh = toScreen(treeW / 2, treeH / 2, hFrac);
+          var odx = tp.x - centerAtHh.x, ody = tp.y - centerAtHh.y;
+          var oLen = Math.sqrt(odx * odx + ody * ody) || 1;
+          var oux = odx / oLen, ouy = ody / oLen;
+          isoCtx.beginPath();
+          isoCtx.moveTo(tp.x, tp.y);
+          isoCtx.lineTo(tp.x + oux * tickLen, tp.y + ouy * tickLen);
+          isoCtx.stroke();
+          isoCtx.fillStyle = '#555';
+          isoCtx.font = 'bold 13px sans-serif';
+          isoCtx.textAlign = oux >= 0 ? 'left' : 'right';
+          isoCtx.textBaseline = 'middle';
+          isoCtx.fillText(String(g + isoGenOffset), tp.x + oux * (tickLen + 5), tp.y + ouy * (tickLen + 5));
+        }
+      }
+      // Colored tick on corner posts at selected person's generation (0..depthSpan).
+      // Drawn before bars so chart content paints over the marks.
+      if (isoSelectedSosa) {
+        var selSInt = parseInt(isoSelectedSosa);
+        var selGen = selSInt > 0 ? Math.floor(Math.log(selSInt) / Math.log(2)) : 0;
+        var selH = selGen / depthSpan;
+        if (selH > 1) selH = 1;
+        var selColor = (selSInt <= 1) ? '#b8860b' : (selSInt % 2 === 0) ? '#4a8ac7' : '#d06080';
+        var segLen = Math.max(16, 22 * Math.sqrt(isoZoom));
+        var centerAtH = toScreen(treeW / 2, treeH / 2, selH);
+        for (var mci = 0; mci < 4; mci++) {
+          var mtp = toScreen(cWx[mci], cWy[mci], selH);
+          var mdx = mtp.x - centerAtH.x, mdy = mtp.y - centerAtH.y;
+          var mLen = Math.sqrt(mdx * mdx + mdy * mdy) || 1;
+          var mux = mdx / mLen, muy = mdy / mLen;
+          // White halo
+          isoCtx.strokeStyle = '#fff';
+          isoCtx.lineWidth = Math.max(6, 8 * Math.sqrt(isoZoom));
+          isoCtx.lineCap = 'round';
+          isoCtx.beginPath();
+          isoCtx.moveTo(mtp.x, mtp.y);
+          isoCtx.lineTo(mtp.x + mux * segLen, mtp.y + muy * segLen);
+          isoCtx.stroke();
+          // Colored tick
+          isoCtx.strokeStyle = selColor;
+          isoCtx.lineWidth = Math.max(4, 6 * Math.sqrt(isoZoom));
+          isoCtx.beginPath();
+          isoCtx.moveTo(mtp.x, mtp.y);
+          isoCtx.lineTo(mtp.x + mux * segLen, mtp.y + muy * segLen);
+          isoCtx.stroke();
+          isoCtx.lineCap = 'butt';
+        }
+      }
+
       // ── Draw bars (back to front: sort by projected y at ground level) ──
       barPts.sort(function(a, b) {
         var pa = toScreen(a.x, a.y, 0), pb = toScreen(b.x, b.y, 0);
@@ -1860,99 +1975,6 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         }
       }
 
-      // ── Ground plane border lines ──
-      var cTL = toScreen(0, 0, 0), cTR = toScreen(treeW, 0, 0);
-      var cBL = toScreen(0, treeH, 0), cBR = toScreen(treeW, treeH, 0);
-      isoCtx.strokeStyle = '#ccc';
-      isoCtx.lineWidth = 1;
-      isoCtx.beginPath();
-      isoCtx.moveTo(cTL.x, cTL.y); isoCtx.lineTo(cTR.x, cTR.y);
-      isoCtx.moveTo(cBL.x, cBL.y); isoCtx.lineTo(cBR.x, cBR.y);
-      isoCtx.moveTo(cTL.x, cTL.y); isoCtx.lineTo(cBL.x, cBL.y);
-      isoCtx.moveTo(cTR.x, cTR.y); isoCtx.lineTo(cBR.x, cBR.y);
-      isoCtx.stroke();
-
-      // ── Vertical ruler lines at all four corners ──
-      var cWx = new Array(0, treeW, 0, treeW);
-      var cWy = new Array(0, 0, treeH, treeH);
-      var tickStep = 1;  // one tick per generation, every one labeled
-      // Depth of the selected person's bar (only set if selected person has ancestors beyond view)
-      var selDepth = 0;
-      if (isoSelectedSosa && depthMap[parseInt(isoSelectedSosa)]) {
-        selDepth = depthMap[parseInt(isoSelectedSosa)];
-      }
-      var selMarkColor = null;
-      if (selDepth > 0) {
-        var selSInt = parseInt(isoSelectedSosa);
-        selMarkColor = (selSInt <= 1) ? '#b8860b' : (selSInt % 2 === 0) ? '#4a8ac7' : '#d06080';
-      }
-      for (var ci = 0; ci < 4; ci++) {
-        var cwx = cWx[ci], cwy = cWy[ci];
-        var foot = toScreen(cwx, cwy, 0);
-        var top = toScreen(cwx, cwy, 1);
-        // Vertical ruler line — always drawn
-        isoCtx.strokeStyle = 'rgba(0,0,0,0.3)';
-        isoCtx.lineWidth = 1;
-        isoCtx.beginPath();
-        isoCtx.moveTo(foot.x, foot.y);
-        isoCtx.lineTo(top.x, top.y);
-        isoCtx.stroke();
-        // Tick marks: one per generation, 0 to depthSpan (= isoSelGens)
-        var tickLen = 8;
-        for (var g = 0; g <= depthSpan; g += tickStep) {
-          var hFrac = g / depthSpan;
-          var tp = toScreen(cwx, cwy, hFrac);
-          var centerAtHh = toScreen(treeW / 2, treeH / 2, hFrac);
-          var odx = tp.x - centerAtHh.x, ody = tp.y - centerAtHh.y;
-          var oLen = Math.sqrt(odx * odx + ody * ody) || 1;
-          var oux = odx / oLen, ouy = ody / oLen;
-          isoCtx.beginPath();
-          isoCtx.moveTo(tp.x, tp.y);
-          isoCtx.lineTo(tp.x + oux * tickLen, tp.y + ouy * tickLen);
-          isoCtx.stroke();
-          isoCtx.fillStyle = '#555';
-          isoCtx.font = 'bold 13px sans-serif';
-          isoCtx.textAlign = oux >= 0 ? 'left' : 'right';
-          isoCtx.textBaseline = 'middle';
-          isoCtx.fillText(String(g + isoGenOffset), tp.x + oux * (tickLen + 5), tp.y + ouy * (tickLen + 5));
-        }
-      }
-      // Mark: colored tick on each corner post at the selected person's
-      // generation, with generation number label.
-      // Colored tick on corner posts at selected person's generation (0..depthSpan).
-      // Generation = floor(log2(sosa)), positioned on the 0-to-isoSelGens scale.
-      if (isoSelectedSosa) {
-        var selSInt = parseInt(isoSelectedSosa);
-        var selGen = selSInt > 0 ? Math.floor(Math.log(selSInt) / Math.log(2)) : 0;
-        var selH = selGen / depthSpan;
-        if (selH > 1) selH = 1;
-        var selColor = (selSInt <= 1) ? '#b8860b' : (selSInt % 2 === 0) ? '#4a8ac7' : '#d06080';
-        var segLen = Math.max(16, 22 * Math.sqrt(isoZoom));
-        var centerAtH = toScreen(treeW / 2, treeH / 2, selH);
-        for (var mci = 0; mci < 4; mci++) {
-          var mtp = toScreen(cWx[mci], cWy[mci], selH);
-          var mdx = mtp.x - centerAtH.x, mdy = mtp.y - centerAtH.y;
-          var mLen = Math.sqrt(mdx * mdx + mdy * mdy) || 1;
-          var mux = mdx / mLen, muy = mdy / mLen;
-          // White halo
-          isoCtx.strokeStyle = '#fff';
-          isoCtx.lineWidth = Math.max(6, 8 * Math.sqrt(isoZoom));
-          isoCtx.lineCap = 'round';
-          isoCtx.beginPath();
-          isoCtx.moveTo(mtp.x, mtp.y);
-          isoCtx.lineTo(mtp.x + mux * segLen, mtp.y + muy * segLen);
-          isoCtx.stroke();
-          // Colored tick (no extra label — the tick number is already on the scale)
-          isoCtx.strokeStyle = selColor;
-          isoCtx.lineWidth = Math.max(4, 6 * Math.sqrt(isoZoom));
-          isoCtx.beginPath();
-          isoCtx.moveTo(mtp.x, mtp.y);
-          isoCtx.lineTo(mtp.x + mux * segLen, mtp.y + muy * segLen);
-          isoCtx.stroke();
-          isoCtx.lineCap = 'butt';
-        }
-      }
-
       // Show selected person info (canvas + toolbar info bar)
       var isoInfoBar = document.getElementById('hi-nav-info');
       if (isoInfoBar && !isoSelectedSosa) isoInfoBar.innerHTML = '';
@@ -1965,8 +1987,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           var gen = gsi > 0 ? Math.floor(Math.log(gsi) / Math.log(2)) : 0;
           var rawTitle = selA._hiTitle || selA.getAttribute('title') || '';
           var dlines = rawTitle.split('\n');
-          var namePart = (dlines.length > 1 ? dlines[1] : dlines[0]).trim();
-          info = 'Sosa ' + gsosa + ' \u00b7 Gen ' + gen + ' \u00b7 ' + namePart;
+          var pathRaw = dlines[0].replace(/^Gen\s+\d+\s*·\s*Sosa\s+\d+\s*·\s*/, '').trim();
+          var pathPart = pathRaw.indexOf(' ') >= 0 ? isoRleGender(pathRaw) : pathRaw;
+          var namePart = (dlines.length > 1 ? dlines[1] : '').trim();
+          info = 'Sosa ' + gsosa + ' \u00b7 Gen ' + gen;
+          if (pathPart) info += ' \u00b7 ' + pathPart;
+          if (namePart) info += ' \u00b7 ' + namePart;
         } else {
           info = 'Sosa ' + isoSelectedSosa;
         }
@@ -1992,9 +2018,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       isoCanvas.style.display = 'block';
     }
 
-    // Expose iso selection for cross-scope sync
+    // Expose iso state for cross-scope sync (search, toolbar)
     window.hiIsoGetSosa = function() { return isoSelectedSosa; };
     window.hiIsoSetSosa = function(s) { isoSelectedSosa = s; };
+    window.hiIsoIsActive = function() { return isoMode; };
+    window.hiIsoGenOffset = function() { return isoGenOffset; };
+    window.hiIsoRedraw = function() { drawIso(); isoEnsureSelectedVisible(); isoUpdateInfo(); };
 
     window.hiIsoToggle = function() {
       if (isoBtn) isoBtn.blur();
@@ -2055,7 +2084,21 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     // Restore iso view across navigations (e.g., Enter re-root loads new page)
     try {
       if (sessionStorage.getItem('hiIsoMode') === '1') {
-        setTimeout(function(){ window.hiIsoToggle(); }, 0);
+        setTimeout(function(){
+          window.hiIsoToggle();
+          // Re-select searched sosa after gen-increase reload
+          try {
+            var ps = sessionStorage.getItem('hiIsoPendingSearch');
+            if (ps) {
+              sessionStorage.removeItem('hiIsoPendingSearch');
+              var el = tree.querySelector('a[data-gsosa="' + ps + '"]');
+              if (el) {
+                isoSelectedSosa = el.dataset.sosa;
+                drawIso(); isoEnsureSelectedVisible(); isoUpdateInfo();
+              }
+            }
+          } catch(_) {}
+        }, 0);
       }
     } catch(_) {}
   })();
@@ -2610,36 +2653,47 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var inp = document.getElementById('hi-sosa-search');
       var n = parseInt(inp.value);
       if (!n || n < 1) return;
+      var isIso = window.hiIsoIsActive && window.hiIsoIsActive();
       // search by global sosa (displayed number), then local sosa
       var el = tree.querySelector('a[data-gsosa="' + n + '"]') ||
                tree.querySelector('a[data-sosa="' + n + '"]');
       if (el) {
-        activate(el, null, true);
-        // if off-screen, center it; if visible, don't scroll
-        var st = document.getElementById('s' + el.dataset.sosa) || hlTarget(el);
-        var margin = 60;
-        var nav = document.querySelector('nav.navbar');
-        var tb = document.getElementById('hi-toolbar');
-        var topOff = (nav ? nav.offsetHeight : 0) + (tb ? tb.offsetHeight : 0) + margin;
-        var r = st.getBoundingClientRect();
-        var inView = r.top >= topOff && r.left >= margin &&
-                     r.bottom <= window.innerHeight - margin &&
-                     r.right <= window.innerWidth - margin;
-        if (!inView) {
-          var midY = (r.top + r.bottom) / 2;
-          var midX = (r.left + r.right) / 2;
-          var visibleMidY = (topOff - margin + window.innerHeight) / 2;
-          window.scrollBy({ left: midX - window.innerWidth / 2, top: midY - visibleMidY, behavior: 'smooth' });
+        if (isIso) {
+          // In iso mode: select via iso APIs, not flat-chart activate()
+          window.hiIsoSetSosa(el.dataset.sosa);
+          window.hiIsoRedraw();
+        } else {
+          activate(el, null, true);
+          // if off-screen, center it; if visible, don't scroll
+          var st = document.getElementById('s' + el.dataset.sosa) || hlTarget(el);
+          var margin = 60;
+          var nav = document.querySelector('nav.navbar');
+          var tb = document.getElementById('hi-toolbar');
+          var topOff = (nav ? nav.offsetHeight : 0) + (tb ? tb.offsetHeight : 0) + margin;
+          var r = st.getBoundingClientRect();
+          var inView = r.top >= topOff && r.left >= margin &&
+                       r.bottom <= window.innerHeight - margin &&
+                       r.right <= window.innerWidth - margin;
+          if (!inView) {
+            var midY = (r.top + r.bottom) / 2;
+            var midX = (r.left + r.right) / 2;
+            var visibleMidY = (topOff - margin + window.innerHeight) / 2;
+            window.scrollBy({ left: midX - window.innerWidth / 2, top: midY - visibleMidY, behavior: 'smooth' });
+          }
+          flashActive();
         }
-        flashActive();
       } else {
         // not on current display — calculate needed generations and reload
-        var gen = Math.floor(Math.log2(n)) + 1;
+        var genOffset = (isIso && window.hiIsoGenOffset) ? window.hiIsoGenOffset() : 0;
+        var absGen = Math.floor(Math.log2(n));
+        var localGen = absGen - genOffset + 1;
         var params = new URLSearchParams(location.search);
         var curGen = parseInt(params.get('v')) || 7;
-        if (gen > curGen) {
+        if (localGen > curGen) {
           sessionStorage.setItem('hi-active-sosa', '' + n);
-          params.set('v', '' + gen);
+          // Store pending search so iso mode re-selects after reload
+          if (isIso) sessionStorage.setItem('hiIsoPendingSearch', '' + n);
+          params.set('v', '' + localGen);
           window.location.search = params.toString();
         } else {
           // enough generations but person not found (doesn't exist in tree)
@@ -2737,6 +2791,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   });
 
   document.addEventListener('keydown', function(e) {
+    // Don't intercept keys when user is typing in an input field
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     var m = document.getElementById('hi-help-modal');
     if (e.key === 'Escape') {
       if (m && m.style.display !== 'none') { hiHelpToggle(false); return; }
