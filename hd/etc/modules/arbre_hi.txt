@@ -1023,7 +1023,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var _pSel = sessionStorage.getItem('hiIsoPendingSel');
       if (_pSel) {
         sessionStorage.removeItem('hiIsoPendingSel');
-        isoSelectedSosa = _pSel;
+        // _pSel may be a gsosa or local sosa — try gsosa lookup first
+        var _pEl = tree.querySelector('a[data-gsosa="' + _pSel + '"]');
+        isoSelectedSosa = _pEl ? _pEl.dataset.sosa : _pSel;
       }
     } catch(_) {}
     var isoScreenPts = {};        // sosa -> {x, y} screen coords after projection
@@ -2121,9 +2123,19 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       } catch(_) {}
       if (isoMode) { drawIso(); isoEnsureSelectedVisible(); isoUpdateInfo(); }
     });
+    // Save iso selection before any navigation (gen change, dropdown, etc.)
+    window.addEventListener('beforeunload', function() {
+      if (isoMode && isoSelectedSosa) {
+        var selA = tree.querySelector('a[data-sosa="' + isoSelectedSosa + '"]');
+        var gsosa = selA ? (selA.getAttribute('data-gsosa') || isoSelectedSosa) : isoSelectedSosa;
+        try { sessionStorage.setItem('hiIsoPendingSel', gsosa); } catch(_) {}
+      }
+    });
     // Restore iso view across navigations (e.g., Enter re-root loads new page)
     try {
       if (sessionStorage.getItem('hiIsoMode') === '1') {
+        // Hide flat chart immediately to prevent flash before iso toggle
+        tree.style.display = 'none';
         setTimeout(function(){
           window.hiIsoToggle();
           // Re-select searched sosa after reroot/reload
