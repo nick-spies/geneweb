@@ -43,6 +43,18 @@
 - [x] Sticky title: h3 stays visible below toolbar when scrolling
 - [x] Ctrl/Cmd platform detection for PC vs Mac key labels in help
 - [x] Grid tree localization (~44 strings in tree_render.js via i18n dict)
+- [x] Iso chart: corner post generation scale (0 to v, ticks every gen, colored gen mark)
+- [x] Iso chart: cross-chart selection history (Cmd+↑/↓ via sessionStorage)
+- [x] Iso chart: Enter reroot always selects dSosa at center; single-person centering
+- [x] Iso chart: fix chained reroots (dsosa replacement in URLs, not skip)
+- [x] Iso chart: info bar shows gen from gsosa (no drift), RLE gender chain, person name
+- [x] Iso chart: gen mark drawn under chart content (correct z-order)
+- [x] Iso chart: Sosa search works in iso mode (select via iso APIs)
+- [x] Iso chart: keyboard input doesn't break when typing in Sosa search field
+- [x] Iso chart: search for off-chart Sosa reroots to boundary ancestor, ↓ walks back
+- [ ] Iso chart: off-chart Sosa search boundary-walk not fully reliable — revisit approach (increase v instead of reroot?)
+- [ ] Iso chart: Shift+arrow navigation broken in iso view (pre-existing)
+- [ ] Iso chart: depth bar click targeting imprecise (pre-existing)
 - [ ] Implex detection fix in Sosa box mode (use `data-purl` instead of `href`)
 - [ ] Backend: make `aaaspouse.anc_depth` accessible (add to `eval_person_field_var`) — avoids male-line primacy in couple tooltips
 - [ ] Submit compact H-tree as upstream PR
