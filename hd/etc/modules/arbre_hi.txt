@@ -1511,7 +1511,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       var PAD = 12;
       // Scale post height proportionally so tick spacing per gen stays
       // constant across charts. Full height (0.28) at isoSelGens gens.
-      var barMaxH = 0.14 * (depthSpan / isoSelGens);
+      var barMaxH = 0.084 * (depthSpan / isoSelGens);
 
       // Normalize tree coords to [0..1] range for uniform scaling
       var normX = treeW > 0 ? 1.0 / treeW : 1;
