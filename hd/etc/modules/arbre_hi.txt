@@ -2858,7 +2858,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
   }
 
   // Focus saved selection (or sosa 1) on load
-  window.addEventListener('load', function() {
+  function restoreSavedSelection() {
     var saved = parseInt(sessionStorage.getItem('hi-active-sosa'));
     var found = false;
     if (saved) {
@@ -2870,6 +2870,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (gEl) { found = activate(gEl); }
       if (!found) found = activateSosa(saved);
     }
+    return found;
+  }
+  window.addEventListener('load', function() {
+    var found = restoreSavedSelection();
     if (!found) found = activateSosa(1);
     if (!found) activateSosa(2);
     initialLoad = false;
@@ -2937,6 +2941,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       tree.style.marginTop = (gap + fs) + 'px';
       tree.style.marginBottom = (gap + fs) + 'px';
     })();
+  });
+  // Handle bfcache restore (history.back from ↓ walk-back)
+  window.addEventListener('pageshow', function(ev) {
+    if (ev.persisted) restoreSavedSelection();
   });
 
   // Home button: navigate to original person's tree (dsosa=1, using ofn/osn)

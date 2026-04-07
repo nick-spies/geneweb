@@ -35,7 +35,7 @@
   </div>
   <div id="hi-sticky-title" style="position:sticky;top:0;z-index:99;background:#fff;">
     <h3 id="hi-title" class="mt-0 mb-0 text-center" style="font-size:0.95rem;padding:1px 0;margin:0;">%nn;
-      %apply;ttl() %dates%nn;
+      %if;(e.ofn!="")%apply;a_of_b%with;[*ascendants tree]%and;%e.ofn; %e.osn;%end;%else;%apply;ttl()%end;%nn;
     </h3>
     <div id="hi-nav-info" class="btn btn-sm btn-outline-primary disabled" style="text-align:center;width:100%%;word-wrap:break-word;overflow-wrap:break-word;padding:1px 0;"></div>
   </div>
