@@ -5144,6 +5144,56 @@ de: Isometrische Ansicht/Kompaktansicht
 en: Isometric view/Compact view
 fr: Vue isométrique/Vue compacte
 
+    drag to rotate
+de: ziehen zum Drehen
+en: drag to rotate
+fr: glisser pour tourner
+
+    tilt view
+de: Ansicht neigen
+en: tilt view
+fr: incliner la vue
+
+    pan view
+de: Ansicht verschieben
+en: pan view
+fr: déplacer la vue
+
+    move to nearest box
+de: zur nächsten Box bewegen
+en: move to nearest box
+fr: aller à la boîte la plus proche
+
+    selection history
+de: Auswahlverlauf
+en: selection history
+fr: historique de sélection
+
+    boundary ancestor/boundary ancestors
+de: Grenz-Vorfahre/Grenz-Vorfahren
+en: boundary ancestor (end of known lineage)/boundary ancestors
+fr: ancêtre limite (fin de lignée connue)/ancêtres limites
+
+    gold border
+de: goldener Rand
+en: gold border
+fr: bordure dorée
+
+    orange glow
+de: oranges Leuchten
+en: orange glow
+fr: lueur orange
+
+    mouse wheel
+de: Mausrad
+en: mouse wheel
+fr: molette de la souris
+
+    drag
+de: ziehen
+en: drag
+fr: glisser
+
     compare
 co: paragunà
 de: vergleichen

@@ -95,7 +95,12 @@ function hiHelpToggle(show) {
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-user"></i> / <i class="fa fa-user-plus"></i></b></td><td class="hi-help-text" data-key="help_couple" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-image"></i></b></td><td class="hi-help-text" data-key="help_photo" style="padding:4px 0;"></td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>[*size] − / +</b></td><td class="hi-help-text" data-key="help_zoom" style="padding:4px 0;"></td></tr>
-      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>[*font size] − / +</b></td><td class="hi-help-text" data-key="help_font" style="padding:4px 0;"></td></tr>
+      <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*isometric view/compact view]0</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-chart-bar"></i></b></td><td class="hi-help-text" data-key="help_iso_toggle" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>[*drag to rotate]</b></td><td class="hi-help-text" data-key="help_iso_rotate" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><span class="hi-mod-key"></span>+[*drag]</b></td><td class="hi-help-text" data-key="help_iso_tilt" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>Shift+[*drag]</b></td><td class="hi-help-text" data-key="help_iso_pan" style="padding:4px 0;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b>[*mouse wheel]</b></td><td class="hi-help-text" data-key="help_iso_scroll" style="padding:4px 0;"></td></tr>
       <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*search]</td></tr>
       <tr><td style="padding:4px 8px 4px 0;white-space:nowrap;"><b><i class="fa fa-magnifying-glass"></i> Sosa</b></td><td class="hi-help-text" data-key="help_search" style="padding:4px 0;"></td></tr>
       <tr><td colspan="2" style="padding:12px 0 4px;font-weight:bold;border-bottom:1px solid #ddd;">[*visual indicators]</td></tr>

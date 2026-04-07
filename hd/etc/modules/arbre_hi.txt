@@ -1929,19 +1929,14 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         var selA2 = tree.querySelector('a[data-sosa="' + sid + '"]');
         var sosaStr = (selA2 && selA2.dataset.gsosa) || sid;
         var charW = Math.min(edgeW, edgeH) * 0.4;
-        if (charW >= 4 && sosaStr.length * charW * 0.6 < edgeW * 0.9) {
+        var fontSize = Math.min(edgeW, edgeH) * 0.45;
+        if (fontSize >= 4 && sosaStr.length * fontSize * 0.6 < edgeW * 0.9) {
           isoCtx.save();
-          var ax = c1.x - c0.x, ay = c1.y - c0.y;
-          var cx = c3.x - c0.x, cy = c3.y - c0.y;
-          var sc = charW;
-          var ux = ax / edgeW, uy = ay / edgeW;
-          var vx = cx / edgeH, vy = cy / edgeH;
-          isoCtx.setTransform(ux * sc, uy * sc, vx * sc, vy * sc, sp.x, sp.y);
           isoCtx.fillStyle = isSel ? '#fff' : 'rgba(0,0,0,0.55)';
-          isoCtx.font = 'bold 1px sans-serif';
+          isoCtx.font = 'bold ' + fontSize + 'px sans-serif';
           isoCtx.textAlign = 'center';
           isoCtx.textBaseline = 'middle';
-          isoCtx.fillText(sosaStr, 0, 0);
+          isoCtx.fillText(sosaStr, sp.x, sp.y);
           isoCtx.restore();
         }
       }
@@ -2391,23 +2386,27 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     'help_arrows': "← [*father/mother]0, → [*father/mother]1",
     'help_down': "[*child/children]0 / [*return to] [*previous]",
     'help_up': "[*implex/implexes]0: [*visualize/show/hide/summary]1 1, 2…",
-    'help_shift': "[*navigation]",
-    'help_page': "Scroll \u2195; Shift = scroll \u2194",
-    'help_history': "[*navigation] ← / →",
+    'help_shift': "[*move to nearest box]",
+    'help_page': "Home/End/PgUp/PgDn: [*navigation]",
+    'help_history': "[*selection history] ← / →",
     'help_enter': "[*recenter tree on] [*ancestor/ancestors]0",
     'help_hover': "[*visualize/show/hide/summary]1 [*implex/implexes]0",
     'help_gen': "[*reduce/increase]0 / [*reduce/increase]1 [*generation/generations]1",
     'help_home': "[*return to] Sosa 1",
-    'help_layout': "H-tree / I-tree",
+    'help_layout': "[*htree] / [*itree]",
     'help_view': "[*compact dot view/sosa box view]1 / [*compact dot view/sosa box view]0",
     'help_couple': "[*person/persons]1 / [*couples]",
     'help_photo': "[*visualize/show/hide/summary]1 / [*visualize/show/hide/summary]2 [*image/images]1",
     'help_zoom': "[*zoom/unzoom]0 / [*zoom/unzoom]1",
-    'help_font': "[*font size] (px)",
+    'help_iso_toggle': "[*isometric view/compact view]0 ↔ [*isometric view/compact view]1",
+    'help_iso_rotate': "[*drag to rotate] ↻",
+    'help_iso_tilt': "[*tilt view]",
+    'help_iso_pan': "[*pan view]",
+    'help_iso_scroll': "[*mouse wheel]: [*drag to rotate], Shift = [*tilt view], " + modKey + " = [*zoom/unzoom]0",
     'help_search': "[*find and highlight Sosa number]",
-    'help_gold_label': "▪ gold",
-    'help_gold': "[*click] / [*navigation] / [*search]",
-    'help_orange_label': "┊▪┊ orange",
+    'help_gold_label': "▪ [*gold border]",
+    'help_gold': "[*boundary ancestor/boundary ancestors]0",
+    'help_orange_label': "┊▪┊ [*orange glow]",
     'help_orange': "[*implex/implexes]0",
     'help_gender': "♂=[*father/mother]0, ♀=[*father/mother]1 (♂♀ = [*father/mother]0's [*father/mother]1)",
     'help_rle': "♂³♀² = ♂♂♂♀♀",
