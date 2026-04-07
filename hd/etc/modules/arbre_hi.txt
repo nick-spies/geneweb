@@ -824,6 +824,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     }
   }, {passive: false});
   window.hiFlatGetZoom = function() { return zoom; };
+  window.hiFlatGetOrigW = function() { return origW; };
   window.hiFlatSetZoom = function(z) { zoomAtPoint(lastCX, lastCY, z); };
   window.hiFlatPan = function(dx, dy) { panX += dx; panY += dy; applyTransform(); };
 })();
@@ -892,6 +893,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     panX = 0; panY = 0; zoom = 1; applyTransform();
   });
   window.hiFlatGetZoom = function() { return zoom; };
+  window.hiFlatGetOrigW = function() { return origW; };
   window.hiFlatSetZoom = function(z) { zoomAtPoint(lastCX, lastCY, z); };
   window.hiFlatPan = function(dx, dy) { panX += dx; panY += dy; applyTransform(); };
 })();
@@ -1113,6 +1115,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
     }
     var isoGenOffset = isoGenOffsetSum();
     var isoSelGens = %evarv;;  // number of generations selected (e.v)
+    var isoDSosa = %dsosa;;   // server-computed dsosa (global sosa of chart root)
+    var isoDSosaGen = isoDSosa > 1 ? Math.floor(Math.log(isoDSosa) / Math.log(2)) : 0;
     var isoCanvas = document.createElement('canvas');
     isoCanvas.style.cssText = 'display:none;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:4px;';
     tree.parentNode.insertBefore(isoCanvas, tree.nextSibling);
@@ -1626,12 +1630,12 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         }
       }
       // Highest gen available from this iso view (absolute from oSosa):
-      //   - plane persons: treeMaxGen + isoGenOffset
+      //   - plane persons: treeMaxGen + isoDSosaGen
       //   - bar persons: maxDepth (data-depth is already absolute)
-      var maxAvailGen = Math.max(maxDepth, treeMaxGen + isoGenOffset);
+      var maxAvailGen = Math.max(maxDepth, treeMaxGen + isoDSosaGen);
       // depthSpan = distance from base to top tick. Capped at isoSelGens
       // but limited to the highest available gen.
-      var depthSpan = Math.max(1, Math.min(isoSelGens, maxAvailGen - isoGenOffset));
+      var depthSpan = Math.max(1, Math.min(isoSelGens, maxAvailGen - isoDSosaGen));
 
       // ── Rotatable isometric projection ──
       // 3D world:  X = tree horizontal,  Z = tree vertical (into scene),  Y = bar height (up)
@@ -1797,8 +1801,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         if (newMaxDepth > 0) maxDepth = newMaxDepth;
         if (newBaseGen > 0) minDepth = newBaseGen;
         hasExtraDepth = maxDepth > minDepth;
-        var maxAvailGen2 = Math.max(maxDepth, treeMaxGen + isoGenOffset);
-        depthSpan = Math.max(1, Math.min(isoSelGens, maxAvailGen2 - isoGenOffset));
+        var maxAvailGen2 = Math.max(maxDepth, treeMaxGen + isoDSosaGen);
+        depthSpan = Math.max(1, Math.min(isoSelGens, maxAvailGen2 - isoDSosaGen));
         barMaxH = 0.14 * (depthSpan / isoSelGens);
         // Also filter barPts to subtree members and remap their x,y to the
         // new box positions so bars sit on top of the re-rooted boxes.
@@ -1922,7 +1926,8 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         // Sosa number inside box when it fits
         var edgeW = Math.sqrt((c1.x - c0.x) * (c1.x - c0.x) + (c1.y - c0.y) * (c1.y - c0.y));
         var edgeH = Math.sqrt((c3.x - c0.x) * (c3.x - c0.x) + (c3.y - c0.y) * (c3.y - c0.y));
-        var sosaStr = sid;
+        var selA2 = tree.querySelector('a[data-sosa="' + sid + '"]');
+        var sosaStr = (selA2 && selA2.dataset.gsosa) || sid;
         var charW = Math.min(edgeW, edgeH) * 0.4;
         if (charW >= 4 && sosaStr.length * charW * 0.6 < edgeW * 0.9) {
           isoCtx.save();
@@ -2049,7 +2054,7 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
           isoCtx.font = 'bold 13px sans-serif';
           isoCtx.textAlign = oux >= 0 ? 'left' : 'right';
           isoCtx.textBaseline = 'middle';
-          isoCtx.fillText(String(g + isoGenOffset), tp.x + oux * (tickLen + 5), tp.y + ouy * (tickLen + 5));
+          isoCtx.fillText(String(g + isoDSosaGen), tp.x + oux * (tickLen + 5), tp.y + ouy * (tickLen + 5));
         }
       }
       // Colored tick on corner posts at selected person's generation (0..depthSpan).
@@ -2247,9 +2252,19 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       if (isoBtn) isoBtn.title = isoMode
         ? (isoBtn.dataset.tipFlat || 'compact view')
         : (isoBtn.dataset.tipIso || 'isometric view');
+      var imgB = document.getElementById('hi-image-btn');
+      if (imgB) {
+        if (isoMode) { imgB.classList.add('disabled'); imgB.style.opacity = '0.4'; imgB.style.pointerEvents = 'none'; }
+        else { imgB.classList.remove('disabled'); imgB.style.opacity = ''; imgB.style.pointerEvents = ''; }
+      }
       if (isoMode) {
-        // Transfer flat zoom to iso
-        if (window.hiFlatGetZoom) isoZoom = window.hiFlatGetZoom();
+        // Transfer flat zoom to iso, scaled so visual size roughly matches
+        if (window.hiFlatGetZoom) {
+          var flatZ = window.hiFlatGetZoom();
+          var flatW = window.hiFlatGetOrigW ? window.hiFlatGetOrigW() : 800;
+          var isoFitW = Math.max(200, window.innerWidth - 24);
+          isoZoom = flatZ * flatW / isoFitW;
+        }
         // Carry flat chart focus into iso view — but only if iso doesn't
         // already have a selection (e.g., from a ↓-pop pendingSel hint).
         if (!isoSelectedSosa) {
@@ -2275,8 +2290,10 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
         isoCanvas.style.display = 'none';
         tree.style.display = '';
         if (isoBtn) isoBtn.classList.remove('active');
-        // Transfer iso zoom to flat
-        if (window.hiFlatSetZoom) window.hiFlatSetZoom(isoZoom);
+        // Transfer iso zoom to flat (inverse of flat→iso scale)
+        var flatW2 = window.hiFlatGetOrigW ? window.hiFlatGetOrigW() : 800;
+        var isoFitW2 = Math.max(200, window.innerWidth - 24);
+        if (window.hiFlatSetZoom) window.hiFlatSetZoom(isoZoom * isoFitW2 / flatW2);
         draw();
         if (isoSosa && window.hiFlatActivateSosa) window.hiFlatActivateSosa(isoSosa);
       }
@@ -2891,8 +2908,9 @@ div.hi-active,div.hi-implex-peer{z-index:20 !important;}
       for (var i = 0; i < kids.length; i++) {
         var el = kids[i];
         if (!el.style || el.style.position !== 'absolute' || el.classList.contains('hi-border-label')) continue;
-        var l = el.offsetLeft, t = el.offsetTop;
-        var r = l + el.offsetWidth, b = t + el.offsetHeight;
+        var l = parseInt(el.style.left) || 0, t = parseInt(el.style.top) || 0;
+        var w = parseInt(el.style.width) || 0, h = parseInt(el.style.height) || 0;
+        var r = l + w, b = t + h;
         if (l < minL) minL = l;
         if (t < minT) minT = t;
         if (r > maxR) maxR = r;
